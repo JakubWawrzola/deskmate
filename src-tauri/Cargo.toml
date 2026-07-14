@@ -1,0 +1,59 @@
+[package]
+name = "deskmate"
+version = "0.2.1"
+description = "Deskmate - a modern Windows companion for Home Assistant"
+authors = ["Jakub Wawrzola"]
+license = "MIT"
+repository = ""
+edition = "2021"
+
+[lib]
+name = "deskmate_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri-plugin-autostart = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync"] }
+# default-features off: rustls/ring wymaga clanga na ARM64; TLS do brokera = ROADMAP
+rumqttc = { version = "0.24", default-features = false }
+sysinfo = "0.33"
+keyring = { version = "3", features = ["windows-native"] }
+tauri-winrt-notification = "0.8"
+winreg = "0.55"
+# arboard bez default (image-data ciagnie ciezki crate image); na Windows = clipboard-win (pure rust)
+arboard = { version = "3", default-features = false }
+# native-tls = schannel na Windows (zero zaleznosci C - ring/clang niepotrzebne na ARM64)
+ureq = { version = "2", default-features = false, features = ["native-tls"] }
+native-tls = "0.2"
+log = "0.4"
+env_logger = "0.11"
+
+[target.'cfg(windows)'.dependencies.windows]
+version = "0.61"
+features = [
+  "Media_Control",
+  "Foundation",
+  "Win32_Foundation",
+  "Win32_UI_WindowsAndMessaging",
+  "Win32_UI_Input_KeyboardAndMouse",
+  "Win32_System_SystemInformation",
+  "Win32_System_StationsAndDesktops",
+  "Win32_System_Shutdown",
+  "Win32_System_Threading",
+  "Win32_System_Power",
+  "Win32_System_Com",
+  "Win32_Media_Audio",
+  "Win32_Media_Audio_Endpoints",
+  "Win32_Media_Speech",
+]
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true

@@ -1,0 +1,71 @@
+@import "tailwindcss";
+
+/* Deskmate design tokens - monochrom, cieple neutrale (rytm dashboardow Dom/budzet) */
+@theme {
+  --color-paper: #f7f7f5;
+  --color-panel: #ffffff;
+  --color-ink: #151513;
+  --color-muted: #71716b;
+  --color-faint: #a3a39c;
+  --color-hairline: #e5e5e0;
+  --color-hairline-strong: #cfcfc8;
+  --font-sans: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "Cascadia Mono", "Consolas", ui-monospace, monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  cursor: default;
+}
+
+input,
+textarea {
+  user-select: text;
+}
+
+/* etykieta sekcji: uppercase, tracking - sygnatura dashboardow */
+.microlabel {
+  font-size: 11px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  font-weight: 600;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* focus tylko z klawiatury */
+:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 1px;
+}
+:focus {
+  outline: none;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-hairline-strong);
+  border: 3px solid var(--color-paper);
+  border-radius: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
