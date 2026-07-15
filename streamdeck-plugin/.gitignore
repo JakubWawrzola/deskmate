@@ -1,0 +1,3 @@
+node_modules/
+*.log
+com.homeos.homeassistant.sdPlugin/logs/

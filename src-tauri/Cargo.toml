@@ -1,6 +1,6 @@
 [package]
 name = "deskmate"
-version = "0.2.1"
+version = "0.3.1"
 description = "Deskmate - a modern Windows companion for Home Assistant"
 authors = ["Jakub Wawrzola"]
 license = "MIT"
@@ -17,11 +17,15 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = ["tray-icon", "image-png"] }
 tauri-plugin-autostart = "2"
+# single-instance: przekazuje aktywacje protokolu deskmate: (klik przycisku toastu) do dzialajacej apki
+tauri-plugin-single-instance = "2"
+# globalne skroty klawiszowe (dzialaja gdy apka w trayu)
+tauri-plugin-global-shortcut = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync"] }
-# default-features off: rustls/ring wymaga clanga na ARM64; TLS do brokera = ROADMAP
-rumqttc = { version = "0.24", default-features = false }
+# native-tls uses Windows Schannel, so MQTT TLS works on x64/ARM64 without ring/clang
+rumqttc = { version = "0.24", default-features = false, features = ["use-native-tls"] }
 sysinfo = "0.33"
 keyring = { version = "3", features = ["windows-native"] }
 tauri-winrt-notification = "0.8"
@@ -31,6 +35,7 @@ arboard = { version = "3", default-features = false }
 # native-tls = schannel na Windows (zero zaleznosci C - ring/clang niepotrzebne na ARM64)
 ureq = { version = "2", default-features = false, features = ["native-tls"] }
 native-tls = "0.2"
+url = "2"
 log = "0.4"
 env_logger = "0.11"
 
@@ -51,6 +56,7 @@ features = [
   "Win32_Media_Audio",
   "Win32_Media_Audio_Endpoints",
   "Win32_Media_Speech",
+  "Win32_UI_Shell",
 ]
 
 [profile.release]

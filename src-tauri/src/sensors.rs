@@ -1,5 +1,5 @@
-//! Sensory systemowe. Rejestr definicji + zbieranie wartosci.
-//! Sensory oznaczone privacy=true sa DOMYSLNIE WYLACZONE (opt-in w UI).
+//! System sensors. Definition registry + value collection.
+//! Sensors marked privacy=true are DISABLED BY DEFAULT (opt-in in the UI).
 
 use serde::Serialize;
 use std::collections::HashMap;
@@ -9,12 +9,12 @@ use sysinfo::{Disks, Networks, System};
 pub struct SensorDef {
     pub id: &'static str,
     pub name: &'static str,
-    /// komponent HA: sensor | binary_sensor
+    /// HA component: sensor | binary_sensor
     pub component: &'static str,
     pub unit: Option<&'static str>,
     pub device_class: Option<&'static str>,
     pub icon: Option<&'static str>,
-    /// true = wrazliwy prywatnosciowo, domyslnie OFF
+    /// true = privacy-sensitive, OFF by default
     pub privacy: bool,
     pub default_enabled: bool,
 }
@@ -29,7 +29,7 @@ pub const SENSOR_DEFS: &[SensorDef] = &[
     SensorDef { id: "ac_power", name: "Plugged in", component: "binary_sensor", unit: None, device_class: Some("plug"), icon: None, privacy: false, default_enabled: true },
     SensorDef { id: "uptime", name: "Uptime", component: "sensor", unit: Some("s"), device_class: Some("duration"), icon: Some("mdi:clock-outline"), privacy: false, default_enabled: true },
     SensorDef { id: "idle", name: "Idle time", component: "sensor", unit: Some("s"), device_class: Some("duration"), icon: Some("mdi:sleep"), privacy: false, default_enabled: true },
-    // bez device_class "lock": w HA lock znaczy on=odblokowany (odwrotnie niz my)
+    // no device_class "lock": in HA, lock means on=unlocked (the opposite of ours)
     SensorDef { id: "session_locked", name: "Session locked", component: "binary_sensor", unit: None, device_class: None, icon: Some("mdi:monitor-lock"), privacy: false, default_enabled: true },
     SensorDef { id: "current_user", name: "Current user", component: "sensor", unit: None, device_class: None, icon: Some("mdi:account"), privacy: false, default_enabled: true },
     // --- privacy-sensitive: OPT-IN ---
@@ -39,8 +39,9 @@ pub const SENSOR_DEFS: &[SensorDef] = &[
     SensorDef { id: "media_artist", name: "Media artist", component: "sensor", unit: None, device_class: None, icon: Some("mdi:account-music"), privacy: true, default_enabled: false },
     SensorDef { id: "media_app", name: "Media app", component: "sensor", unit: None, device_class: None, icon: Some("mdi:application"), privacy: true, default_enabled: false },
     SensorDef { id: "media_status", name: "Media status", component: "sensor", unit: None, device_class: None, icon: Some("mdi:play-pause"), privacy: true, default_enabled: false },
-    SensorDef { id: "clipboard", name: "Clipboard", component: "sensor", unit: None, device_class: None, icon: Some("mdi:clipboard-text"), privacy: true, default_enabled: false },
-    // volume publikowany jako stan encji number (patrz discovery)
+    SensorDef { id: "camera_in_use", name: "Camera in use", component: "binary_sensor", unit: None, device_class: None, icon: Some("mdi:camera"), privacy: true, default_enabled: false },
+    SensorDef { id: "mic_in_use", name: "Microphone in use", component: "binary_sensor", unit: None, device_class: None, icon: Some("mdi:microphone"), privacy: true, default_enabled: false },
+    // volume is published as a number entity state (see discovery)
     SensorDef { id: "volume", name: "Volume", component: "number", unit: Some("%"), device_class: None, icon: Some("mdi:volume-high"), privacy: false, default_enabled: true },
 ];
 
@@ -52,13 +53,15 @@ pub fn is_enabled(cfg: &crate::config::AppConfig, id: &str) -> bool {
     }
 }
 
-/// Stan kolektora trzymany miedzy tickami (liczniki sieci).
+/// Collector state kept between ticks (network counters).
 pub struct Collector {
     sys: System,
     networks: Networks,
     disks: Disks,
     last_tick: std::time::Instant,
     net_primed: bool,
+    last_clipboard_fingerprint: Option<u64>,
+    approved_clipboard_fingerprint: Option<u64>,
 }
 
 impl Collector {
@@ -69,11 +72,17 @@ impl Collector {
             disks: Disks::new_with_refreshed_list(),
             last_tick: std::time::Instant::now(),
             net_primed: false,
+            last_clipboard_fingerprint: None,
+            approved_clipboard_fingerprint: None,
         }
     }
 
-    /// Zbiera wartosci WLACZONYCH sensorow. Klucz = id sensora, wartosc = payload MQTT.
-    pub fn collect(&mut self, cfg: &crate::config::AppConfig) -> HashMap<String, String> {
+    /// Collects values for ENABLED sensors. Key = sensor id, value = MQTT payload.
+    pub fn collect(
+        &mut self,
+        cfg: &crate::config::AppConfig,
+        mqtt_connected: bool,
+    ) -> HashMap<String, String> {
         let mut out = HashMap::new();
         let elapsed = self.last_tick.elapsed().as_secs_f64().max(0.5);
         self.last_tick = std::time::Instant::now();
@@ -89,7 +98,7 @@ impl Collector {
         }
         if is_enabled(cfg, "disk") {
             self.disks.refresh(true);
-            // dysk systemowy (zwykle C:)
+            // system drive (usually C:)
             let sysdrive = std::env::var("SystemDrive").unwrap_or_else(|_| "C:".into());
             for d in self.disks.list() {
                 let mp = d.mount_point().to_string_lossy().to_string();
@@ -109,8 +118,8 @@ impl Collector {
                 tx += data.transmitted();
             }
             if !self.net_primed {
-                // pierwszy odczyt to baseline (delta od startu procesu) - byłby
-                // absurdalnym spike'iem; publikujemy 0 i primujemy licznik.
+                // the first reading is a baseline (delta since process start) - it would
+                // be an absurd spike; we publish 0 and prime the counter.
                 self.net_primed = true;
                 if is_enabled(cfg, "net_down") { out.insert("net_down".into(), "0.0".into()); }
                 if is_enabled(cfg, "net_up") { out.insert("net_up".into(), "0.0".into()); }
@@ -156,17 +165,21 @@ impl Collector {
             if is_enabled(cfg, "wifi_ssid") {
                 out.insert("wifi_ssid".into(), win::wifi_ssid().unwrap_or_else(|| "not connected".into()));
             }
-            if is_enabled(cfg, "clipboard") {
-                if let Some(c) = crate::clipboard::get_text() {
-                    out.insert("clipboard".into(), truncate(&c, 240));
-                }
+            if mqtt_connected {
+                self.collect_clipboard(cfg, &mut out);
+            }
+            if is_enabled(cfg, "camera_in_use") {
+                out.insert("camera_in_use".into(), if win::capability_in_use("webcam") { "ON" } else { "OFF" }.into());
+            }
+            if is_enabled(cfg, "mic_in_use") {
+                out.insert("mic_in_use".into(), if win::capability_in_use("microphone") { "ON" } else { "OFF" }.into());
             }
             if is_enabled(cfg, "volume") {
                 if let Some(v) = crate::sys_commands::get_volume() {
                     out.insert("volume".into(), v.to_string());
                 }
             }
-            // media: jedna proba SMTC dla wszystkich 4 sensorow
+            // media: a single SMTC query for all 4 sensors
             let media_on = ["media_title", "media_artist", "media_app", "media_status"]
                 .iter()
                 .any(|id| is_enabled(cfg, id));
@@ -185,6 +198,69 @@ impl Collector {
 
         out
     }
+
+    #[cfg(windows)]
+    fn collect_clipboard(
+        &mut self,
+        cfg: &crate::config::AppConfig,
+        out: &mut HashMap<String, String>,
+    ) {
+        use std::hash::{DefaultHasher, Hash, Hasher};
+
+        let mode = cfg.clipboard_read_mode.as_str();
+        if mode == "off" || win::is_locked() {
+            self.last_clipboard_fingerprint = None;
+            self.approved_clipboard_fingerprint = None;
+            return;
+        }
+        let Some(content) = crate::clipboard::get_text() else {
+            return;
+        };
+        let mut hasher = DefaultHasher::new();
+        content.hash(&mut hasher);
+        let fingerprint = hasher.finish();
+
+        if mode == "automatic" {
+            if self.last_clipboard_fingerprint != Some(fingerprint) {
+                crate::security::audit("clipboard_read", "automatic");
+            }
+            self.last_clipboard_fingerprint = Some(fingerprint);
+            out.insert("clipboard".into(), truncate(&content, 240));
+            return;
+        }
+
+        if mode != "confirm" {
+            return;
+        }
+        if self.last_clipboard_fingerprint != Some(fingerprint) {
+            self.last_clipboard_fingerprint = Some(fingerprint);
+            let approved = crate::security::confirm(
+                "Deskmate clipboard access",
+                &format!(
+                    "Home Assistant wants to receive the current clipboard ({} characters).\n\nAllow this value to be published until the clipboard changes?",
+                    content.chars().count()
+                ),
+            );
+            self.approved_clipboard_fingerprint = approved.then_some(fingerprint);
+            crate::security::audit(
+                "clipboard_read_confirmation",
+                if approved { "approved" } else { "denied" },
+            );
+        }
+        if self.approved_clipboard_fingerprint == Some(fingerprint) {
+            out.insert("clipboard".into(), truncate(&content, 240));
+        }
+    }
+}
+
+#[cfg(windows)]
+pub fn session_locked() -> bool {
+    win::is_locked()
+}
+
+#[cfg(not(windows))]
+pub fn session_locked() -> bool {
+    false
 }
 
 fn truncate(s: &str, n: usize) -> String {
@@ -201,7 +277,7 @@ pub mod win {
     use windows::Win32::UI::Input::KeyboardAndMouse::{GetLastInputInfo, LASTINPUTINFO};
     use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowTextW, GetWindowThreadProcessId};
 
-    /// (procent 0-100 lub None gdy brak baterii, czy podpiety do pradu)
+    /// (percent 0-100 or None if no battery, whether plugged into power)
     pub fn battery() -> Option<(Option<u8>, bool)> {
         unsafe {
             let mut st = SYSTEM_POWER_STATUS::default();
@@ -228,7 +304,7 @@ pub mod win {
         }
     }
 
-    /// Sesja zablokowana = nie mozna otworzyc input desktopu z prawem SWITCHDESKTOP.
+    /// Session locked = cannot open the input desktop with SWITCHDESKTOP rights.
     pub fn is_locked() -> bool {
         unsafe {
             const DESKTOP_SWITCHDESKTOP: DESKTOP_ACCESS_FLAGS = DESKTOP_ACCESS_FLAGS(0x0100);
@@ -242,7 +318,7 @@ pub mod win {
         }
     }
 
-    /// "Tytul okna (proces.exe)"
+    /// "Window title (process.exe)"
     pub fn active_window() -> String {
         unsafe {
             let hwnd: HWND = GetForegroundWindow();
@@ -283,16 +359,47 @@ pub mod win {
         }
     }
 
-    /// SSID przez netsh (brak stabilnego API w windows crate bez wlansvc COM)
+    /// Whether some application is using the camera/microphone: CapabilityAccessManager
+    /// ConsentStore - LastUsedTimeStop == 0 means "currently in use".
+    /// capability: "webcam" | "microphone".
+    pub fn capability_in_use(capability: &str) -> bool {
+        use winreg::enums::HKEY_CURRENT_USER;
+        use winreg::RegKey;
+        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+        let base = format!(
+            "Software\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\{capability}"
+        );
+        let Ok(root) = hkcu.open_subkey(&base) else { return false };
+        // packaged apps = direct subkeys; desktop apps = NonPackaged\*
+        let check = |key: &RegKey| -> bool {
+            key.enum_keys().flatten().any(|name| {
+                key.open_subkey(&name)
+                    .ok()
+                    .and_then(|sub| sub.get_value::<u64, _>("LastUsedTimeStop").ok())
+                    .map(|stop| stop == 0)
+                    .unwrap_or(false)
+            })
+        };
+        if check(&root) {
+            return true;
+        }
+        root.open_subkey("NonPackaged").map(|np| check(&np)).unwrap_or(false)
+    }
+
+    /// SSID via netsh (no stable API in the windows crate without wlansvc COM)
     pub fn wifi_ssid() -> Option<String> {
+        use std::os::windows::process::CommandExt;
+        // CREATE_NO_WINDOW - without this, netsh flashes a black cmd window every interval
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
         let out = std::process::Command::new("netsh")
             .args(["wlan", "show", "interfaces"])
+            .creation_flags(CREATE_NO_WINDOW)
             .output()
             .ok()?;
         let text = String::from_utf8_lossy(&out.stdout).to_string();
         for line in text.lines() {
             let l = line.trim();
-            // pierwsza linia "SSID" (nie BSSID)
+            // first line "SSID" (not BSSID)
             if l.starts_with("SSID") && !l.starts_with("BSSID") {
                 return l.split(':').nth(1).map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
             }

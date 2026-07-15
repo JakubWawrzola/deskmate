@@ -1,11 +1,13 @@
-//! TTS: komputer wypowiada tekst przyslany z HA (SAPI ISpVoice).
-//! ISpVoice nie jest Send i wymaga COM apartamentu, wiec zyje na WLASNYM watku,
-//! ktory czyta teksty z kanalu. Speak z flaga 0 (sync) blokuje watek do konca
-//! wypowiedzi -> naturalna kolejka bez gubienia bufora.
+//! TTS: the computer speaks text sent from HA (SAPI ISpVoice).
+//! ISpVoice is not Send and requires a COM apartment, so it lives on its OWN thread,
+//! which reads texts from the channel. Speak with flag 0 (sync) blocks the thread until
+//! the utterance finishes -> a natural queue without losing the buffer.
 
 #[cfg(windows)]
-pub fn spawn() -> std::sync::mpsc::Sender<String> {
-    let (tx, rx) = std::sync::mpsc::channel::<String>();
+pub fn spawn() -> std::sync::mpsc::SyncSender<String> {
+    // An MQTT publisher must not be able to build an unbounded queue while a
+    // long message is being spoken.
+    let (tx, rx) = std::sync::mpsc::sync_channel::<String>(16);
     std::thread::spawn(move || unsafe {
         use windows::core::PCWSTR;
         use windows::Win32::Media::Speech::{ISpVoice, SpVoice};
@@ -26,7 +28,7 @@ pub fn spawn() -> std::sync::mpsc::Sender<String> {
                 continue;
             }
             let wide: Vec<u16> = text.encode_utf16().chain(std::iter::once(0)).collect();
-            // flaga 0 = SVSFDefault (synchronicznie); bufor 'wide' zyje przez caly Speak
+            // flag 0 = SVSFDefault (synchronous); the 'wide' buffer stays alive for the whole Speak call
             let _ = voice.Speak(PCWSTR(wide.as_ptr()), 0, None);
         }
     });
@@ -34,7 +36,7 @@ pub fn spawn() -> std::sync::mpsc::Sender<String> {
 }
 
 #[cfg(not(windows))]
-pub fn spawn() -> std::sync::mpsc::Sender<String> {
-    let (tx, _rx) = std::sync::mpsc::channel::<String>();
+pub fn spawn() -> std::sync::mpsc::SyncSender<String> {
+    let (tx, _rx) = std::sync::mpsc::sync_channel::<String>(16);
     tx
 }

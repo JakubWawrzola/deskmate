@@ -92,7 +92,7 @@ export function Button({
   );
 }
 
-/** Kropka statusu: wypelniona = polaczony, pusta = nie (monochrom zamiast koloru). */
+/** Status dot: filled = connected, empty = not (monochrome instead of color). */
 export function StatusDot({ on }: { on: boolean }) {
   return (
     <span

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { api } from "../api";
-import { Button, EmptyState, Field, Panel } from "../components";
+import { Button, EmptyState, Field, Panel, Toggle } from "../components";
 import type { AppConfig, CustomKind, Snapshot } from "../types";
 
 export default function CommandsPage({
@@ -25,6 +25,20 @@ export default function CommandsPage({
       setName("");
       setCommand("");
       setKind("button");
+      await onChanged();
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  const updateSecurity = async (
+    id: string,
+    enabled: boolean,
+    requireConfirmation: boolean,
+  ) => {
+    setError(null);
+    try {
+      await api.updateCustomCommandSecurity(id, enabled, requireConfirmation);
       await onChanged();
     } catch (e) {
       setError(String(e));
@@ -58,13 +72,27 @@ export default function CommandsPage({
         </p>
         {config.custom_commands.length === 0 && <EmptyState text="No custom controls yet." />}
         {config.custom_commands.map((c) => (
-          <div key={c.id} className="flex items-center gap-3 h-10 border-b border-hairline">
+          <div key={c.id} className="grid grid-cols-[160px_70px_1fr_auto_auto_auto_auto] items-center gap-3 min-h-12 border-b border-hairline py-2">
             <span className="w-40 text-[13px] font-medium truncate">{c.name}</span>
             <span className="microlabel border border-hairline-strong rounded px-1.5 py-0.5">
               {c.kind}
             </span>
             <span className="flex-1 mono text-[12px] text-muted truncate">{c.command}</span>
-            <Button onClick={() => void api.runCommandLocal(`custom_${c.id}`)}>Run</Button>
+            <label className="flex items-center gap-2 text-[12px]">
+              <Toggle
+                on={c.enabled}
+                onChange={(enabled) => void updateSecurity(c.id, enabled, c.require_confirmation)}
+              />
+              Enabled
+            </label>
+            <label className="flex items-center gap-2 text-[12px]">
+              <Toggle
+                on={c.require_confirmation}
+                onChange={(confirm) => void updateSecurity(c.id, c.enabled, confirm)}
+              />
+              Confirm
+            </label>
+            <Button disabled={!c.enabled} onClick={() => void api.runCommandLocal(`custom_${c.id}`)}>Run</Button>
             <Button
               kind="danger"
               onClick={async () => {
@@ -96,6 +124,9 @@ export default function CommandsPage({
             Add
           </Button>
         </div>
+        <p className="mt-2 text-[12px] text-muted">
+          New commands are disabled and require confirmation by default. Enable them only after reviewing the exact script.
+        </p>
         {error && <p className="mt-2 text-[13px]">{error}</p>}
       </Panel>
     </>

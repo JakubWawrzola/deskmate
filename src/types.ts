@@ -1,4 +1,49 @@
 export type CustomKind = "button" | "switch" | "number";
+export type ClipboardMode = "off" | "confirm" | "automatic";
+export type MqttTransport = "tls" | "insecure";
+
+export type ActionKind = "toggle" | "service" | "command" | "widget" | "mqtt";
+
+export interface ActionSpec {
+  kind: ActionKind;
+  entity_id: string;
+  service: string;
+  data: string;
+  command_id: string;
+}
+
+export interface Hotkey {
+  id: string;
+  name: string;
+  accelerator: string;
+  action: ActionSpec;
+}
+
+export interface TrayAction {
+  id: string;
+  name: string;
+  action: ActionSpec;
+}
+
+export interface WidgetItem {
+  entity_id: string;
+  label: string;
+}
+
+export interface WidgetState {
+  entity_id: string;
+  label: string;
+  state: string;
+  togglable: boolean;
+}
+
+export const emptyAction = (): ActionSpec => ({
+  kind: "toggle",
+  entity_id: "",
+  service: "",
+  data: "",
+  command_id: "",
+});
 
 export interface CustomCommand {
   id: string;
@@ -8,12 +53,17 @@ export interface CustomCommand {
   num_min: number;
   num_max: number;
   num_step: number;
+  enabled: boolean;
+  require_confirmation: boolean;
 }
 
 export interface AppConfig {
   configured: boolean;
   broker_host: string;
+  broker_host_remote: string;
   broker_port: number;
+  mqtt_transport: MqttTransport;
+  mqtt_ca_path: string;
   username: string;
   device_name: string;
   node_id: string;
@@ -23,6 +73,15 @@ export interface AppConfig {
   launch_hidden: boolean;
   allow_input: boolean;
   tts_enabled: boolean;
+  clipboard_read_mode: ClipboardMode;
+  clipboard_write_mode: ClipboardMode;
+  allowed_url_origins: string[];
+  toast_branding: boolean;
+  ha_url: string;
+  ha_url_remote: string;
+  hotkeys: Hotkey[];
+  widgets: WidgetItem[];
+  tray_actions: TrayAction[];
 }
 
 export interface ConfigView {
@@ -67,4 +126,5 @@ export interface Snapshot {
   sensor_defs: SensorDef[];
   command_defs: CommandDef[];
   hostname: string;
+  ha_configured: boolean;
 }

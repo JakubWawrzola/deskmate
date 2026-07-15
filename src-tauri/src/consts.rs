@@ -1,16 +1,20 @@
-//! Wszystkie stale identyfikatory w jednym miejscu (rename projektu = edycja tutaj).
+//! All constant identifiers in one place (renaming the project = edit here).
 
 pub const APP_NAME: &str = "Deskmate";
-/// Katalog configu w %APPDATA%
+/// Config directory under %APPDATA%
 pub const CONFIG_DIR: &str = "Deskmate";
-/// Usluga w Windows Credential Manager (haslo MQTT)
+/// Service name in Windows Credential Manager (MQTT password)
 pub const KEYRING_SERVICE: &str = "Deskmate MQTT";
-/// AUMID toastow: w release NSIS rejestruje identifier z tauri.conf.json
+/// Toast AUMID: in release builds NSIS registers the identifier from tauri.conf.json
 pub const TOAST_AUMID: &str = "com.deskmate.desktop";
-/// Prefiks topicow MQTT (base = "<prefix>/<node_id>")
+/// Toast source label shown in the notification corner (branding)
+pub const TOAST_DISPLAY_NAME: &str = "HomeOS";
+/// MQTT topic prefix (base = "<prefix>/<node_id>")
 pub const TOPIC_PREFIX: &str = "deskmate";
-/// Prefiks HA discovery (standard)
+/// HA discovery prefix (standard)
 pub const DISCOVERY_PREFIX: &str = "homeassistant";
+/// URL scheme for toast button activation (click -> Windows launches deskmate:action?name=...)
+pub const PROTOCOL_SCHEME: &str = "deskmate";
 
 pub fn base_topic(node_id: &str) -> String {
     format!("{}/{}", TOPIC_PREFIX, node_id)
@@ -27,7 +31,7 @@ pub fn cmd_topic(node_id: &str, key: &str) -> String {
 pub fn notify_topic(node_id: &str) -> String {
     format!("{}/notify", base_topic(node_id))
 }
-/// Deskmate PUBLIKUJE tu akcje klikniete w toascie (HA lapie automatyzacja).
+/// Deskmate PUBLISHES clicked toast actions here (an HA automation catches them).
 pub fn notify_action_topic(node_id: &str) -> String {
     format!("{}/notify/action", base_topic(node_id))
 }

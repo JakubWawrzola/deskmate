@@ -4,3 +4,9 @@ src-tauri/target
 src-tauri/gen
 *.local
 .env
+
+# local dev logs (Claude/Codex sessions)
+.app-dev.log
+.app-dev.err.log
+.vite-dev.log
+.vite-dev.err.log

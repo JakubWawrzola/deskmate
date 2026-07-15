@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+	<head lang="en">
+		<meta charset="utf-8" />
+		<title>Toggle Entity</title>
+		<!-- oficjalna biblioteka Elgato do Property Inspectorow (jak w streamdeck-plugin-template) -->
+		<script src="https://sdpi-components.dev/releases/v4/sdpi-components.js"></script>
+	</head>
+	<body>
+		<!-- ustawienia klawisza -->
+		<sdpi-item label="Entity ID">
+			<sdpi-textfield setting="entityId" placeholder="light.kanapa"></sdpi-textfield>
+		</sdpi-item>
+
+		<!-- ustawienia globalne pluginu (wspolne dla wszystkich klawiszy) -->
+		<sdpi-item label="HA URL">
+			<sdpi-textfield global setting="haUrl" placeholder="http://homeassistant.local:8123"></sdpi-textfield>
+		</sdpi-item>
+		<sdpi-item label="Access token">
+			<sdpi-password global setting="haToken" placeholder="Long-lived access token"></sdpi-password>
+		</sdpi-item>
+		<sdpi-item>
+			<small>Token: HA &gt; Profile &gt; Security &gt; Long-lived access tokens.</small>
+		</sdpi-item>
+	</body>
+</html>

@@ -6,10 +6,12 @@ import Wizard from "./pages/Wizard";
 import StatusPage from "./pages/StatusPage";
 import SensorsPage from "./pages/SensorsPage";
 import CommandsPage from "./pages/CommandsPage";
+import HotkeysPage from "./pages/HotkeysPage";
+import WidgetsPage from "./pages/WidgetsPage";
 import NotificationsPage from "./pages/NotificationsPage";
 import SettingsPage from "./pages/SettingsPage";
 
-const PAGES = ["Status", "Sensors", "Commands", "Notifications", "Settings"] as const;
+const PAGES = ["Status", "Sensors", "Commands", "Hotkeys", "Widgets", "Notifications", "Settings"] as const;
 export type Page = (typeof PAGES)[number];
 
 export default function App() {
@@ -103,6 +105,12 @@ export default function App() {
           )}
           {page === "Commands" && snapshot && (
             <CommandsPage snapshot={snapshot} config={config} onChanged={reloadConfig} />
+          )}
+          {page === "Hotkeys" && snapshot && (
+            <HotkeysPage snapshot={snapshot} config={config} onChanged={reloadConfig} />
+          )}
+          {page === "Widgets" && snapshot && (
+            <WidgetsPage snapshot={snapshot} widgets={config.widgets} onChanged={reloadConfig} />
           )}
           {page === "Notifications" && snapshot && (
             <NotificationsPage snapshot={snapshot} config={config} />

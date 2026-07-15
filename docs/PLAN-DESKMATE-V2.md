@@ -1,85 +1,95 @@
-# PLAN WDROŻENIA — Deskmate v0.2
+# DEPLOYMENT PLAN — Deskmate v0.2
 
-Zrodlo: workflow badawczy 2026-07-10 (4 agenty: inwentarz HASS.Agent, inne
-companiony HAOS, audyt Deskmate, wykonalnosc Rust/Tauri ARM64 + synteza).
-Baza: v0.1.2, 18 sensorow + 9 komend + custom PS, toast z obrazem, media SMTC,
-czysty MQTT-discovery, rumqttc bez TLS, windows crate 0.61, ARM64 bez clanga.
-Regula nadrzedna: zero ring/openssl-sys/C-buildu.
+Source: research workflow 2026-07-10 (4 agents: HASS.Agent inventory, other
+HAOS companions, Deskmate audit, Rust/Tauri ARM64 feasibility + synthesis).
+Baseline: v0.1.2, 18 sensors + 9 commands + custom PS, toast with image, SMTC
+media, clean MQTT discovery, rumqttc without TLS, windows crate 0.61, ARM64
+without clang.
+Overriding rule: zero ring/openssl-sys/C build.
 
-## STATUS (2026-07-10): WDROZONE
-Kroki 2-6 + hardening zaimplementowane (cargo check + tsc zielone, installery
-x64+ARM64 w dist-installers/). Krok 1 (branded toast) ODLOZONY do backlogu -
-COM AUMID nie skompilowal sie na windows 0.61; toast dziala przez PowerShell
-AUMID. Szczegoly: HANDOFF.md sekcja 0.2.0, testy: HomeAssistant/docs/
-DO-PRZETESTOWANIA.md sekcja E.
+## STATUS (2026-07-10): SHIPPED
+Steps 2-6 + hardening implemented (cargo check + tsc green, x64+ARM64
+installers in dist-installers/). Step 1 (branded toast) DEFERRED to backlog -
+COM AUMID failed to compile on windows 0.61; toast works via PowerShell
+AUMID. Details: HANDOFF.md section 0.2.0, tests: HomeAssistant/docs/
+DO-PRZETESTOWANIA.md section E.
 
-## Zakres v0.2 (6 funkcji + hardening) — implementacja tej iteracji
+## v0.2 scope (6 features + hardening) — implementation for this iteration
 
-Kryterium: zielone na ARM64, pasuje do czystego discovery (albo domyka bug),
-najlepszy stosunek wartosc/naklad. Kolejnosc = ship order.
+Criterion: green on ARM64, fits clean discovery (or closes a bug),
+best value/effort ratio. Order = ship order.
 
-### Krok 1 — Branded toast (AUMID w skrocie Menu Start) — domyka bug 0.1.2
-Skrot `%AppData%\Microsoft\Windows\Start Menu\Programs\Deskmate.lnk` z
+### Step 1 — Branded toast (AUMID in Start Menu shortcut) — closes bug 0.1.2
+Shortcut `%AppData%\Microsoft\Windows\Start Menu\Programs\Deskmate.lnk` with
 `System.AppUserModel.ID` (IShellLinkW + IPropertyStore, PKEY
-{9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3},5, IPersistFile::Save). Potem powrot
-do wlasnego TOAST_AUMID zamiast POWERSHELL_APP_ID. Skrot tworzony raz.
-Pliki: notify.rs (ensure_start_menu_shortcut + przelaczenie AUMID), consts.rs.
-Ryzyko: PROPVARIANT VT_LPWSTR (init/free), relogin zeby AUMID zaskoczyl.
+{9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3},5, IPersistFile::Save). Then switch
+back to our own TOAST_AUMID instead of POWERSHELL_APP_ID. Shortcut created
+once.
+Files: notify.rs (ensure_start_menu_shortcut + AUMID switch), consts.rs.
+Risk: PROPVARIANT VT_LPWSTR (init/free), relogin needed for AUMID to take
+effect.
 
-### Krok 2 — Actionable notifications (przyciski toast -> MQTT) — wartosc 5
-Payload notify o `actions:[{title,action}]`. tauri-winrt-notification 0.7->0.8:
-add_button + on_activated -> publikacja na deskmate/<node>/notify/action.
-Callback = Fn trzymajacy tokio Handle/mpsc (nie async closure).
-Pliki: Cargo.toml (0.8), notify.rs, mqtt.rs, consts.rs, src/pages/Notifications.
-Ryzyko: on_activated dziala tylko in-process gdy app zyje (trwaly tray = OK).
+### Step 2 — Actionable notifications (toast buttons -> MQTT) — value 5
+notify payload with `actions:[{title,action}]`. tauri-winrt-notification
+0.7->0.8: add_button + on_activated -> publish to
+deskmate/<node>/notify/action. Callback = Fn holding a tokio Handle/mpsc
+(not an async closure).
+Files: Cargo.toml (0.8), notify.rs, mqtt.rs, consts.rs, src/pages/Notifications.
+Risk: on_activated only works in-process while the app is alive (persistent
+tray = OK).
 
-### Krok 3 — Schowek PC <-> HA (S) — wartosc 4, najtansze
+### Step 3 — PC <-> HA clipboard (S) — value 4, cheapest
 arboard 3 (clipboard-win + windows-sys, zero C). Sensor
-deskmate/<node>/clipboard (privacy=true, default OFF) + encja text
-clipboard/set -> arboard set_text. Pliki: nowy clipboard.rs, sensors.rs,
-mqtt.rs, discovery.rs (komponent text), Cargo.toml.
-Ryzyko: najwrazliwszy sensor (hasla/2FA) - twarde opt-in + ostrzezenie w UI.
+deskmate/<node>/clipboard (privacy=true, default OFF) + text entity
+clipboard/set -> arboard set_text. Files: new clipboard.rs, sensors.rs,
+mqtt.rs, discovery.rs (text component), Cargo.toml.
+Risk: most sensitive sensor (passwords/2FA) - hard opt-in + warning in UI.
 
-### Krok 4 — Zdalny wpis tekstu + sterowanie prezentacja (S) — wartosc 4
-SendInput (Win32_UI_Input_KeyboardAndMouse - juz jest). Tekst KEYEVENTF_UNICODE.
-Prezentacja: VK_RIGHT/LEFT/F5/ESCAPE/B. Encje: text type/set + buttony present_*.
-Opt-in. Pliki: sys_commands.rs, mqtt.rs, discovery.rs, config.rs.
-Ryzyko: UIPI (nie wysle do okien admin gdy app bez admina), whitelist zamiast
-surowego passthrough.
+### Step 4 — Remote text entry + presentation control (S) — value 4
+SendInput (Win32_UI_Input_KeyboardAndMouse - already present). Text via
+KEYEVENTF_UNICODE. Presentation: VK_RIGHT/LEFT/F5/ESCAPE/B. Entities: text
+type/set + present_* buttons. Opt-in. Files: sys_commands.rs, mqtt.rs,
+discovery.rs, config.rs.
+Risk: UIPI (won't reach admin windows when the app isn't running as admin),
+whitelist instead of raw passthrough.
 
-### Krok 5 — TTS (PC mowi tekst z HA) (S/M) — wartosc 4
-SAPI ISpVoice::Speak (Win32_Media_Speech), CLSID SpVoice, SPF_ASYNC. Kanal:
-encja text tts/set (opt-in, flaga tts_enabled). Pliki: nowy tts.rs, mqtt.rs,
-discovery.rs, config.rs, Cargo.toml, SettingsPage.
-Ryzyko: SAPI = STA COM - dedykowany watek CoInitializeEx(APARTMENTTHREADED),
-nie z tokio worker-poola; kolejkowanie tekstow.
+### Step 5 — TTS (PC speaks text from HA) (S/M) — value 4
+SAPI ISpVoice::Speak (Win32_Media_Speech), CLSID SpVoice, SPF_ASYNC.
+Channel: text entity tts/set (opt-in, tts_enabled flag). Files: new tts.rs,
+mqtt.rs, discovery.rs, config.rs, Cargo.toml, SettingsPage.
+Risk: SAPI = STA COM - dedicated thread with
+CoInitializeEx(APARTMENTTHREADED), not from the tokio worker pool; text
+queueing.
 
-### Krok 6 — switch / number w custom controls (S)
-Custom kontrolki z configu: kind=button|switch|number, odpowiedni komponent
-discovery, run_custom z typowana/walidowana wartoscia (jak volume, anty-RCE).
-Pliki: config.rs (CustomControl.kind), sys_commands.rs, discovery.rs,
-Commands.tsx, types.ts. Ryzyko: stan switch retained.
+### Step 6 — switch / number in custom controls (S)
+Custom controls from config: kind=button|switch|number, matching discovery
+component, run_custom with a typed/validated value (like volume, anti-RCE).
+Files: config.rs (CustomControl.kind), sys_commands.rs, discovery.rs,
+Commands.tsx, types.ts. Risk: retained switch state.
 
-### Hardening (tanie fixy z audytu, wciagnac do v0.2)
-- pominac pierwszy tick net_down/net_up (spike od startu), sensors.rs
-- expire_after tez dla binary_sensor (session_locked/ac_power), discovery.rs
-- czyszczenie starego wpisu Credential Manager przy zmianie host/user, config.rs
-- czas historii notyfikacji lokalny zamiast UTC, mqtt.rs
+### Hardening (cheap fixes from the audit, roll into v0.2)
+- skip the first net_down/net_up tick (startup spike), sensors.rs
+- expire_after also for binary_sensor (session_locked/ac_power), discovery.rs
+- clean up the old Credential Manager entry when host/user changes, config.rs
+- notification history timestamps local instead of UTC, mqtt.rs
 
-## Backlog (nie teraz — z uzasadnieniem)
-- Custom sensory usera (script->JSON), wartosc 5 = v0.3 opener (zmiana platformy,
-  nie punktowa funkcja; buduje na switch/number + custom PS).
-- Pelna encja media_player + okladka = v0.4 (HA nie ma MQTT-discovery
-  media_player; wymaga HACS - lamie "zero HACS"). MVP zostaje przy SMTC.
-- Screenshot on-demand = v0.4 (xcap dokłada 2. wersje windows crate; GDI = duzo
-  kodu; inwazyjne prywatnosciowo).
-- Transfer plikow = v0.3 (HTTP nie discovery; token w keyring, path traversal).
-- Global hotkeys / quick-actions overlay = v0.3-0.5 (transparent window kapryśny,
-  odwrotny kierunek PC->HA).
-- TLS broker (mqtts) = czeka (rustls/ring wymaga clanga na ARM64).
-- Satellite/usluga bez logowania = swiadomy brak (sprzeczne z modelem Tauri).
-- Kamera/mik w uzyciu, Windows Updates, Process/Service State, per-core CPU,
-  siec per-adapter, zewn IP, WebView, Wake-on-LAN = tanie, dokladac po v0.2.
+## Backlog (not now — with rationale)
+- User custom sensors (script->JSON), value 5 = v0.3 opener (a platform
+  shift, not a point feature; builds on switch/number + custom PS).
+- Full media_player entity + cover art = v0.4 (HA has no MQTT-discovery
+  media_player; requires HACS - breaks "zero HACS"). MVP stays on SMTC.
+- On-demand screenshot = v0.4 (xcap pulls in a 2nd windows crate version;
+  GDI = a lot of code; privacy-invasive).
+- File transfer = v0.3 (HTTP not discovery; token in keyring, path
+  traversal).
+- Global hotkeys / quick-actions overlay = v0.3-0.5 (transparent window is
+  finicky, reverse direction PC->HA).
+- TLS broker (mqtts) = on hold (rustls/ring needs clang on ARM64).
+- Satellite/service without login = deliberate omission (conflicts with the
+  Tauri model).
+- Camera/mic in use, Windows Updates, Process/Service State, per-core CPU,
+  per-adapter network, external IP, WebView, Wake-on-LAN = cheap, add after
+  v0.2.
 
-## Checklisty DO PRZETESTOWANIA (Jakub) — dodawane do repo HomeAssistant/docs/DO-PRZETESTOWANIA.md sekcja E
-Patrz per-krok wyzej; testy manualne, nic nie uruchamiam automatycznie.
+## DO-PRZETESTOWANIA checklists (Jakub) — added to repo HomeAssistant/docs/DO-PRZETESTOWANIA.md section E
+See per-step above; manual tests, nothing run automatically.

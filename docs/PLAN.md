@@ -1,134 +1,134 @@
-# Deskmate — plan wdrozenia (PRD breakdown)
+# Deskmate — deployment plan (PRD breakdown)
 
-Nowoczesny zamiennik HASS.Agent dla Windows 11 (x64 + ARM64).
+A modern HASS.Agent replacement for Windows 11 (x64 + ARM64).
 Tauri 2 + React + TypeScript + Tailwind (frontend), Rust (backend).
-Integracja z Home Assistant przez MQTT discovery. Open source — zero hardcode.
+Home Assistant integration via MQTT discovery. Open source — zero hardcoding.
 
-## 1. Przyjete zalozenia
+## 1. Assumptions
 
-- **Nazwa robocza**: Deskmate (latwa do zmiany — jedno miejsce: `src-tauri/tauri.conf.json` + stale w `src-tauri/src/consts.rs`).
-- **Stack**: Tauri 2 (Rust) + React 18 + TS + Tailwind 4 — bo dziala natywnie na ARM64 i x64, malutki binarny, a Jakub zna Tauri z vault-managera.
-- **Transport**: MQTT (rumqttc) + HA MQTT Discovery — jak HASS.Agent, bo dziala z waniliowym HA bez customowej integracji. Setup = adres brokera + login, nic wiecej.
-- **Media player**: encja `media_player` wymagalaby customowej integracji HA. Zamiast tego: sensory SMTC (tytul/artysta/status) + przyciski sterowania przez discovery. Pelna encja media_player = ROADMAP.
-- **Powiadomienia**: HA -> MQTT topic `deskmate/<device>/notify` -> toast Windows z obrazem. W repo gotowy przyklad skryptu `notify.deskmate` (mqtt.publish) do wklejenia w HA.
-- **Konfiguracja**: `%APPDATA%\Deskmate\config.json`. Haslo MQTT w Windows Credential Manager (keyring) — nie plaintext.
-- **Prywatnosc**: sensory wrazliwe (aktywne okno, media, kamera/mikrofon w uzyciu) DOMYSLNIE WYLACZONE, wlaczane swiadomie w UI (zgoda per sensor).
-- **Custom komendy**: PowerShell z configu, z ostrzezeniem w UI (wektor RCE — user musi rozumiec, ze HA moze wykonac kod na PC).
-- **Stream Deck**: tylko plan (docs/STREAMDECK-PLAN.md), zero implementacji teraz.
-- **Jezyk UI**: angielski (open source), architektura gotowa pod i18n pozniej.
-- **Licencja**: MIT.
+- **Working name**: Deskmate (easy to change — a single place: `src-tauri/tauri.conf.json` + constants in `src-tauri/src/consts.rs`).
+- **Stack**: Tauri 2 (Rust) + React 18 + TS + Tailwind 4 — because it runs natively on ARM64 and x64, produces a tiny binary, and Jakub already knows Tauri from vault-manager.
+- **Transport**: MQTT (rumqttc) + HA MQTT Discovery — like HASS.Agent, because it works with vanilla HA without a custom integration. Setup = broker address + login, nothing more.
+- **Media player**: a `media_player` entity would require a custom HA integration. Instead: SMTC sensors (title/artist/status) + control buttons via discovery. A full media_player entity = ROADMAP.
+- **Notifications**: HA -> MQTT topic `deskmate/<device>/notify` -> Windows toast with an image. The repo includes a ready-made example script `notify.deskmate` (mqtt.publish) to paste into HA.
+- **Configuration**: `%APPDATA%\Deskmate\config.json`. MQTT password in Windows Credential Manager (keyring) — not plaintext.
+- **Privacy**: sensitive sensors (active window, media, camera/microphone in use) DISABLED BY DEFAULT, enabled deliberately in the UI (per-sensor consent).
+- **Custom commands**: PowerShell from config, with a UI warning (an RCE vector — the user must understand that HA can execute code on the PC).
+- **Stream Deck**: plan only (docs/STREAMDECK-PLAN.md), no implementation yet.
+- **UI language**: English (open source), architecture ready for i18n later.
+- **License**: MIT.
 
-## 2. Taski
+## 2. Tasks
 
-## [x] T01 — Scaffold projektu
-Zakres: struktura Tauri 2 + React + TS + Tailwind; `package.json`, `src-tauri/` (Cargo.toml, tauri.conf.json, main.rs), `src/` (App.tsx), vite. Git init.
-Zalezy od: —
-Rozmiar: M | Ryzyko: niskie
-Definition of done: `npm run tauri dev` odpala okno z placeholderem (NIE uruchamiac — Jakub testuje).
-DO PRZETESTOWANIA (Jakub):
-1. `cd C:\dev\web\deskmate && npm install && npm run tauri dev` — otwiera sie okno aplikacji.
+## [x] T01 — Project scaffold
+Scope: Tauri 2 + React + TS + Tailwind structure; `package.json`, `src-tauri/` (Cargo.toml, tauri.conf.json, main.rs), `src/` (App.tsx), vite. Git init.
+Depends on: —
+Size: M | Risk: low
+Definition of done: `npm run tauri dev` opens a window with a placeholder (DO NOT run it — Jakub tests).
+TO TEST (Jakub):
+1. `cd C:\dev\web\deskmate && npm install && npm run tauri dev` — the app window opens.
 
 ## [x] T02 — Config store (Rust)
-Zakres: `src-tauri/src/config.rs` — model AppConfig (serde), zapis/odczyt `%APPDATA%\Deskmate\config.json`, haslo w keyring; komendy tauri `get_config`/`save_config`.
-Zalezy od: T01
-Rozmiar: S | Ryzyko: niskie
-Definition of done: config zapisuje sie i wczytuje po restarcie; brak hasla w JSON.
-DO PRZETESTOWANIA (Jakub):
-1. Zapisz ustawienia w aplikacji, zamknij i otworz — wartosci sa; w `%APPDATA%\Deskmate\config.json` NIE ma hasla.
+Scope: `src-tauri/src/config.rs` — AppConfig model (serde), save/load `%APPDATA%\Deskmate\config.json`, password in keyring; tauri commands `get_config`/`save_config`.
+Depends on: T01
+Size: S | Risk: low
+Definition of done: config saves and loads after restart; no password in the JSON.
+TO TEST (Jakub):
+1. Save settings in the app, close and reopen — values are there; `%APPDATA%\Deskmate\config.json` has NO password.
 
 ## [x] T03 — MQTT core (Rust)
-Zakres: `src-tauri/src/mqtt.rs` — rumqttc AsyncClient, auto-reconnect, LWT availability (`deskmate/<device>/availability` online/offline), eventy statusu do UI (tauri emit).
-Zalezy od: T02
-Rozmiar: M | Ryzyko: srednie (reconnect edge-cases)
-Definition of done: po podaniu brokera app laczy sie i utrzymuje polaczenie; status widoczny w UI.
-DO PRZETESTOWANIA (Jakub):
-1. Podaj broker (HAOS: IP RPi, port 1883, user/haslo z dodatku Mosquitto) — status "Connected".
-2. Wylacz WiFi na 30 s i wlacz — status wraca do "Connected" sam.
+Scope: `src-tauri/src/mqtt.rs` — rumqttc AsyncClient, auto-reconnect, LWT availability (`deskmate/<device>/availability` online/offline), status events to the UI (tauri emit).
+Depends on: T02
+Size: M | Risk: medium (reconnect edge cases)
+Definition of done: after entering the broker the app connects and stays connected; status visible in the UI.
+TO TEST (Jakub):
+1. Enter the broker (HAOS: RPi IP, port 1883, user/password from the Mosquitto add-on) — status "Connected".
+2. Turn off WiFi for 30 s and turn it back on — status returns to "Connected" on its own.
 
 ## [x] T04 — HA MQTT Discovery
-Zakres: `src-tauri/src/discovery.rs` — rejestracja device + encji (sensor/binary_sensor/button/number/switch) na `homeassistant/<comp>/<node>/<obj>/config`, availability + expire_after.
-Zalezy od: T03
-Rozmiar: M | Ryzyko: srednie (format discovery)
-Definition of done: w HA pojawia sie urzadzenie "Deskmate <hostname>" z encjami.
-DO PRZETESTOWANIA (Jakub):
-1. HA -> Ustawienia -> Urzadzenia -> MQTT — jest urzadzenie z nazwa komputera, encje maja wartosci.
+Scope: `src-tauri/src/discovery.rs` — register the device + entities (sensor/binary_sensor/button/number/switch) at `homeassistant/<comp>/<node>/<obj>/config`, availability + expire_after.
+Depends on: T03
+Size: M | Risk: medium (discovery format)
+Definition of done: a device "Deskmate <hostname>" with entities appears in HA.
+TO TEST (Jakub):
+1. HA -> Settings -> Devices -> MQTT — the device with the computer's name is there, entities have values.
 
-## [x] T05 — Sensory systemowe
-Zakres: `src-tauri/src/sensors/` — sysinfo: CPU %, RAM %, dysk %, siec KB/s, bateria %, uptime, user; windows: aktywne okno (opt-in), idle time, sesja zablokowana, SSID WiFi (opt-in); petla publikacji co 15 s (konfigurowalne).
-Zalezy od: T04
-Rozmiar: L | Ryzyko: srednie (WinAPI na ARM64)
-Definition of done: encje w HA aktualizuja sie; sensory opt-in nie publikuja bez zgody.
-DO PRZETESTOWANIA (Jakub):
-1. HA: sensor CPU zmienia sie po obciazeniu komputera.
-2. Sensor "Active window" nie istnieje w HA dopoki nie wlaczysz go w Deskmate -> Sensors.
-3. Zablokuj komputer (Win+L) — binary_sensor "Session locked" = on.
+## [x] T05 — System sensors
+Scope: `src-tauri/src/sensors/` — sysinfo: CPU %, RAM %, disk %, network KB/s, battery %, uptime, user; windows: active window (opt-in), idle time, session locked, WiFi SSID (opt-in); publish loop every 15 s (configurable).
+Depends on: T04
+Size: L | Risk: medium (WinAPI on ARM64)
+Definition of done: entities update in HA; opt-in sensors don't publish without consent.
+TO TEST (Jakub):
+1. HA: the CPU sensor changes value under computer load.
+2. The "Active window" sensor doesn't exist in HA until you enable it in Deskmate -> Sensors.
+3. Lock the computer (Win+L) — binary_sensor "Session locked" = on.
 
-## [x] T06 — Komendy
-Zakres: `src-tauri/src/commands/` — buttony discovery: shutdown, restart, sleep, hibernate, lock, monitor off; number: volume; custom komendy PowerShell z configu (kazda = button w HA).
-Zalezy od: T04
-Rozmiar: M | Ryzyko: wysokie (wykonywanie komend zdalnie — walidacja, brak eval z MQTT: wykonujemy TYLKO predefiniowane/skonfigurowane, nigdy tresci z payloadu)
-Definition of done: przycisk w HA blokuje komputer; payload MQTT nie moze wstrzyknac wlasnej komendy.
-DO PRZETESTOWANIA (Jakub):
-1. HA: nacisnij "Lock" — komputer sie blokuje.
-2. HA: suwak Volume — glosnosc zmienia sie na zywo.
-3. Dodaj custom komende `notepad` w Deskmate, nacisnij button w HA — otwiera sie notatnik.
+## [x] T06 — Commands
+Scope: `src-tauri/src/commands/` — discovery buttons: shutdown, restart, sleep, hibernate, lock, monitor off; number: volume; custom PowerShell commands from config (each = a button in HA).
+Depends on: T04
+Size: M | Risk: high (executing commands remotely — validation, no eval from MQTT: we execute ONLY predefined/configured commands, never content from the payload)
+Definition of done: a button in HA locks the computer; the MQTT payload cannot inject an arbitrary command.
+TO TEST (Jakub):
+1. HA: press "Lock" — the computer locks.
+2. HA: the Volume slider — volume changes live.
+3. Add a custom command `notepad` in Deskmate, press the button in HA — Notepad opens.
 
-## [x] T07 — Powiadomienia (toast z obrazem)
-Zakres: `src-tauri/src/notify.rs` — subskrypcja `deskmate/<device>/notify`, JSON {title, message, image?}; toast WinRT z pobranym obrazem; przyklad HA `script.notify_pc` w docs/HA-SETUP.md.
-Zalezy od: T03
-Rozmiar: M | Ryzyko: srednie (WinRT toast na ARM64)
-Definition of done: mqtt.publish z HA pokazuje toast z tytulem, trescia i obrazkiem.
-DO PRZETESTOWANIA (Jakub):
-1. HA Developer Tools -> uslugi -> mqtt.publish na topic `deskmate/<host>/notify` z payload `{"title":"Zmywarka","message":"Jest do rozpakowania","image":"https://dom.example.com/local/ikony/zmywarka.png"}` — toast z obrazkiem.
+## [x] T07 — Notifications (toast with image)
+Scope: `src-tauri/src/notify.rs` — subscribes to `deskmate/<device>/notify`, JSON {title, message, image?}; WinRT toast with a downloaded image; example HA `script.notify_pc` in docs/HA-SETUP.md.
+Depends on: T03
+Size: M | Risk: medium (WinRT toast on ARM64)
+Definition of done: mqtt.publish from HA shows a toast with title, message, and image.
+TO TEST (Jakub):
+1. HA Developer Tools -> Services -> mqtt.publish on topic `deskmate/<host>/notify` with payload `{"title":"Dishwasher","message":"Needs unloading","image":"https://dom.wawrzola.com/local/ikony/zmywarka.png"}` — a toast with the image appears.
 
 ## [x] T08 — Media (SMTC)
-Zakres: `src-tauri/src/media.rs` — GlobalSystemMediaTransportControlsSessionManager: sensory (tytul, artysta, aplikacja, status) opt-in + buttony play/pause/next/prev.
-Zalezy od: T04, T05
-Rozmiar: M | Ryzyko: srednie (WinRT async)
-Definition of done: puszczasz muzyke w Spotify — HA widzi tytul; button pauzuje.
-DO PRZETESTOWANIA (Jakub):
-1. Wlacz muzyke (Spotify/YouTube) — sensor Media title w HA pokazuje utwor.
-2. HA: button "Media play/pause" — muzyka staje.
+Scope: `src-tauri/src/media.rs` — GlobalSystemMediaTransportControlsSessionManager: sensors (title, artist, app, status) opt-in + play/pause/next/prev buttons.
+Depends on: T04, T05
+Size: M | Risk: medium (WinRT async)
+Definition of done: play music in Spotify — HA sees the title; the button pauses it.
+TO TEST (Jakub):
+1. Play music (Spotify/YouTube) — the Media title sensor in HA shows the track.
+2. HA: "Media play/pause" button — the music stops.
 
 ## [x] T09 — UI shell + design tokens + wizard
-Zakres: `src/` — layout (sidebar/rail), tokens monochrom (bialo-czarny jak dashboard Dom/budzet), pierwszy start = wizard (broker/port/user/haslo/nazwa urzadzenia, test polaczenia).
-Zalezy od: T01, T02
-Rozmiar: M | Ryzyko: niskie
-Definition of done: swiezy start prowadzi przez wizard do polaczenia; UI spojne z Dom/budzet.
-DO PRZETESTOWANIA (Jakub):
-1. Usun `%APPDATA%\Deskmate\config.json`, odpal app — wizard; po nim status Connected.
+Scope: `src/` — layout (sidebar/rail), monochrome tokens (black-and-white like the Home/Budget dashboard), first launch = wizard (broker/port/user/password/device name, connection test).
+Depends on: T01, T02
+Size: M | Risk: low
+Definition of done: a fresh start walks through the wizard to a connection; UI consistent with Home/Budget.
+TO TEST (Jakub):
+1. Delete `%APPDATA%\Deskmate\config.json`, launch the app — wizard appears; afterward status is Connected.
 
-## [x] T10 — UI strony
-Zakres: `src/pages/` — Status (polaczenie, device, licznik publikacji), Sensors (lista + toggle + podglad wartosci + privacy), Commands (lista + dodawanie custom), Notifications (historia ostatnich), Settings (broker, interwal, autostart).
-Zalezy od: T09, T05, T06
-Rozmiar: L | Ryzyko: niskie
-Definition of done: kazda strona dziala na zywych danych z backendu.
-DO PRZETESTOWANIA (Jakub):
-1. Sensors: wylacz "CPU" — encja w HA przechodzi w unavailable po expire.
-2. Notifications: wyslij toast z HA — pojawia sie w historii.
+## [x] T10 — UI pages
+Scope: `src/pages/` — Status (connection, device, publish counter), Sensors (list + toggle + value preview + privacy), Commands (list + add custom), Notifications (recent history), Settings (broker, interval, autostart).
+Depends on: T09, T05, T06
+Size: L | Risk: low
+Definition of done: every page works with live data from the backend.
+TO TEST (Jakub):
+1. Sensors: disable "CPU" — the entity in HA goes unavailable after expiry.
+2. Notifications: send a toast from HA — it appears in the history.
 
 ## [x] T11 — Tray + autostart
-Zakres: tray icon (status kolorem), menu (Open/Pause/Quit), zamkniecie okna = minimalizacja do traya, autostart z Windows (tauri plugin autostart, toggle w Settings).
-Zalezy od: T09
-Rozmiar: S | Ryzyko: niskie
-DO PRZETESTOWANIA (Jakub):
-1. Zamknij okno — app zostaje w trayu, sensory dalej publikuja.
-2. Wlacz autostart, zrestartuj komputer — Deskmate wstaje sam (w trayu).
+Scope: tray icon (status by color), menu (Open/Pause/Quit), closing the window = minimize to tray, autostart with Windows (tauri plugin autostart, toggle in Settings).
+Depends on: T09
+Size: S | Risk: low
+TO TEST (Jakub):
+1. Close the window — the app stays in the tray, sensors keep publishing.
+2. Enable autostart, restart the computer — Deskmate starts on its own (in the tray).
 
-## [x] T12 — Dokumentacja open source
-Zakres: README.md (EN, instalacja, screenshoty TODO), docs/ARCHITECTURE.md, docs/HA-SETUP.md (Mosquitto + notify script yaml), docs/STREAMDECK-PLAN.md, docs/ROADMAP.md (schowek plikow/tekstu, media_player, inne urzadzenia), LICENSE (MIT), HANDOFF.md.
-Zalezy od: — (rownolegle)
-Rozmiar: M | Ryzyko: niskie
+## [x] T12 — Open source documentation
+Scope: README.md (EN, installation, screenshots TODO), docs/ARCHITECTURE.md, docs/HA-SETUP.md (Mosquitto + notify script yaml), docs/STREAMDECK-PLAN.md, docs/ROADMAP.md (file/text clipboard, media_player, other devices), LICENSE (MIT), HANDOFF.md.
+Depends on: — (parallel)
+Size: M | Risk: low
 
-## [x] T13 — Build release x64 + ARM64
-Zakres: `npm run tauri build` dla aarch64 (ten laptop) + `--target x86_64-pc-windows-msvc` (Ryzen); instrukcja w README; NSIS installer.
-Zalezy od: wszystkie
-Rozmiar: M | Ryzyko: srednie (cross-target bundle)
-DO PRZETESTOWANIA (Jakub):
-1. Zainstaluj installer ARM64 na zenbooku — dziala.
-2. Zainstaluj x64 na Ryzenie — dziala; oba widoczne jako OSOBNE urzadzenia w HA.
+## [x] T13 — x64 + ARM64 release build
+Scope: `npm run tauri build` for aarch64 (this laptop) + `--target x86_64-pc-windows-msvc` (Ryzen); instructions in README; NSIS installer.
+Depends on: all
+Size: M | Risk: medium (cross-target bundling)
+TO TEST (Jakub):
+1. Install the ARM64 installer on the Zenbook — it works.
+2. Install x64 on the Ryzen — it works; both show up as SEPARATE devices in HA.
 
-## 3. Graf zaleznosci
+## 3. Dependency graph
 
 ```mermaid
 graph TD
@@ -148,39 +148,39 @@ graph TD
   T10 --> T13
 ```
 
-Sciezka krytyczna: T01 -> T02 -> T03 -> T04 -> T05 -> T10 -> T13.
-Rownolegle mozliwe: T12 (docs) w kazdej chwili; T07 obok T05/T06; T09 obok T03/T04.
+Critical path: T01 -> T02 -> T03 -> T04 -> T05 -> T10 -> T13.
+Parallelizable: T12 (docs) at any time; T07 alongside T05/T06; T09 alongside T03/T04.
 
-## 4. Ship order — milestony
+## 4. Ship order — milestones
 
 ```
-M1 "Szkielet zywy":     T01, T02, T09 -> okno + wizard + config
-M2 "Widoczny w HA":     T03, T04, T05 -> device z sensorami w HA
-M3 "Sterowanie":        T06, T07      -> komendy + powiadomienia toast
-M4 "Media + pelne UI":  T08, T10, T11 -> media, strony, tray, autostart
-M5 "Open source ready": T12, T13      -> docs + release builds
+M1 "Living skeleton":      T01, T02, T09 -> window + wizard + config
+M2 "Visible in HA":        T03, T04, T05 -> device with sensors in HA
+M3 "Control":              T06, T07      -> commands + toast notifications
+M4 "Media + full UI":      T08, T10, T11 -> media, pages, tray, autostart
+M5 "Open source ready":    T12, T13      -> docs + release builds
 ```
 
-Milestone DO PRZETESTOWANIA — patrz sekcje taskow. Kryterium "mozna pokazac": M2 = tak (device w HA), M3 = wow-efekt (toast z obrazkiem).
+Milestone TO TEST — see task sections. "Demoable" criterion: M2 = yes (device in HA), M3 = wow effect (toast with image).
 
-## 5. Plan testow — wylacznie manualne (Jakub)
+## 5. Test plan — manual only (Jakub)
 
-Smoke po M2: instalacja -> wizard -> Connected -> device w HA -> CPU zmienia wartosc.
-Smoke po M3: Lock z HA dziala; toast z obrazem dziala.
-Przed publikacja open source: swiezy Windows bez HA (musi dzialac wizard i czytelny blad polaczenia), oba targety (ARM64+x64), test bez internetu (app nie crashuje).
-Pokryte przez tsc/lint/cargo check: literowki typow, importy — Jakub NIE testuje.
+Smoke test after M2: install -> wizard -> Connected -> device in HA -> CPU value changes.
+Smoke test after M3: Lock from HA works; toast with image works.
+Before open source publication: fresh Windows without HA (wizard must work and show a clear connection error), both targets (ARM64+x64), test without internet (app doesn't crash).
+Covered by tsc/lint/cargo check: type typos, imports — Jakub does NOT test these.
 
-## 6. Otwarte decyzje (nieodwracalne/kosztowne)
+## 6. Open decisions (irreversible/costly)
 
-- Ostateczna NAZWA projektu przed publikacja na GitHub (Deskmate = robocza; zmiana pozniej = rename repo + identyfikatory MQTT).
-- Podpisywanie binarek (code signing cert = koszt) — bez podpisu SmartScreen straszy przy instalacji.
+- Final project NAME before publishing on GitHub (Deskmate = working name; changing it later = repo rename + MQTT identifiers).
+- Binary signing (code signing cert = cost) — without signing, SmartScreen warns during install.
 
-## Backlog (nie implementowac teraz)
+## Backlog (not implementing now)
 
-- Pelna encja media_player (wymaga customowej integracji HA albo HACS mqtt-mediaplayer).
-- Schowek tymczasowy: przesylanie plikow/tekstu PC <-> HA <-> telefon (topic + www/deskmate/).
-- Stream Deck plugin (patrz docs/STREAMDECK-PLAN.md).
+- Full media_player entity (requires a custom HA integration or HACS mqtt-mediaplayer).
+- Temporary clipboard: file/text transfer PC <-> HA <-> phone (topic + www/deskmate/).
+- Stream Deck plugin (see docs/STREAMDECK-PLAN.md).
 - Webcam/mic in-use sensor (Windows capability access manager).
-- Per-monitor screenshot na zadanie (privacy-sensitive, opt-in).
+- On-demand per-monitor screenshot (privacy-sensitive, opt-in).
 - i18n (PL/EN).
-- Aktualizacje auto (tauri updater).
+- Auto updates (tauri updater).

@@ -1,4 +1,4 @@
-//! Home Assistant MQTT Discovery - publikacja configow encji (retained).
+//! Home Assistant MQTT Discovery - publishing entity configs (retained).
 //! Format: https://www.home-assistant.io/integrations/mqtt/#mqtt-discovery
 
 use serde_json::{json, Value};
@@ -18,7 +18,7 @@ fn device_block(cfg: &AppConfig) -> Value {
     })
 }
 
-/// (topic, payload retained; payload "" = usun encje z HA)
+/// (topic, payload retained; payload "" = remove entity from HA)
 pub type DiscoveryMsg = (String, String);
 
 fn cfg_topic(component: &str, node_id: &str, object_id: &str) -> String {
@@ -31,8 +31,8 @@ fn cfg_topic(component: &str, node_id: &str, object_id: &str) -> String {
     )
 }
 
-/// Pelny zestaw wiadomosci discovery wynikajacy z configu.
-/// Encje wylaczone dostaja pusty payload (usuniecie z HA).
+/// Full set of discovery messages derived from the config.
+/// Disabled entities get an empty payload (removal from HA).
 pub fn build_all(cfg: &AppConfig) -> Vec<DiscoveryMsg> {
     let mut out = Vec::new();
     let node = &cfg.node_id;
@@ -40,13 +40,13 @@ pub fn build_all(cfg: &AppConfig) -> Vec<DiscoveryMsg> {
     let device = device_block(cfg);
     let expire = (cfg.publish_interval_secs * 4).max(60);
 
-    // --- sensory / binary_sensory / number(volume) ---
+    // --- sensors / binary_sensors / number(volume) ---
     for def in SENSOR_DEFS {
         let enabled = crate::sensors::is_enabled(cfg, def.id);
         let object_id = def.id;
         match def.component {
             "number" => {
-                // volume: number z command_topic
+                // volume: number with command_topic
                 let topic = cfg_topic("number", node, object_id);
                 if !enabled {
                     out.push((topic, String::new()));
@@ -92,7 +92,7 @@ pub fn build_all(cfg: &AppConfig) -> Vec<DiscoveryMsg> {
         }
     }
 
-    // --- komendy predefiniowane (buttony) ---
+    // --- predefined commands (buttons) ---
     for def in COMMAND_DEFS {
         let topic = cfg_topic("button", node, def.id);
         let p = json!({
@@ -107,12 +107,18 @@ pub fn build_all(cfg: &AppConfig) -> Vec<DiscoveryMsg> {
         out.push((topic, p.to_string()));
     }
 
-    // --- custom kontrolki uzytkownika (button | switch | number) ---
+    // --- custom user controls (button | switch | number) ---
     for c in &cfg.custom_commands {
         let object_id = format!("custom_{}", c.id);
+        if !c.enabled {
+            for comp in ["button", "switch", "number"] {
+                out.push((cfg_topic(comp, node, &object_id), String::new()));
+            }
+            continue;
+        }
         let cmd_t = consts::cmd_topic(node, &format!("custom_{}", c.id));
         let uid = format!("deskmate_{}_custom_{}", node, c.id);
-        // wyczysc pozostale komponenty (gdyby zmieniono typ kontrolki)
+        // clear the other components (in case the control type was changed)
         let active = match c.kind.as_str() {
             "switch" | "number" => c.kind.as_str(),
             _ => "button",
@@ -145,7 +151,7 @@ pub fn build_all(cfg: &AppConfig) -> Vec<DiscoveryMsg> {
         out.push((cfg_topic(active, node, &object_id), p.to_string()));
     }
 
-    // --- encje text (HA -> PC) + prezentacja + TTS, wg opt-in ---
+    // --- text entities (HA -> PC) + presentation + TTS, per opt-in ---
     let text_entity = |key: &str, name: &str, icon: &str| -> DiscoveryMsg {
         (
             cfg_topic("text", node, key),
@@ -162,14 +168,33 @@ pub fn build_all(cfg: &AppConfig) -> Vec<DiscoveryMsg> {
     };
     let remove = |comp: &str, key: &str| -> DiscoveryMsg { (cfg_topic(comp, node, key), String::new()) };
 
-    // schowek: encja text do ustawiania (gdy bridge schowka wlaczony)
-    if crate::sensors::is_enabled(cfg, "clipboard") {
+    // clipboard: text entity for setting it (when the clipboard bridge is enabled)
+    if cfg.clipboard_write_mode != "off" {
         out.push(text_entity("clipboard_set", "Set clipboard", "mdi:clipboard-arrow-down"));
     } else {
         out.push(remove("text", "clipboard_set"));
     }
 
-    // wpis tekstu + przyciski prezentacji (opt-in allow_input)
+    // clipboard read sensor is controlled independently from clipboard writes
+    if cfg.clipboard_read_mode != "off" {
+        let topic = cfg_topic("sensor", node, "clipboard");
+        out.push((
+            topic,
+            json!({
+                "name": "Clipboard",
+                "unique_id": format!("deskmate_{}_clipboard", node),
+                "state_topic": consts::state_topic(node, "clipboard"),
+                "icon": "mdi:clipboard-text",
+                "expire_after": expire,
+                "availability_topic": avail,
+                "device": device,
+            }).to_string(),
+        ));
+    } else {
+        out.push(remove("sensor", "clipboard"));
+    }
+
+    // text entry + presentation buttons (opt-in allow_input)
     if cfg.allow_input {
         out.push(text_entity("type_text", "Type text", "mdi:keyboard-outline"));
         for def in PRESENT_DEFS {
@@ -194,17 +219,63 @@ pub fn build_all(cfg: &AppConfig) -> Vec<DiscoveryMsg> {
         }
     }
 
-    // TTS: encja text (opt-in tts_enabled)
+    // TTS: text entity (opt-in tts_enabled)
     if cfg.tts_enabled {
         out.push(text_entity("tts_say", "Say (TTS)", "mdi:account-voice"));
     } else {
         out.push(remove("text", "tts_say"));
     }
 
+    // open URL: text entity (same trust group as text entry)
+    if cfg.allow_input {
+        out.push(text_entity("open_url", "Open URL", "mdi:open-in-new"));
+    } else {
+        out.push(remove("text", "open_url"));
+    }
+
+    // Keep awake: switch (blocks sleep/screen-off) - always available
+    {
+        let topic = cfg_topic("switch", node, "keep_awake");
+        let p = json!({
+            "name": "Keep awake",
+            "unique_id": format!("deskmate_{}_keep_awake", node),
+            "command_topic": consts::cmd_topic(node, "keep_awake"),
+            "state_topic": consts::state_topic(node, "keep_awake"),
+            "payload_on": "ON", "payload_off": "OFF",
+            "icon": "mdi:coffee",
+            "availability_topic": avail,
+            "device": device,
+        });
+        out.push((topic, p.to_string()));
+    }
+
+    // Hotkeys of type mqtt -> device triggers (HA automations without an API token)
+    for h in &cfg.hotkeys {
+        let topic = cfg_topic("device_automation", node, &format!("hotkey_{}", h.id));
+        if h.action.kind == "mqtt" {
+            let p = json!({
+                "automation_type": "trigger",
+                "type": "button_short_press",
+                "subtype": format!("hotkey: {}", if h.name.is_empty() { &h.id } else { &h.name }),
+                "topic": format!("{}/hotkey/{}", consts::base_topic(node), h.id),
+                "payload": "PRESS",
+                "device": device,
+            });
+            out.push((topic, p.to_string()));
+        } else {
+            out.push((topic, String::new()));
+        }
+    }
+
     out
 }
 
-/// Wiadomosci usuwajace encje custom-kontrolki (wszystkie 3 komponenty).
+/// Removal of a hotkey's device trigger (when deleting a hotkey from the UI).
+pub fn remove_hotkey(node_id: &str, hotkey_id: &str) -> DiscoveryMsg {
+    (cfg_topic("device_automation", node_id, &format!("hotkey_{hotkey_id}")), String::new())
+}
+
+/// Messages that remove the custom-control entities (all 3 components).
 pub fn remove_custom(node_id: &str, custom_id: &str) -> Vec<DiscoveryMsg> {
     let object_id = format!("custom_{}", custom_id);
     ["button", "switch", "number"]

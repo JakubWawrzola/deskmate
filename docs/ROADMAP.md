@@ -1,49 +1,41 @@
 # Roadmap
 
-Kolejnosc wg wartosci dla uzytkownika; nic z tej listy nie blokuje wydania 0.1.
+Ordered by user value. Done items stay for context.
 
-## Toast reliability — status 0.2.1
-- [x] Fallback: gdy in-process WinRT `.show()` zawiedzie, toast leci przez swiezy
-      proces PowerShell (POWERSHELL_APP_ID, CREATE_NO_WINDOW). Rozwiazuje "przycisk
-      nic nie robi" bez zmiany brandingu. Przyciski akcji dzialaja tylko gdy in-process OK.
-- [x] "Send test toast" raportuje wynik w UI (sukces + podpowiedz o Focus, albo blad).
+## Done
 
-## Toast branding (dlug techniczny z 0.1.2, proba w 0.2 nieudana)
-- [ ] Toasty pokazuja sie jako "Windows PowerShell" (uzywamy POWERSHELL_APP_ID,
-      bo wlasny AUMID wymaga skrotu z AppUserModelID w Menu Start). Proba w 0.2
-      przez COM (IShellLink+IPropertyStore) odlozona: windows crate 0.61 nie
-      eksponuje InitPropVariantFromString/PROPERTYKEY w spodziewanej sciezce.
-      Najprostsza droga: hook instalatora NSIS (plugin ApplicationID / WinShell)
-      ustawia System.AppUserModel.ID na skrocie przy instalacji; wtedy w
-      notify.rs ustawic BRANDED=true (albo bezwarunkowo TOAST_AUMID). Kod flagi
-      BRANDED + ensure_branding() juz jest - wystarczy zrodlo skrotu.
-      Alternatywa: pakiet MSIX. Runtime dziala bez tego (PowerShell AUMID).
+- **0.1** — MQTT discovery core: sensors, commands, custom PowerShell buttons,
+  toast notifications with image, media keys, tray app, 5-field wizard.
+- **0.2** — actionable notifications (toast buttons → MQTT), clipboard bridge
+  PC↔HA, remote text input + presentation control, TTS, custom switch/number
+  controls, broker failover (local + fallback address), "HomeOS" toast
+  branding (Start Menu shortcut with AUMID; PowerShell-AUMID fallback that
+  always renders), toast buttons via `deskmate:` protocol activation.
+- **0.3** — Home Assistant API channel (REST, token in Credential Manager,
+  URL failover), **global hotkeys** (toggle entity / call service / local
+  command / widget panel / MQTT device trigger), **always-on-top widget
+  panel** with live entity tiles, **tray quick actions**, keep-awake switch,
+  camera/microphone-in-use sensors (opt-in), empty recycle bin, open URL
+  (http/https only), Stream Deck plugin (standalone, SDK v2).
 
-## 0.2 — jakosc zycia
-- [ ] Broker TLS (mqtts://) — rustls, gdy toolchain ARM64 nie bedzie wymagal clanga (aws-lc-rs prebuilt albo ring z clangiem w CI)
-- [ ] Toast: przyciski akcji (odpowiedz zwrotna do HA przez MQTT topic `.../notify/action`)
-- [ ] Ikona traya odzwierciedlajaca stan polaczenia (dwa warianty PNG)
-- [ ] Autodetekcja brokera (mDNS `_mqtt._tcp`)
-- [ ] i18n UI (EN/PL)
+## Next
 
-## 0.3 — schowek i pliki (pomysl Jakuba)
-- [ ] "Clipboard bridge": tekst z PC publikowany retained na `deskmate/<node>/clipboard`
-      (sensor w HA, karta z przyciskiem kopiuj na telefonie), wklejanie z HA na PC
-- [ ] Przesylanie plikow PC -> HA: upload do `www/deskmate/` przez long-lived token
-      (opt-in), link jako powiadomienie na telefonie
-- [ ] Kierunek odwrotny: HA -> PC (pobranie pliku z URL do folderu Downloads, toast)
+- WebSocket to HA for widget tiles (replace 3 s polling; live updates + lower
+  overhead once tile counts grow).
+- Custom user sensors (PowerShell script → JSON → entities) — the v0.4 opener.
+- Media artwork as an HA `image` entity (SMTC thumbnail over MQTT).
+- Full `media_player` entity (needs a small custom integration on the HA side
+  — the MQTT discovery schema has no media_player).
+- File transfer PC↔HA (upload to `www/`, token-scoped, path-traversal safe).
+- Screenshot on demand (privacy-heavy; needs a deliberate opt-in design).
+- Optional application-layer signed command envelopes (HMAC + timestamp/nonce)
+  if a future HA-side Deskmate integration can generate and verify them. MQTT
+  TLS and per-node broker ACLs remain the primary transport controls.
+- Broker autodetection (mDNS `_mqtt._tcp`), UI i18n (EN/PL), tray icon
+  reflecting connection state, light theme for the widget panel.
 
-## 0.4 — media i wieksza kontrola
-- [ ] Pelna encja `media_player` (wymaga malej custom integration HA albo HACS
-      mqtt-mediaplayer — decyzja po feedbacku)
-- [ ] Okladka utworu (SMTC thumbnail) jako `image` entity
-- [ ] Sensor kamera/mikrofon w uzyciu (capability access manager) — privacy, opt-in
-- [ ] Screenshot na zadanie (opt-in, powiadomienie przy kazdym uzyciu)
+## Infrastructure
 
-## 0.5 — Stream Deck
-- [ ] Wg docs/STREAMDECK-PLAN.md
-
-## Infrastruktura
-- [ ] GitHub Actions: build x64 + ARM64, release artifacts
-- [ ] Code signing (koszt — decyzja Jakuba)
-- [ ] Tauri updater (auto-aktualizacje)
+- GitHub Actions: build x64 + ARM64, attach release artifacts.
+- Code signing (cost decision pending).
+- Tauri updater (auto-updates).

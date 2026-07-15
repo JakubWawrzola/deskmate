@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { api } from "../api";
 import { Button, Field, StatusDot } from "../components";
-import type { AppConfig, StatusView } from "../types";
+import type { AppConfig, MqttTransport, StatusView } from "../types";
 
-/** Pierwsze uruchomienie: minimum pol do polaczenia z brokerem MQTT. */
+/** First run: the minimum fields needed to connect to the MQTT broker. */
 export default function Wizard({
   config,
   status,
@@ -14,7 +14,9 @@ export default function Wizard({
   onDone: () => Promise<void>;
 }) {
   const [host, setHost] = useState(config.broker_host);
-  const [port, setPort] = useState(String(config.broker_port || 1883));
+  const [transport, setTransport] = useState<MqttTransport>(config.mqtt_transport);
+  const [port, setPort] = useState(String(config.broker_port || 8883));
+  const [caPath, setCaPath] = useState(config.mqtt_ca_path);
   const [username, setUsername] = useState(config.username);
   const [password, setPassword] = useState("");
   const [deviceName, setDeviceName] = useState(config.device_name);
@@ -33,7 +35,9 @@ export default function Wizard({
         {
           ...config,
           broker_host: host.trim(),
-          broker_port: parseInt(port, 10) || 1883,
+          broker_port: parseInt(port, 10) || (transport === "tls" ? 8883 : 1883),
+          mqtt_transport: transport,
+          mqtt_ca_path: caPath.trim(),
           username: username.trim(),
           device_name: deviceName.trim() || config.device_name,
           configured: true,
@@ -60,11 +64,40 @@ export default function Wizard({
         </p>
 
         <div className="space-y-3">
+          <label className="block">
+            <span className="microlabel">Transport</span>
+            <select
+              value={transport}
+              onChange={(e) => {
+                const next = e.target.value as MqttTransport;
+                setTransport(next);
+                if (next === "tls" && port === "1883") setPort("8883");
+                if (next === "insecure" && port === "8883") setPort("1883");
+              }}
+              className="mt-1 w-full h-9 px-2 bg-panel border border-hairline-strong rounded text-ink text-[13px] focus-visible:border-ink"
+            >
+              <option value="tls">TLS — verify certificate (recommended)</option>
+              <option value="insecure">Plain MQTT — trusted LAN only</option>
+            </select>
+          </label>
+          {transport === "insecure" && (
+            <p className="text-[12px] border border-hairline-strong rounded p-2">
+              Plain MQTT exposes credentials, sensor values and commands on the network.
+            </p>
+          )}
           <div className="grid grid-cols-[1fr_92px] gap-3">
             <Field label="Broker address" value={host} onChange={setHost} placeholder="192.168.1.10" />
             <Field label="Port" value={port} onChange={setPort} placeholder="1883" />
           </div>
-          <Field label="Username" value={username} onChange={setUsername} placeholder="mqtt user (optional)" />
+          {transport === "tls" && (
+            <Field
+              label="Custom CA certificate (PEM path)"
+              value={caPath}
+              onChange={setCaPath}
+              placeholder="Optional — Windows trust store is used by default"
+            />
+          )}
+          <Field label="Username" value={username} onChange={setUsername} placeholder="dedicated Deskmate MQTT user" />
           <Field label="Password" value={password} onChange={setPassword} type="password" placeholder="stored in Windows Credential Manager" />
           <Field
             label="Device name"

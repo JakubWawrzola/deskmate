@@ -1,7 +1,7 @@
-//! Klient MQTT: polaczenie, LWT, discovery po ConnAck, routing komend i notify,
-//! petla sensorow. Restart przez watch-channel (zmiana configu w UI).
+//! MQTT client: connection, LWT, discovery after ConnAck, command and notify
+//! routing, sensor loop. Restarted via a watch channel (config change in the UI).
 
-use rumqttc::{AsyncClient, Event, LastWill, MqttOptions, Packet, QoS};
+use rumqttc::{AsyncClient, Event, LastWill, MqttOptions, Packet, QoS, TlsConfiguration, Transport};
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
@@ -11,18 +11,18 @@ use tokio::sync::watch;
 use crate::consts;
 use crate::state::{AppState, StatusView};
 
-/// Startuje (lub restartuje) polaczenie MQTT wg aktualnego configu.
+/// Starts (or restarts) the MQTT connection according to the current config.
 pub async fn restart(app: AppHandle) {
     let state = app.state::<AppState>();
 
-    // zatrzymaj poprzednia sesje
+    // stop the previous session
     if let Some(tx) = state.stop_tx.lock().await.take() {
         let _ = tx.send(true);
     }
     {
         let mut cl = state.client.lock().await;
         if let Some(c) = cl.take() {
-            // wysle offline przez LWT po zerwaniu; jawnie tez sprobujemy
+            // offline will be sent via LWT once disconnected; also try explicitly
             let _ = c.disconnect().await;
         }
     }
@@ -37,55 +37,112 @@ pub async fn restart(app: AppHandle) {
     *state.stop_tx.lock().await = Some(stop_tx);
 
     let node = cfg.node_id.clone();
-    let mut opts = MqttOptions::new(
-        format!("deskmate-{}", node),
-        cfg.broker_host.clone(),
-        cfg.broker_port,
-    );
-    opts.set_keep_alive(Duration::from_secs(30));
-    opts.set_last_will(LastWill::new(
-        consts::availability_topic(&node),
-        "offline",
-        QoS::AtLeastOnce,
-        true,
-    ));
-    if !cfg.username.is_empty() {
-        let password = crate::config::get_password(&cfg).unwrap_or_default();
-        opts.set_credentials(cfg.username.clone(), password);
-    }
 
-    let (client, mut eventloop) = AsyncClient::new(opts, 64);
-    *state.client.lock().await = Some(client.clone());
+    // host list: local (broker_host) always; remote (broker_host_remote) as a
+    // fallback when set and different. The client tries them in order; on a
+    // failed connection it switches host (local <-> remote), on success it stays.
+    let mut hosts: Vec<(String, u16)> = vec![(cfg.broker_host.clone(), cfg.broker_port)];
+    let remote = cfg.broker_host_remote.trim().to_string();
+    if !remote.is_empty() && remote != cfg.broker_host {
+        hosts.push((remote, cfg.broker_port));
+    }
+    let multi = hosts.len() > 1;
+    let creds = if cfg.username.is_empty() {
+        None
+    } else {
+        Some((
+            cfg.username.clone(),
+            crate::config::get_password(&cfg).unwrap_or_default(),
+        ))
+    };
+    let transport = if cfg.mqtt_transport == "tls" {
+        let tls = if cfg.mqtt_ca_path.trim().is_empty() {
+            TlsConfiguration::Native
+        } else {
+            let ca = match std::fs::read(cfg.mqtt_ca_path.trim()) {
+                Ok(ca) => ca,
+                Err(e) => {
+                    set_status(&app, false, &format!("Cannot read MQTT CA certificate: {e}"));
+                    return;
+                }
+            };
+            TlsConfiguration::SimpleNative { ca, client_auth: None }
+        };
+        Some(Transport::tls_with_config(tls))
+    } else {
+        crate::security::audit("mqtt_transport", "insecure");
+        None
+    };
+
     set_status(&app, false, "Connecting...");
 
-    // --- petla zdarzen MQTT ---
+    // --- MQTT event loop (with host failover) ---
     let app_ev = app.clone();
     let node_ev = node.clone();
     let mut stop_ev = stop_rx.clone();
     tauri::async_runtime::spawn(async move {
-        loop {
-            tokio::select! {
-                _ = stop_ev.changed() => break,
-                ev = eventloop.poll() => match ev {
-                    Ok(Event::Incoming(Packet::ConnAck(_))) => {
-                        on_connected(&app_ev, &node_ev).await;
-                    }
-                    Ok(Event::Incoming(Packet::Publish(p))) => {
-                        let topic = p.topic.clone();
-                        let payload = String::from_utf8_lossy(&p.payload).to_string();
-                        route_incoming(app_ev.clone(), node_ev.clone(), topic, payload);
-                    }
-                    Ok(_) => {}
-                    Err(e) => {
-                        set_status(&app_ev, false, &format!("Connection error: {e}"));
-                        tokio::time::sleep(Duration::from_secs(5)).await;
+        let mut idx = 0usize;
+        'hosts: loop {
+            let (host, port) = hosts[idx].clone();
+            let label = if !multi {
+                String::new()
+            } else if idx == 0 {
+                " (local)".into()
+            } else {
+                " (remote)".into()
+            };
+
+            let mut opts = MqttOptions::new(format!("deskmate-{}", node_ev), host.clone(), port);
+            if let Some(transport) = transport.clone() {
+                opts.set_transport(transport);
+            }
+            opts.set_keep_alive(Duration::from_secs(30));
+            opts.set_last_will(LastWill::new(
+                consts::availability_topic(&node_ev),
+                "offline",
+                QoS::AtLeastOnce,
+                true,
+            ));
+            if let Some((u, p)) = &creds {
+                opts.set_credentials(u.clone(), p.clone());
+            }
+            let (client, mut eventloop) = AsyncClient::new(opts, 64);
+            *app_ev.state::<AppState>().client.lock().await = Some(client.clone());
+            set_status(&app_ev, false, &format!("Connecting{label}..."));
+
+            let mut fail_count = 0u32;
+            loop {
+                tokio::select! {
+                    _ = stop_ev.changed() => break 'hosts,
+                    ev = eventloop.poll() => match ev {
+                        Ok(Event::Incoming(Packet::ConnAck(_))) => {
+                            fail_count = 0;
+                            on_connected(&app_ev, &node_ev).await;
+                        }
+                        Ok(Event::Incoming(Packet::Publish(p))) => {
+                            let topic = p.topic.clone();
+                            let payload = String::from_utf8_lossy(&p.payload).to_string();
+                            route_incoming(app_ev.clone(), node_ev.clone(), topic, payload, p.retain);
+                        }
+                        Ok(_) => {}
+                        Err(e) => {
+                            fail_count += 1;
+                            set_status(&app_ev, false, &format!("Connection error{label}: {e}"));
+                            // multi-host: after 2 failed attempts, switch to the other host
+                            if multi && fail_count >= 2 {
+                                idx = (idx + 1) % hosts.len();
+                                tokio::time::sleep(Duration::from_secs(3)).await;
+                                continue 'hosts;
+                            }
+                            tokio::time::sleep(Duration::from_secs(if multi { 2 } else { 5 })).await;
+                        }
                     }
                 }
             }
         }
     });
 
-    // --- petla sensorow ---
+    // --- sensor loop ---
     let app_sn = app.clone();
     let mut stop_sn = stop_rx;
     tauri::async_runtime::spawn(async move {
@@ -94,12 +151,13 @@ pub async fn restart(app: AppHandle) {
             let interval = {
                 let st = app_sn.state::<AppState>();
                 let cfg = st.config.lock().await.clone();
+                let mqtt_connected = st.status.lock().await.connected;
                 let secs = cfg.publish_interval_secs.clamp(2, 3600);
 
-                // zbieranie potencjalnie blokujace (WinAPI/SMTC) - poza executorem
+                // collection may block (WinAPI/SMTC) - keep it off the executor
                 let mut coll = collector.take().unwrap_or_else(crate::sensors::Collector::new);
                 let (coll_back, values) = tokio::task::spawn_blocking(move || {
-                    let v = coll.collect(&cfg);
+                    let v = coll.collect(&cfg, mqtt_connected);
                     (coll, v)
                 })
                 .await
@@ -147,7 +205,7 @@ async fn on_connected(app: &AppHandle, node: &str) {
     log::info!("MQTT connected, discovery published");
 }
 
-/// Publikacja stanow sensorow + cache + event do UI.
+/// Publishes sensor states + cache + emits an event to the UI.
 pub async fn publish_states(app: &AppHandle, values: &HashMap<String, String>) {
     let state = app.state::<AppState>();
     let cfg = state.config.lock().await.clone();
@@ -176,10 +234,16 @@ pub async fn publish_states(app: &AppHandle, values: &HashMap<String, String>) {
     let _ = app.emit("deskmate://sensors", values.clone());
 }
 
-/// Obsluga przychodzacych wiadomosci (komendy + notify).
-fn route_incoming(app: AppHandle, node: String, topic: String, payload: String) {
+/// Handles incoming messages (commands + notify).
+fn route_incoming(app: AppHandle, node: String, topic: String, payload: String, retained: bool) {
     tauri::async_runtime::spawn(async move {
         let base = consts::base_topic(&node);
+        // Commands and notifications are events, never desired state. Accepting a
+        // retained message here would replay it after every reconnect/startup.
+        if retained && (topic == consts::notify_topic(&node) || topic.starts_with(&format!("{base}/cmd/"))) {
+            log::warn!("retained MQTT event ignored: {topic}");
+            return;
+        }
         if topic == consts::notify_topic(&node) {
             handle_notify(&app, &payload).await;
             return;
@@ -191,38 +255,109 @@ fn route_incoming(app: AppHandle, node: String, topic: String, payload: String) 
         let state = app.state::<AppState>();
         let cfg = state.config.lock().await.clone();
 
-        // --- klawiatura (wpis tekstu / prezentacja): opt-in allow_input ---
-        let is_input = key == "type_text" || key.starts_with("present_");
+        // --- keyboard / interactions (text entry, presentation, URL): opt-in via allow_input ---
+        let is_input = key == "type_text" || key == "open_url" || key.starts_with("present_");
         if is_input && !cfg.allow_input {
-            log::warn!("input command '{key}' zignorowane (allow_input off)");
+            log::warn!("input command '{key}' ignored (allow_input off)");
             return;
         }
 
-        // --- TTS: opt-in tts_enabled ---
-        if key == "tts_say" {
-            if cfg.tts_enabled {
-                let _ = state.tts_tx.send(payload.clone());
+        // --- keep awake: switch ON/OFF -> dedicated thread + retained state ---
+        if key == "keep_awake" {
+            let on = payload.trim().eq_ignore_ascii_case("ON");
+            let _ = state.keep_awake_tx.send(on);
+            let client = { state.client.lock().await.clone() };
+            if let Some(client) = client {
+                let _ = client
+                    .publish(
+                        consts::state_topic(&cfg.node_id, "keep_awake"),
+                        QoS::AtLeastOnce,
+                        true,
+                        if on { "ON" } else { "OFF" },
+                    )
+                    .await;
             }
             return;
         }
 
-        // --- schowek: ustaw z HA (gdy bridge schowka wlaczony) ---
+        // --- TTS: opt-in via tts_enabled ---
+        if key == "tts_say" {
+            if cfg.tts_enabled {
+                let text: String = payload.chars().take(1_000).collect();
+                // Drop excess messages rather than letting an untrusted publisher
+                // block the MQTT task or grow an unbounded speech queue.
+                let _ = state.tts_tx.try_send(text);
+            }
+            return;
+        }
+
+        // --- clipboard: set from HA (when the clipboard bridge is enabled) ---
         if key == "clipboard_set" {
-            if crate::sensors::is_enabled(&cfg, "clipboard") {
+            if cfg.clipboard_write_mode != "off" {
+                const MAX_CLIPBOARD_BYTES: usize = 64 * 1024;
+                if payload.len() > MAX_CLIPBOARD_BYTES {
+                    log::warn!("clipboard command ignored: payload exceeds {MAX_CLIPBOARD_BYTES} bytes");
+                    crate::security::audit("clipboard_write", "blocked_size");
+                    return;
+                }
+                if crate::sensors::session_locked() {
+                    crate::security::audit("clipboard_write", "blocked_locked");
+                    return;
+                }
+                if !crate::clipboard::claim_write_slot() {
+                    crate::security::audit("clipboard_write", "blocked_cooldown");
+                    return;
+                }
+                if cfg.clipboard_write_mode == "confirm" {
+                    let preview = crate::security::safe_preview(&payload, 160);
+                    let approved = tokio::task::spawn_blocking(move || {
+                        crate::security::confirm(
+                            "Deskmate clipboard write",
+                            &format!(
+                                "Home Assistant wants to replace the clipboard with:\n\n{preview}\n\nAllow once?"
+                            ),
+                        )
+                    })
+                    .await
+                    .unwrap_or(false);
+                    crate::security::audit(
+                        "clipboard_write_confirmation",
+                        if approved { "approved" } else { "denied" },
+                    );
+                    if !approved {
+                        return;
+                    }
+                } else if cfg.clipboard_write_mode != "automatic" {
+                    return;
+                }
                 let p = payload.clone();
-                let _ = tokio::task::spawn_blocking(move || crate::clipboard::set_text(&p)).await;
-                if let Ok(Some(c)) =
-                    tokio::task::spawn_blocking(crate::clipboard::get_text).await
-                {
-                    let mut m = HashMap::new();
-                    m.insert("clipboard".to_string(), c.chars().take(240).collect());
-                    publish_states(&app, &m).await;
+                match tokio::task::spawn_blocking(move || crate::clipboard::set_text(&p)).await {
+                    Ok(Ok(())) => crate::security::audit("clipboard_write", "completed"),
+                    _ => crate::security::audit("clipboard_write", "failed"),
                 }
             }
             return;
         }
 
-        // --- custom kontrolka (button/switch/number): wartosc -> $env:DESKMATE_VALUE ---
+        if key == "open_url" {
+            let cfg2 = cfg.clone();
+            let url = payload.clone();
+            let result = tokio::task::spawn_blocking(move || {
+                crate::sys_commands::open_allowed_url(&cfg2, &url)
+            })
+            .await
+            .unwrap_or_else(|e| Err(e.to_string()));
+            crate::security::audit(
+                "open_url",
+                if result.is_ok() { "allowed" } else { "blocked" },
+            );
+            if let Err(e) = result {
+                log::warn!("command failed: {e}");
+            }
+            return;
+        }
+
+        // --- custom control (button/switch/number): value -> $env:DESKMATE_VALUE ---
         if let Some(id) = key.strip_prefix("custom_").map(|s| s.to_string()) {
             let cfg2 = cfg.clone();
             let val = payload.clone();
@@ -237,7 +372,7 @@ fn route_incoming(app: AppHandle, node: String, topic: String, payload: String) 
             return;
         }
 
-        // --- builtin (lock/media/volume/type_text/present_* po gate) ---
+        // --- builtin (lock/media/volume/type_text/present_* after the gate) ---
         let key2 = key.clone();
         let pl = payload.clone();
         let result = tokio::task::spawn_blocking(move || crate::sys_commands::run_builtin(&key2, &pl))
@@ -260,7 +395,7 @@ fn route_incoming(app: AppHandle, node: String, topic: String, payload: String) 
     });
 }
 
-/// Publikuje akcje klikniete w toascie na `notify/action` (HA lapie automatyzacja).
+/// Publishes the action clicked in the toast to `notify/action` (an HA automation picks it up).
 pub async fn publish_action(app: &AppHandle, action: &str) {
     let state = app.state::<AppState>();
     let cfg = state.config.lock().await.clone();
@@ -278,7 +413,29 @@ pub async fn publish_action(app: &AppHandle, action: &str) {
 }
 
 async fn handle_notify(app: &AppHandle, payload: &str) {
-    let parsed = crate::notify::parse(payload);
+    {
+        const WINDOW: Duration = Duration::from_secs(60);
+        const LIMIT: usize = 10;
+        let state = app.state::<AppState>();
+        let mut times = state.notification_times.lock().await;
+        let now = std::time::Instant::now();
+        while times.front().map(|t| now.duration_since(*t) > WINDOW).unwrap_or(false) {
+            times.pop_front();
+        }
+        if times.len() >= LIMIT {
+            crate::security::audit("notification", "blocked_rate_limit");
+            return;
+        }
+        times.push_back(now);
+    }
+    let mut parsed = crate::notify::parse(payload);
+    if let Some(image) = parsed.image.as_deref() {
+        let cfg = app.state::<AppState>().config.lock().await.clone();
+        if crate::sys_commands::parse_allowed_web_url(&cfg, image).is_err() {
+            parsed.image = None;
+            crate::security::audit("notification_image", "blocked_origin");
+        }
+    }
     let record = crate::notify::NotifyRecord {
         title: parsed.title.clone(),
         message: parsed.message.clone(),

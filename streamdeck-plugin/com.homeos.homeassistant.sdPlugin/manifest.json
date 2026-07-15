@@ -1,0 +1,75 @@
+{
+	"$schema": "https://schemas.elgato.com/streamdeck/plugins/manifest.json",
+	"Name": "HomeOS for Home Assistant",
+	"Version": "0.1.0.0",
+	"Author": "Jakub Wawrzola",
+	"Description": "Control Home Assistant directly from Stream Deck: toggle entities with live state, call any service, activate scenes.",
+	"Category": "Home Assistant",
+	"CategoryIcon": "imgs/plugin/category-icon",
+	"CodePath": "bin/plugin.js",
+	"Icon": "imgs/plugin/marketplace",
+	"SDKVersion": 2,
+	"Software": {
+		"MinimumVersion": "6.5"
+	},
+	"OS": [
+		{
+			"Platform": "windows",
+			"MinimumVersion": "10"
+		}
+	],
+	"Nodejs": {
+		"Version": "20",
+		"Debug": "disabled"
+	},
+	"UUID": "com.homeos.homeassistant",
+	"Actions": [
+		{
+			"Name": "Toggle Entity",
+			"UUID": "com.homeos.homeassistant.toggle",
+			"Icon": "imgs/actions/toggle/icon",
+			"Tooltip": "Toggle a Home Assistant entity. The key shows its live on/off state.",
+			"PropertyInspectorPath": "ui/toggle-entity.html",
+			"Controllers": ["Keypad"],
+			"DisableAutomaticStates": true,
+			"States": [
+				{
+					"Image": "imgs/actions/toggle/off",
+					"TitleAlignment": "bottom"
+				},
+				{
+					"Image": "imgs/actions/toggle/on",
+					"TitleAlignment": "bottom"
+				}
+			]
+		},
+		{
+			"Name": "Call Service",
+			"UUID": "com.homeos.homeassistant.call-service",
+			"Icon": "imgs/actions/service/icon",
+			"Tooltip": "Call any Home Assistant service with optional entity and JSON data.",
+			"PropertyInspectorPath": "ui/call-service.html",
+			"Controllers": ["Keypad"],
+			"States": [
+				{
+					"Image": "imgs/actions/service/key",
+					"TitleAlignment": "bottom"
+				}
+			]
+		},
+		{
+			"Name": "Activate Scene",
+			"UUID": "com.homeos.homeassistant.scene",
+			"Icon": "imgs/actions/scene/icon",
+			"Tooltip": "Activate a Home Assistant scene.",
+			"PropertyInspectorPath": "ui/activate-scene.html",
+			"Controllers": ["Keypad"],
+			"States": [
+				{
+					"Image": "imgs/actions/scene/key",
+					"TitleAlignment": "bottom"
+				}
+			]
+		}
+	]
+}
