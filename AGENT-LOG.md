@@ -8,7 +8,6 @@ or delete another agent's entry.
 
 | Area | Agent | Since |
 |---|---|---|
-| Merge codex/work to master, GitHub push and v0.3.1 release | Codex | 2026-07-15 ~12:05 |
 
 ## Log
 
@@ -31,3 +30,17 @@ Dotkniete pliki: metadane package/Cargo/Tauri, README.md, docs/SECURITY.md,
 docs/RELEASE-0.3.1.md, HANDOFF.md, STATUS.md, dist-installers/*, AGENT-LOG.md.
 Nastepny krok: Jakub testuje upgrade/instalacje i funkcje security; po testach
 moze opublikowac cztery artefakty z dist-installers jako GitHub Release 0.3.1.
+
+## [2026-07-15 ~12:53] Codex — publikacja GitHub v0.3.1
+Zrobione: codex/work scalony lokalnie do master; dolaczono niezalezna historie
+starego zdalnego main bez force-pusha. Cargo check i tsc przeszly na wyniku
+merge. Zdalny main zaktualizowano do security hardening 0.3.1 przez Git Data
+API, bo lokalny Git for Windows zawieszal transport HTTPS przed polaczeniem.
+Kod, docs, screenshoty i SHA256SUMS sa na main; trzy duze EXE/ZIP celowo sa
+wylacznie assets release, bez dublowania ich w historii zdalnego repo.
+Release: https://github.com/JakubWawrzola/deskmate/releases/tag/v0.3.1
+Status: publiczny, Latest, nie draft/prerelease. Cztery assets porownane z
+lokalnymi po rozmiarze i SHA-256. Opis jawnie zaznacza brak ponownego testu
+end-to-end z HA, bo HA byl niedostepny. Tag v0.3.1 wskazuje commit 1be1607.
+Nastepny krok: po powrocie HA Jakub wykonuje manualna checkliste z STATUS.md;
+ewentualne problemy ida do kolejnego patch release, bez podmiany v0.3.1.
