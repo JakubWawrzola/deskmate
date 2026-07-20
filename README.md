@@ -215,7 +215,7 @@ residual risks and deployment checklist in [docs/SECURITY.md](docs/SECURITY.md).
 - [docs/LINK.md](docs/LINK.md) — encrypted direct transport setup
 - [docs/ROADMAP.md](docs/ROADMAP.md) — where this is going
 - [docs/SECURITY.md](docs/SECURITY.md) — security threat model and hardening plan
-- [docs/RELEASE-0.3.1.md](docs/RELEASE-0.3.1.md) — GitHub release notes for the security update
+- [docs/RELEASE-0.4.0.md](docs/RELEASE-0.4.0.md) — GitHub release notes for Deskmate Link, Files and hardware sensors
 - [streamdeck-plugin/README.md](streamdeck-plugin/README.md) — Stream Deck plugin
 - [HANDOFF.md](HANDOFF.md) — working state, for contributors and AI agents (Polish)
 

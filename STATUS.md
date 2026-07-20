@@ -92,9 +92,9 @@ kontekst dla kolejnego agenta.
 
 ## Nastepny krok (DOKLADNY)
 Czeka na Kube:
-- przetestowac lokalnie installery 0.3.1 wedlug checklisty ponizej
-- po testach wrzucic artefakty z `dist-installers/` do GitHub Release 0.3.1;
-  opis jest gotowy w `docs/RELEASE-0.3.1.md`
+- przetestowac lokalnie installery 0.4.0 x64 i ARM64 wedlug checklisty T41
+- po zaliczonym E2E osobno zdecydowac o merge i publikacji; opis jest gotowy
+  w `docs/RELEASE-0.4.0.md`, ale bez jawnego `tak` nic nie publikowac
 - dograe screenshoty do docs/screenshots/{status,sensors,hotkeys,widgets,
   notifications,settings}.png (instrukcja dana w czacie i w HANDOFF.md)
 - powrot do buga z przyciskami toastu — WYLACZNIE na wyrazne polecenie
@@ -114,12 +114,12 @@ Czeka na Kube:
 
 ## Kanoniczne fakty
 - Worktree Claude: `C:\dev\web\deskmate` (`master`). Worktree Codex:
-  `C:\dev\web\deskmate-codex` (`codex/work`). Protokol: `AGENTS.md`.
+  `C:\dev\web\deskmate-codex` (`feature/deskmate-link`). Protokol: `AGENTS.md`.
 - Archiwum 0.2.3: `C:\dev\web\deskmate-0.2.3-archiwum` - NIE RUSZAC.
-- Wersja: 0.3.1 (security hardening po feedbacku z Reddita).
+- Wersja robocza: 0.4.0 release-prep; opublikowana wersja pozostaje 0.3.1.
 - Build: npx tauri build --target x86_64-pc-windows-msvc / aarch64-pc-windows-msvc
-- node_id laptopa Kuby: laptopwawrzola; broker LAN 192.168.18.9, TS 100.84.40.85
-- HA: http://192.168.18.9:8123 (LAN), http://100.84.40.85:8123 (Tailscale)
+- node_id laptopa Kuby: laptopwawrzola. Stare adresy brokera/HA wymagaja
+  zastapienia adresami zapisanymi po odbudowie sprzetu.
 
 ## DO PRZETESTOWANIA / DO ZROBIENIA (zalegle u Kuby)
 - Instalacja/upgrade 0.3.1 osobno na Windows x64 i ARM64.
@@ -192,3 +192,38 @@ Status: kod klienta wykonany offline; E2E pozostaje manualne
    Po wdrozeniu T36 dodac katalog testowy i sprawdzic list/stat/read.
 3. Potwierdzic odmowe dla `..`, UNC/device, ADS, symlink/reparse point,
    wyjscia poza root i pliku ponad 16 MiB; log nie moze zawierac tresci.
+
+## Fala 9 - T41 release-prep 0.4.0
+
+Status: wykonane offline; merge, publikacja i E2E wymagaja osobnej zgody/testu
+
+- Wersje package/npm, Cargo i Tauri podniesiono do 0.4.0. Dodano CHANGELOG,
+  release notes 0.4.0 i wskazanie nowego opisu w README.
+- `cargo check`, `cargo test` (13/13), `npx tsc --noEmit`, parsowanie JSON i
+  `cargo tree` (860 linii, bez ring/openssl/rustls) przeszly.
+- Zbudowano NSIS x64 (3 133 750 B) i ARM64 (2 728 037 B). Oba pliki maja
+  ProductVersion i FileVersion 0.4.0; hashe kopii w `dist-installers/` sa
+  identyczne z artefaktami Tauri.
+- `SHA256SUMS.txt` zawiera:
+  - x64: `29D85276A8E85216D099F4F46841E2014CF8797D452F80A0F2904C7D5E13494B`;
+  - ARM64: `EBAE8D45A0149734CE12F3D93B925DAD0E79D0882DC2075B9965519D7CF44A13`.
+- `Deskmate_0.4.0_installers.zip` ma 5 825 504 B i SHA-256
+  `6C22201B654585B2DB91B16E6095FE66630235FA3AE83C08546EE3DA0D669D02`;
+  listing zawiera dokladnie oba installery i `SHA256SUMS.txt`.
+- EXE i ZIP pozostaja lokalnymi, niesledzonymi artefaktami. Nie wykonano
+  instalacji, polaczenia z HA/MQTT/Link, merge, tagu, release ani push.
+
+### DO PRZETESTOWANIA - Deskmate 0.4.0
+
+1. Wykonac upgrade z 0.3.1 na 0.4.0 osobno instalatorem x64 i ARM64;
+   potwierdzic zachowanie konfiguracji i danych Windows Credential Manager.
+2. Potwierdzic, ze MQTT pozostaje transportem domyslnym i discovery nadal
+   deklaruje dotychczasowe encje.
+3. Sparowac Link i sprawdzic sensory, text, hotkeye/eventy oraz prune po
+   zmianie konfiguracji.
+4. Sprawdzic sensory GPU/VRAM/dysk/temperatury na realnym sprzecie; brak
+   wiarygodnego odczytu nie moze utworzyc encji.
+5. Przy pustej allowliscie Files oczekiwac odmowy. Po dodaniu katalogu
+   testowego sprawdzic list/stat/read oraz odmowy dla `..`, UNC, ADS i reparse.
+6. Dopiero po zaliczonym E2E Kuba moze osobno zgodzic sie na merge, tag,
+   publikacje GitHub Release i push.

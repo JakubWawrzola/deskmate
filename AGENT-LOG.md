@@ -133,3 +133,15 @@ Dotkniete pliki w tym repo: STATUS.md, AGENT-LOG.md.
 Nastepny krok: Jakub wykonuje E2E na sprzecie i HAOS; dashboard Komputery
 wymaga zmiany Claude'a, a pelny Files E2E serwerowej czesci T36. Bez push,
 merge i deployu.
+
+## [2026-07-20] Codex — T41 release-prep Deskmate 0.4.0
+Zrobione: podniesiono wersje npm/Cargo/Tauri do 0.4.0, dodano CHANGELOG i
+gotowe release notes dla Link, text/hotkeyow, sensorow sprzetowych i read-only
+Files v1. Cargo check, 13/13 testow, tsc, JSON oraz cargo tree bez
+ring/openssl/rustls przeszly. Zbudowano i sprawdzono NSIS x64+ARM64, wersje
+plikow, hashe kopii, ZIP i jego listing. EXE/ZIP pozostaja lokalne;
+SHA256SUMS.txt jest zaktualizowany.
+Dotkniete pliki: metadane wersji, Cargo.lock, README.md, CHANGELOG.md,
+docs/RELEASE-0.4.0.md, STATUS.md, AGENT-LOG.md, dist-installers/SHA256SUMS.txt.
+Nastepny krok: manualny upgrade/E2E na x64 i ARM64. Merge, tag, release i push
+wylacznie po osobnym `tak` Kuby; niczego nie opublikowano.
