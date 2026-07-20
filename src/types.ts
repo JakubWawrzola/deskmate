@@ -1,6 +1,7 @@
 export type CustomKind = "button" | "switch" | "number";
 export type ClipboardMode = "off" | "confirm" | "automatic";
 export type MqttTransport = "tls" | "insecure";
+export type TransportKind = "mqtt" | "link";
 
 export type ActionKind = "toggle" | "service" | "command" | "widget" | "mqtt";
 
@@ -59,12 +60,16 @@ export interface CustomCommand {
 
 export interface AppConfig {
   configured: boolean;
+  transport: TransportKind;
   broker_host: string;
   broker_host_remote: string;
   broker_port: number;
   mqtt_transport: MqttTransport;
   mqtt_ca_path: string;
   username: string;
+  link_url: string;
+  link_url_remote: string;
+  link_file_roots: string[];
   device_name: string;
   node_id: string;
   publish_interval_secs: number;
@@ -87,6 +92,7 @@ export interface AppConfig {
 export interface ConfigView {
   config: AppConfig;
   has_password: boolean;
+  has_link_key: boolean;
 }
 
 export interface StatusView {

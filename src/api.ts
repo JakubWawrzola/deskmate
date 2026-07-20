@@ -14,8 +14,12 @@ import type {
 
 export const api = {
   getConfig: () => invoke<ConfigView>("get_config"),
-  saveConfig: (newConfig: AppConfig, password?: string) =>
-    invoke<void>("save_config", { newConfig, password: password ?? null }),
+  saveConfig: (newConfig: AppConfig, password?: string, linkKey?: string) =>
+    invoke<void>("save_config", {
+      newConfig,
+      password: password ?? null,
+      linkKey: linkKey ?? null,
+    }),
   getSnapshot: () => invoke<Snapshot>("get_snapshot"),
   setSensorEnabled: (id: string, enabled: boolean) =>
     invoke<void>("set_sensor_enabled", { id, enabled }),

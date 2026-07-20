@@ -66,3 +66,104 @@ kolejnej sesji w tym worktree rozwaz `git fetch && git reset --hard
 origin/main` tam tez, zeby oba worktree byly zgodne z GitHubem - ale to
 robi Codex swiadomie, nie zostalo zrobione automatycznie.
 Nastepny krok: brak w toku.
+
+## [2026-07-19] Codex — przygotowanie worktree do Deskmate Link
+Zrobione: zgodnie z fala 4 wykonano `git fetch origin`, a nastepnie jawnie
+zlecony `git reset --hard origin/main`. Worktree zostal wyrownany do commita
+`bac7c8b`, po czym utworzono branch `feature/deskmate-link` bez push i merge.
+Dotkniete pliki: AGENT-LOG.md.
+Nastepny krok: T17 i T19 w repo HomeAssistant, potem implementacja klienta
+Deskmate Link na tym branchu.
+
+## [2026-07-19] Codex — T18 klient Deskmate Link
+Zrobione: dodano wybieralny transport `mqtt|link` (domyslnie MQTT), klienta
+WebSocket z hello/welcome, HMAC, HKDF, AES-256-GCM, licznikami anti-replay,
+rotacja local/remote i reconnect. Klucz parowania trafia do Windows Credential
+Manager. Wspolne rejestry encji, handlery komend, stany i toasty obsluguja oba
+transporty. Dodano UI Settings/Wizard, dokumentacje oraz test zgodnosci na
+wektorach wygenerowanych pythonowym kodem integracji HA (tylko odczyt).
+Weryfikacja: `cargo check`, `cargo test` (2/2), `npx tsc --noEmit`; `cargo tree`
+bez ring/openssl/rustls. Bez testow z zywym HA, bez builda, push i merge.
+Dotkniete pliki: Rust/Cargo transportu i konfiguracji, UI TS/TSX, README.md,
+docs/LINK.md, generator i publiczny fixture testowy, AGENT-LOG.md.
+Nastepny krok: T20 — finalny status obu repo, backup selftest i manualny E2E.
+
+## [2026-07-19] Codex — T20 finalizacja fali 4
+Zrobione: finalny backup HomeAssistant wygenerowany z commita `f559ef9` i
+przeszedl selftest (2391 plikow, 19 978 240 B, komplet deskmate_link, skan
+sekretow). STATUS obu repo zawiera wyniki, decyzje i manualna checkliste E2E.
+Strefy Claude'a pozostaly bez zmian. IN PROGRESS wyczyszczone.
+Dotkniete pliki w tym repo: STATUS.md, AGENT-LOG.md.
+Nastepny krok: Jakub wykonuje E2E na HAOS; dopiero po jego jawnym "tak" mozna
+pushowac lub scalac branch.
+
+## [2026-07-19] Codex — T21 Deskmate Link v0.2
+Zrobione: Link declare obejmuje cztery warunkowe encje text z nazwami MQTT,
+przyciski prezentacji i encje event dla kazdego hotkeya. Nacisniecie hotkeya
+wysyla `trigger`/`press` z kluczem `hotkey_<id>`; akcje lokalne/API pozostaja
+wykonywane, a dedykowana akcja eventowa publikuje tylko zdarzenie. Kazda zmiana
+ustawien encji/hotkeyow wysyla pelny re-declare albo restartuje sesje z pelnym
+declare, co pozwala HA v0.2 usunac znikniete encje. UI i docs/LINK.md opisuja
+oba transporty oraz parity.
+Weryfikacja: `cargo check`, `cargo test` (4/4, w tym niezmienione wektory
+Pythona), `npx tsc --noEmit` i `cargo tree` bez ring/openssl/rustls. Bez zywego
+HA, builda, push i merge.
+Dotkniete pliki: discovery/transport/actions/hotkeys Rust, dwa opisy UI,
+docs/LINK.md i AGENT-LOG.md.
+Nastepny krok: T22 regeneracja backupu HA, potem T23 statusy i raport.
+
+## [2026-07-19] Codex — T23 finalizacja fali 5
+Zrobione: backup HA po integracji Link v0.2 przeszedl selftest (2394 pliki,
+19 988 480 B), a DryRun deployu objal event.py, text.py i deskmate_tools.py.
+Centralny STATUS zawiera decyzje, znalezione problemy w strefie Claude'a i
+checkliste E2E dla text, hotkey trigger, prune oraz narzedzi Jarvisa. IN
+PROGRESS wyczyszczone.
+Dotkniete pliki w tym repo: AGENT-LOG.md.
+Nastepny krok: Jakub wykonuje E2E; push/merge dopiero po jego jawnym "tak".
+
+## [2026-07-19] Codex — T32 sensory sprzetowe
+Zrobione: dodano lekkie sensory GPU/VRAM/dyskow/temperatur przez natywne
+PDH, DXGI, WMI i istniejace sysinfo. Definicje sa dynamiczne: brak poprawnego
+odczytu oznacza brak deklaracji; wykryte sensory trafiaja rownolegle do MQTT
+discovery i Link declare, a znikniecie sensora usuwa retained discovery.
+Weryfikacja: cargo check, cargo test (6/6), tsc oraz cargo tree bez
+ring/openssl/rustls. Bez uruchamiania aplikacji, HA, push i merge.
+Dotkniete pliki: hardware/sensors/discovery/transport i petle transportow,
+stan aplikacji, feature flags Windows, STATUS.md i AGENT-LOG.md.
+Nastepny krok: T34 Link Files v1; wpis IN PROGRESS pozostaje aktywny.
+
+## [2026-07-19] Codex — T34 Link Files v1
+Zrobione: dodano read-only fs/fs_res z pusta domyslna allowlista, UI rootow,
+canonicalize i ochrona przed traversal/UNC/ADS/reparse point. Read ma limity
+256 KiB/chunk, 16 MiB/file i 4 MiB/s; kazda proba trafia do security.log bez
+tresci pliku. Testy jednostkowe obejmuja .., UNC/device paths, ADS, sciezke
+drive-relative, case-insensitive containment i pusty default.
+Weryfikacja: cargo check, cargo test (13/13), tsc i cargo tree bez
+ring/openssl/rustls. Bez zywego Link/HA, push i merge.
+Dotkniete pliki: link_files.rs, handler Link, config/save, security audit,
+Settings/types, docs/LINK.md, STATUS.md i AGENT-LOG.md.
+Nastepny krok: T35 finalny tar i raport fali 7.
+
+## [2026-07-19] Codex — T35 finalizacja fali 7
+Zrobione: finalny backup HomeAssistant po commicie Claude'a z piecioma
+panelami glass przeszedl selftest (2396 plikow, 20 008 960 B), kontrole
+sekretow, czterech zasobow Lovelace i porownanie hashy plikow buildow, motywu
+oraz card-mod. STATUS obu repo zawiera decyzje, ograniczenia i manualna
+checkliste sensorow oraz Files. Zweryfikowano szkic delegowanego zadania
+`[TANI]`; nie przyjeto od niego zmian w repo.
+Dotkniete pliki w tym repo: STATUS.md, AGENT-LOG.md.
+Nastepny krok: Jakub wykonuje E2E na sprzecie i HAOS; dashboard Komputery
+wymaga zmiany Claude'a, a pelny Files E2E serwerowej czesci T36. Bez push,
+merge i deployu.
+
+## [2026-07-20] Codex — T41 release-prep Deskmate 0.4.0
+Zrobione: podniesiono wersje npm/Cargo/Tauri do 0.4.0, dodano CHANGELOG i
+gotowe release notes dla Link, text/hotkeyow, sensorow sprzetowych i read-only
+Files v1. Cargo check, 13/13 testow, tsc, JSON oraz cargo tree bez
+ring/openssl/rustls przeszly. Zbudowano i sprawdzono NSIS x64+ARM64, wersje
+plikow, hashe kopii, ZIP i jego listing. EXE/ZIP pozostaja lokalne;
+SHA256SUMS.txt jest zaktualizowany.
+Dotkniete pliki: metadane wersji, Cargo.lock, README.md, CHANGELOG.md,
+docs/RELEASE-0.4.0.md, STATUS.md, AGENT-LOG.md, dist-installers/SHA256SUMS.txt.
+Nastepny krok: manualny upgrade/E2E na x64 i ARM64. Merge, tag, release i push
+wylacznie po osobnym `tak` Kuby; niczego nie opublikowano.

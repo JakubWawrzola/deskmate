@@ -1,9 +1,10 @@
 //! MQTT client: connection, LWT, discovery after ConnAck, command and notify
 //! routing, sensor loop. Restarted via a watch channel (config change in the UI).
 
-use rumqttc::{AsyncClient, Event, LastWill, MqttOptions, Packet, QoS, TlsConfiguration, Transport};
+use rumqttc::{
+    AsyncClient, Event, LastWill, MqttOptions, Packet, QoS, TlsConfiguration, Transport,
+};
 use std::collections::HashMap;
-use std::sync::atomic::Ordering;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::sync::watch;
@@ -19,6 +20,7 @@ pub async fn restart(app: AppHandle) {
     if let Some(tx) = state.stop_tx.lock().await.take() {
         let _ = tx.send(true);
     }
+    *state.link_tx.lock().await = None;
     {
         let mut cl = state.client.lock().await;
         if let Some(c) = cl.take() {
@@ -62,11 +64,18 @@ pub async fn restart(app: AppHandle) {
             let ca = match std::fs::read(cfg.mqtt_ca_path.trim()) {
                 Ok(ca) => ca,
                 Err(e) => {
-                    set_status(&app, false, &format!("Cannot read MQTT CA certificate: {e}"));
+                    set_status(
+                        &app,
+                        false,
+                        &format!("Cannot read MQTT CA certificate: {e}"),
+                    );
                     return;
                 }
             };
-            TlsConfiguration::SimpleNative { ca, client_auth: None }
+            TlsConfiguration::SimpleNative {
+                ca,
+                client_auth: None,
+            }
         };
         Some(Transport::tls_with_config(tls))
     } else {
@@ -155,16 +164,19 @@ pub async fn restart(app: AppHandle) {
                 let secs = cfg.publish_interval_secs.clamp(2, 3600);
 
                 // collection may block (WinAPI/SMTC) - keep it off the executor
-                let mut coll = collector.take().unwrap_or_else(crate::sensors::Collector::new);
-                let (coll_back, values) = tokio::task::spawn_blocking(move || {
-                    let v = coll.collect(&cfg, mqtt_connected);
-                    (coll, v)
+                let mut coll = collector
+                    .take()
+                    .unwrap_or_else(crate::sensors::Collector::new);
+                let (coll_back, values, hardware_defs) = tokio::task::spawn_blocking(move || {
+                    let (values, hardware_defs) = coll.collect(&cfg, mqtt_connected);
+                    (coll, values, hardware_defs)
                 })
                 .await
-                .unwrap_or_else(|_| (crate::sensors::Collector::new(), HashMap::new()));
+                .unwrap_or_else(|_| (crate::sensors::Collector::new(), HashMap::new(), Vec::new()));
                 collector = Some(coll_back);
 
-                publish_states(&app_sn, &values).await;
+                crate::transport::update_hardware_defs(&app_sn, hardware_defs).await;
+                crate::transport::publish_states(&app_sn, &values).await;
                 secs
             };
             tokio::select! {
@@ -190,12 +202,16 @@ async fn on_connected(app: &AppHandle, node: &str) {
         )
         .await;
 
-    for (topic, payload) in crate::discovery::build_all(&cfg) {
+    let hardware_defs = state.hardware_sensor_defs.lock().await.clone();
+    for (topic, payload) in crate::discovery::build_all(&cfg, &hardware_defs) {
         let _ = client.publish(topic, QoS::AtLeastOnce, true, payload).await;
     }
 
     let _ = client
-        .subscribe(format!("{}/cmd/+", consts::base_topic(node)), QoS::AtLeastOnce)
+        .subscribe(
+            format!("{}/cmd/+", consts::base_topic(node)),
+            QoS::AtLeastOnce,
+        )
         .await;
     let _ = client
         .subscribe(consts::notify_topic(node), QoS::AtLeastOnce)
@@ -205,8 +221,8 @@ async fn on_connected(app: &AppHandle, node: &str) {
     log::info!("MQTT connected, discovery published");
 }
 
-/// Publishes sensor states + cache + emits an event to the UI.
-pub async fn publish_states(app: &AppHandle, values: &HashMap<String, String>) {
+/// Publishes sensor states over MQTT. Cache/UI updates are transport-independent.
+pub async fn publish_states_network(app: &AppHandle, values: &HashMap<String, String>) -> usize {
     let state = app.state::<AppState>();
     let cfg = state.config.lock().await.clone();
     let client = { state.client.lock().await.clone() };
@@ -221,17 +237,9 @@ pub async fn publish_states(app: &AppHandle, values: &HashMap<String, String>) {
                 )
                 .await;
         }
-        state
-            .published_count
-            .fetch_add(values.len() as u64, Ordering::Relaxed);
+        return values.len();
     }
-    {
-        let mut cache = state.sensor_values.lock().await;
-        for (k, v) in values {
-            cache.insert(k.clone(), v.clone());
-        }
-    }
-    let _ = app.emit("deskmate://sensors", values.clone());
+    0
 }
 
 /// Handles incoming messages (commands + notify).
@@ -240,163 +248,37 @@ fn route_incoming(app: AppHandle, node: String, topic: String, payload: String, 
         let base = consts::base_topic(&node);
         // Commands and notifications are events, never desired state. Accepting a
         // retained message here would replay it after every reconnect/startup.
-        if retained && (topic == consts::notify_topic(&node) || topic.starts_with(&format!("{base}/cmd/"))) {
+        if retained
+            && (topic == consts::notify_topic(&node) || topic.starts_with(&format!("{base}/cmd/")))
+        {
             log::warn!("retained MQTT event ignored: {topic}");
             return;
         }
         if topic == consts::notify_topic(&node) {
-            handle_notify(&app, &payload).await;
+            crate::transport::handle_notify(&app, &payload).await;
             return;
         }
-        let Some(key) = topic.strip_prefix(&format!("{base}/cmd/")).map(|s| s.to_string()) else {
+        let Some(key) = topic
+            .strip_prefix(&format!("{base}/cmd/"))
+            .map(|s| s.to_string())
+        else {
             return;
         };
-        log::info!("command from HA: {key}");
-        let state = app.state::<AppState>();
-        let cfg = state.config.lock().await.clone();
-
-        // --- keyboard / interactions (text entry, presentation, URL): opt-in via allow_input ---
-        let is_input = key == "type_text" || key == "open_url" || key.starts_with("present_");
-        if is_input && !cfg.allow_input {
-            log::warn!("input command '{key}' ignored (allow_input off)");
-            return;
-        }
-
-        // --- keep awake: switch ON/OFF -> dedicated thread + retained state ---
-        if key == "keep_awake" {
-            let on = payload.trim().eq_ignore_ascii_case("ON");
-            let _ = state.keep_awake_tx.send(on);
-            let client = { state.client.lock().await.clone() };
-            if let Some(client) = client {
-                let _ = client
-                    .publish(
-                        consts::state_topic(&cfg.node_id, "keep_awake"),
-                        QoS::AtLeastOnce,
-                        true,
-                        if on { "ON" } else { "OFF" },
-                    )
-                    .await;
-            }
-            return;
-        }
-
-        // --- TTS: opt-in via tts_enabled ---
-        if key == "tts_say" {
-            if cfg.tts_enabled {
-                let text: String = payload.chars().take(1_000).collect();
-                // Drop excess messages rather than letting an untrusted publisher
-                // block the MQTT task or grow an unbounded speech queue.
-                let _ = state.tts_tx.try_send(text);
-            }
-            return;
-        }
-
-        // --- clipboard: set from HA (when the clipboard bridge is enabled) ---
-        if key == "clipboard_set" {
-            if cfg.clipboard_write_mode != "off" {
-                const MAX_CLIPBOARD_BYTES: usize = 64 * 1024;
-                if payload.len() > MAX_CLIPBOARD_BYTES {
-                    log::warn!("clipboard command ignored: payload exceeds {MAX_CLIPBOARD_BYTES} bytes");
-                    crate::security::audit("clipboard_write", "blocked_size");
-                    return;
-                }
-                if crate::sensors::session_locked() {
-                    crate::security::audit("clipboard_write", "blocked_locked");
-                    return;
-                }
-                if !crate::clipboard::claim_write_slot() {
-                    crate::security::audit("clipboard_write", "blocked_cooldown");
-                    return;
-                }
-                if cfg.clipboard_write_mode == "confirm" {
-                    let preview = crate::security::safe_preview(&payload, 160);
-                    let approved = tokio::task::spawn_blocking(move || {
-                        crate::security::confirm(
-                            "Deskmate clipboard write",
-                            &format!(
-                                "Home Assistant wants to replace the clipboard with:\n\n{preview}\n\nAllow once?"
-                            ),
-                        )
-                    })
-                    .await
-                    .unwrap_or(false);
-                    crate::security::audit(
-                        "clipboard_write_confirmation",
-                        if approved { "approved" } else { "denied" },
-                    );
-                    if !approved {
-                        return;
-                    }
-                } else if cfg.clipboard_write_mode != "automatic" {
-                    return;
-                }
-                let p = payload.clone();
-                match tokio::task::spawn_blocking(move || crate::clipboard::set_text(&p)).await {
-                    Ok(Ok(())) => crate::security::audit("clipboard_write", "completed"),
-                    _ => crate::security::audit("clipboard_write", "failed"),
-                }
-            }
-            return;
-        }
-
-        if key == "open_url" {
-            let cfg2 = cfg.clone();
-            let url = payload.clone();
-            let result = tokio::task::spawn_blocking(move || {
-                crate::sys_commands::open_allowed_url(&cfg2, &url)
-            })
-            .await
-            .unwrap_or_else(|e| Err(e.to_string()));
-            crate::security::audit(
-                "open_url",
-                if result.is_ok() { "allowed" } else { "blocked" },
-            );
-            if let Err(e) = result {
-                log::warn!("command failed: {e}");
-            }
-            return;
-        }
-
-        // --- custom control (button/switch/number): value -> $env:DESKMATE_VALUE ---
-        if let Some(id) = key.strip_prefix("custom_").map(|s| s.to_string()) {
-            let cfg2 = cfg.clone();
-            let val = payload.clone();
-            let r = tokio::task::spawn_blocking(move || {
-                crate::sys_commands::run_custom(&cfg2, &id, &val)
-            })
-            .await
-            .unwrap_or_else(|e| Err(e.to_string()));
-            if let Err(e) = r {
-                log::warn!("custom command failed: {e}");
-            }
-            return;
-        }
-
-        // --- builtin (lock/media/volume/type_text/present_* after the gate) ---
-        let key2 = key.clone();
-        let pl = payload.clone();
-        let result = tokio::task::spawn_blocking(move || crate::sys_commands::run_builtin(&key2, &pl))
-            .await
-            .unwrap_or_else(|e| Err(e.to_string()));
-        if let Err(e) = result {
-            log::warn!("command failed: {e}");
-        }
-        if key == "volume" {
-            if let Some(v) = tokio::task::spawn_blocking(crate::sys_commands::get_volume)
-                .await
-                .ok()
-                .flatten()
-            {
-                let mut m = HashMap::new();
-                m.insert("volume".to_string(), v.to_string());
-                publish_states(&app, &m).await;
-            }
+        if let Err(error) = crate::transport::handle_command(
+            &app,
+            &key,
+            "set",
+            Some(&serde_json::Value::String(payload)),
+        )
+        .await
+        {
+            log::warn!("command failed: {error}");
         }
     });
 }
 
 /// Publishes the action clicked in the toast to `notify/action` (an HA automation picks it up).
-pub async fn publish_action(app: &AppHandle, action: &str) {
+pub async fn publish_action_network(app: &AppHandle, action: &str) {
     let state = app.state::<AppState>();
     let cfg = state.config.lock().await.clone();
     let client = { state.client.lock().await.clone() };
@@ -412,14 +294,18 @@ pub async fn publish_action(app: &AppHandle, action: &str) {
     }
 }
 
-async fn handle_notify(app: &AppHandle, payload: &str) {
+pub(crate) async fn legacy_handle_notify(app: &AppHandle, payload: &str) {
     {
         const WINDOW: Duration = Duration::from_secs(60);
         const LIMIT: usize = 10;
         let state = app.state::<AppState>();
         let mut times = state.notification_times.lock().await;
         let now = std::time::Instant::now();
-        while times.front().map(|t| now.duration_since(*t) > WINDOW).unwrap_or(false) {
+        while times
+            .front()
+            .map(|t| now.duration_since(*t) > WINDOW)
+            .unwrap_or(false)
+        {
             times.pop_front();
         }
         if times.len() >= LIMIT {

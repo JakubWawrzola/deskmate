@@ -7,14 +7,18 @@ mod config;
 mod consts;
 mod discovery;
 mod ha_api;
+mod hardware;
 mod hotkeys;
+mod link;
+mod link_files;
 mod media;
 mod mqtt;
 mod notify;
-mod sensors;
 mod security;
+mod sensors;
 mod state;
 mod sys_commands;
+mod transport;
 mod tts;
 
 use std::collections::HashMap;
@@ -30,6 +34,7 @@ use state::AppState;
 struct ConfigView {
     config: AppConfig,
     has_password: bool,
+    has_link_key: bool,
 }
 
 #[derive(serde::Serialize)]
@@ -38,7 +43,7 @@ struct Snapshot {
     sensor_values: HashMap<String, String>,
     published_count: u64,
     notifications: Vec<notify::NotifyRecord>,
-    sensor_defs: Vec<sensors::SensorDef>,
+    sensor_defs: Vec<sensors::OwnedSensorDef>,
     command_defs: Vec<sys_commands::CommandDef>,
     hostname: String,
     /// whether the HA API channel (URL + token) is configured
@@ -49,7 +54,12 @@ struct Snapshot {
 async fn get_config(state: State<'_, AppState>) -> Result<ConfigView, String> {
     let cfg = state.config.lock().await.clone();
     let has_password = config::get_password(&cfg).is_some();
-    Ok(ConfigView { config: cfg, has_password })
+    let has_link_key = config::get_link_key(&cfg.node_id).is_some();
+    Ok(ConfigView {
+        config: cfg,
+        has_password,
+        has_link_key,
+    })
 }
 
 #[tauri::command]
@@ -58,22 +68,39 @@ async fn save_config(
     state: State<'_, AppState>,
     mut new_config: AppConfig,
     password: Option<String>,
+    link_key: Option<String>,
 ) -> Result<(), String> {
     new_config.node_id = config::sanitize_id(if new_config.node_id.is_empty() {
         &new_config.device_name
     } else {
         &new_config.node_id
     });
-    new_config.configured = !new_config.broker_host.is_empty();
+    if !matches!(new_config.transport.as_str(), "mqtt" | "link") {
+        return Err("transport must be mqtt or link".into());
+    }
+    new_config.link_url = link::normalize_url(&new_config.link_url)?;
+    new_config.link_url_remote = link::normalize_url(&new_config.link_url_remote)?;
+    new_config.link_file_roots = link_files::normalize_roots(&new_config.link_file_roots)?;
+    new_config.configured = if new_config.transport == "link" {
+        !new_config.link_url.is_empty()
+    } else {
+        !new_config.broker_host.is_empty()
+    };
     if !matches!(new_config.mqtt_transport.as_str(), "tls" | "insecure") {
         return Err("MQTT transport must be tls or insecure".into());
     }
     if new_config.mqtt_transport == "insecure" && !new_config.broker_host_remote.trim().is_empty() {
-        return Err("MQTT fallback address requires TLS; plaintext MQTT is trusted-LAN only".into());
+        return Err(
+            "MQTT fallback address requires TLS; plaintext MQTT is trusted-LAN only".into(),
+        );
     }
-    if !matches!(new_config.clipboard_read_mode.as_str(), "off" | "confirm" | "automatic")
-        || !matches!(new_config.clipboard_write_mode.as_str(), "off" | "confirm" | "automatic")
-    {
+    if !matches!(
+        new_config.clipboard_read_mode.as_str(),
+        "off" | "confirm" | "automatic"
+    ) || !matches!(
+        new_config.clipboard_write_mode.as_str(),
+        "off" | "confirm" | "automatic"
+    ) {
         return Err("clipboard mode must be off, confirm or automatic".into());
     }
     if new_config.broker_port == 0 {
@@ -83,11 +110,20 @@ async fn save_config(
     let mut custom_ids = std::collections::HashSet::new();
     for command in &mut new_config.custom_commands {
         let normalized_id = config::sanitize_id(&command.id);
-        if normalized_id != command.id || command.id.is_empty() || !custom_ids.insert(command.id.clone()) {
-            return Err(format!("invalid or duplicate custom command id: {}", command.id));
+        if normalized_id != command.id
+            || command.id.is_empty()
+            || !custom_ids.insert(command.id.clone())
+        {
+            return Err(format!(
+                "invalid or duplicate custom command id: {}",
+                command.id
+            ));
         }
         command.name = command.name.trim().chars().take(120).collect();
-        if command.name.is_empty() || command.command.trim().is_empty() || command.command.len() > 8192 {
+        if command.name.is_empty()
+            || command.command.trim().is_empty()
+            || command.command.len() > 8192
+        {
             return Err(format!("invalid custom command: {}", command.id));
         }
         if !matches!(command.kind.as_str(), "button" | "switch" | "number")
@@ -109,34 +145,46 @@ async fn save_config(
         }
     }
     new_config.allowed_url_origins = origins;
+    let old = state.config.lock().await.clone();
+    let keeps_existing_link_key =
+        old.node_id == new_config.node_id && config::get_link_key(&new_config.node_id).is_some();
+    if new_config.transport == "link" && link_key.is_none() && !keeps_existing_link_key {
+        return Err("Deskmate Link pairing key is required".into());
+    }
     // clean up an orphaned Credential Manager entry when user/host changes
-    {
-        let old = state.config.lock().await.clone();
-        if old.username != new_config.username || old.broker_host != new_config.broker_host {
-            config::delete_password_for(&old.username, &old.broker_host);
-        }
+    if old.username != new_config.username || old.broker_host != new_config.broker_host {
+        config::delete_password_for(&old.username, &old.broker_host);
+    }
+    if old.node_id != new_config.node_id {
+        config::delete_link_key_for(&old.node_id);
     }
     if let Some(pw) = password {
         config::set_password(&new_config, &pw)?;
+    }
+    if let Some(key) = link_key {
+        link::validate_pairing_key(&key)?;
+        config::set_link_key(&new_config.node_id, key.trim())?;
     }
     let branding = new_config.toast_branding;
     config::save(&new_config)?;
     *state.config.lock().await = new_config;
     // branding in the background (Start Menu shortcut) + restart the connection with the new config
     std::thread::spawn(move || notify::apply_branding(branding));
-    tauri::async_runtime::spawn(mqtt::restart(app));
+    tauri::async_runtime::spawn(transport::restart(app));
     Ok(())
 }
 
 #[tauri::command]
 async fn get_snapshot(state: State<'_, AppState>) -> Result<Snapshot, String> {
     let cfg = state.config.lock().await.clone();
+    let mut sensor_defs = sensors::static_defs();
+    sensor_defs.extend(state.hardware_sensor_defs.lock().await.clone());
     Ok(Snapshot {
         status: state.status.lock().await.clone(),
         sensor_values: state.sensor_values.lock().await.clone(),
         published_count: state.published_count.load(Ordering::Relaxed),
         notifications: state.notif_history.lock().await.iter().cloned().collect(),
-        sensor_defs: sensors::SENSOR_DEFS.to_vec(),
+        sensor_defs,
         command_defs: sys_commands::COMMAND_DEFS.to_vec(),
         hostname: config::hostname(),
         ha_configured: ha_api::is_configured(&cfg),
@@ -210,20 +258,31 @@ async fn update_hotkeys(
         let old_ids: Vec<String> = cfg.hotkeys.iter().map(|h| h.id.clone()).collect();
         cfg.hotkeys = clean;
         let new_ids: Vec<String> = cfg.hotkeys.iter().map(|h| h.id.clone()).collect();
-        let removed: Vec<String> = old_ids.into_iter().filter(|i| !new_ids.contains(i)).collect();
+        let removed: Vec<String> = old_ids
+            .into_iter()
+            .filter(|i| !new_ids.contains(i))
+            .collect();
         (cfg.clone(), removed)
     };
     config::save(&cfg)?;
     let errors = hotkeys::register_all(&app).await;
     // discovery: new/changed triggers + clean up removed ones
+    if cfg.transport == "link" {
+        transport::refresh_entities(&app).await;
+    }
     let client = state.client.lock().await.clone();
     if let Some(client) = client {
-        for (topic, payload) in discovery::build_all(&cfg) {
-            let _ = client.publish(topic, rumqttc::QoS::AtLeastOnce, true, payload).await;
+        let hardware_defs = state.hardware_sensor_defs.lock().await.clone();
+        for (topic, payload) in discovery::build_all(&cfg, &hardware_defs) {
+            let _ = client
+                .publish(topic, rumqttc::QoS::AtLeastOnce, true, payload)
+                .await;
         }
         for id in removed {
             let (topic, payload) = discovery::remove_hotkey(&cfg.node_id, &id);
-            let _ = client.publish(topic, rumqttc::QoS::AtLeastOnce, true, payload).await;
+            let _ = client
+                .publish(topic, rumqttc::QoS::AtLeastOnce, true, payload)
+                .await;
         }
     }
     Ok(errors)
@@ -264,12 +323,27 @@ async fn widget_states(state: State<'_, AppState>) -> Result<Vec<WidgetState>, S
         return Err("HA API not configured".into());
     }
     let items = cfg.widgets.clone();
-    let ids: Vec<String> = items.iter().map(|w| w.entity_id.trim().to_string()).collect();
+    let ids: Vec<String> = items
+        .iter()
+        .map(|w| w.entity_id.trim().to_string())
+        .collect();
     let cfg2 = cfg.clone();
     let states = tokio::task::spawn_blocking(move || ha_api::get_states_for(&cfg2, &ids))
         .await
         .map_err(|e| e.to_string())?;
-    const TOGGLABLE: &[&str] = &["light", "switch", "fan", "input_boolean", "media_player", "cover", "script", "scene", "automation", "humidifier", "siren"];
+    const TOGGLABLE: &[&str] = &[
+        "light",
+        "switch",
+        "fan",
+        "input_boolean",
+        "media_player",
+        "cover",
+        "script",
+        "scene",
+        "automation",
+        "humidifier",
+        "siren",
+    ];
     let out = items
         .iter()
         .map(|w| {
@@ -283,8 +357,14 @@ async fn widget_states(state: State<'_, AppState>) -> Result<Vec<WidgetState>, S
             let domain = id.split('.').next().unwrap_or("");
             WidgetState {
                 entity_id: id.to_string(),
-                label: if w.label.trim().is_empty() { friendly } else { w.label.clone() },
-                state: found.map(|s| s.state.clone()).unwrap_or_else(|| "unavailable".into()),
+                label: if w.label.trim().is_empty() {
+                    friendly
+                } else {
+                    w.label.clone()
+                },
+                state: found
+                    .map(|s| s.state.clone())
+                    .unwrap_or_else(|| "unavailable".into()),
                 togglable: TOGGLABLE.contains(&domain),
             }
         })
@@ -299,7 +379,13 @@ async fn widget_toggle(state: State<'_, AppState>, entity_id: String) -> Result<
     tokio::task::spawn_blocking(move || {
         let domain = entity_id.split('.').next().unwrap_or("");
         match domain {
-            "scene" | "script" => ha_api::call_service(&cfg, domain, "turn_on", Some(&entity_id), &serde_json::json!({})),
+            "scene" | "script" => ha_api::call_service(
+                &cfg,
+                domain,
+                "turn_on",
+                Some(&entity_id),
+                &serde_json::json!({}),
+            ),
             _ => ha_api::toggle(&cfg, &entity_id),
         }
     })
@@ -380,15 +466,7 @@ async fn set_sensor_enabled(
     };
     config::save(&cfg)?;
     // republish discovery (add/remove entity in HA) without a full restart
-    let client = state.client.lock().await.clone();
-    if let Some(client) = client {
-        for (topic, payload) in discovery::build_all(&cfg) {
-            let _ = client
-                .publish(topic, rumqttc::QoS::AtLeastOnce, true, payload)
-                .await;
-        }
-    }
-    let _ = app;
+    transport::refresh_entities(&app).await;
     Ok(())
 }
 
@@ -397,6 +475,7 @@ async fn set_sensor_enabled(
 /// toast_branding: save + rebuild branding in the background.
 #[tauri::command]
 async fn set_feature_flag(
+    app: AppHandle,
     state: State<'_, AppState>,
     flag: String,
     enabled: bool,
@@ -416,20 +495,14 @@ async fn set_feature_flag(
         std::thread::spawn(move || notify::apply_branding(enabled));
     } else {
         // republish discovery without a restart (text TTS/type_text + presentation entities)
-        let client = state.client.lock().await.clone();
-        if let Some(client) = client {
-            for (topic, payload) in discovery::build_all(&cfg) {
-                let _ = client
-                    .publish(topic, rumqttc::QoS::AtLeastOnce, true, payload)
-                    .await;
-            }
-        }
+        transport::refresh_entities(&app).await;
     }
     Ok(())
 }
 
 #[tauri::command]
 async fn add_custom_command(
+    app: AppHandle,
     state: State<'_, AppState>,
     id: String,
     name: String,
@@ -466,19 +539,13 @@ async fn add_custom_command(
         cfg.clone()
     };
     config::save(&cfg)?;
-    let client = state.client.lock().await.clone();
-    if let Some(client) = client {
-        for (topic, payload) in discovery::build_all(&cfg) {
-            let _ = client
-                .publish(topic, rumqttc::QoS::AtLeastOnce, true, payload)
-                .await;
-        }
-    }
+    transport::refresh_entities(&app).await;
     Ok(())
 }
 
 #[tauri::command]
 async fn update_custom_command_security(
+    app: AppHandle,
     state: State<'_, AppState>,
     id: String,
     enabled: bool,
@@ -496,19 +563,16 @@ async fn update_custom_command_security(
         cfg.clone()
     };
     config::save(&cfg)?;
-    let client = state.client.lock().await.clone();
-    if let Some(client) = client {
-        for (topic, payload) in discovery::build_all(&cfg) {
-            let _ = client
-                .publish(topic, rumqttc::QoS::AtLeastOnce, true, payload)
-                .await;
-        }
-    }
+    transport::refresh_entities(&app).await;
     Ok(())
 }
 
 #[tauri::command]
-async fn remove_custom_command(state: State<'_, AppState>, id: String) -> Result<(), String> {
+async fn remove_custom_command(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<(), String> {
     let cfg = {
         let mut cfg = state.config.lock().await;
         cfg.custom_commands.retain(|c| c.id != id);
@@ -523,12 +587,15 @@ async fn remove_custom_command(state: State<'_, AppState>, id: String) -> Result
                 .await;
         }
     }
+    if cfg.transport == "link" {
+        transport::refresh_entities(&app).await;
+    }
     Ok(())
 }
 
 #[tauri::command]
 async fn restart_connection(app: AppHandle) -> Result<(), String> {
-    tauri::async_runtime::spawn(mqtt::restart(app));
+    tauri::async_runtime::spawn(transport::restart(app));
     Ok(())
 }
 
@@ -541,8 +608,14 @@ fn test_toast(state: State<'_, AppState>) -> Result<(), String> {
             message: "Notifications work. Try the buttons below.".into(),
             image: None,
             actions: vec![
-                notify::NotifyAction { title: "OK".into(), action: "test_ok".into() },
-                notify::NotifyAction { title: "Snooze".into(), action: "test_snooze".into() },
+                notify::NotifyAction {
+                    title: "OK".into(),
+                    action: "test_ok".into(),
+                },
+                notify::NotifyAction {
+                    title: "Snooze".into(),
+                    action: "test_snooze".into(),
+                },
             ],
         },
         Some(state.action_tx.clone()),
@@ -621,7 +694,7 @@ pub fn run() {
                 if let Some(mut rx) = rx {
                     tauri::async_runtime::spawn(async move {
                         while let Some(action) = rx.recv().await {
-                            mqtt::publish_action(&handle, &action).await;
+                            transport::publish_action(&handle, &action).await;
                         }
                     });
                 }
@@ -656,7 +729,10 @@ pub fn run() {
                                     let spec = {
                                         let st = app.state::<AppState>();
                                         let cfg = st.config.lock().await;
-                                        cfg.tray_actions.iter().find(|t| t.id == qa_id).map(|t| t.action.clone())
+                                        cfg.tray_actions
+                                            .iter()
+                                            .find(|t| t.id == qa_id)
+                                            .map(|t| t.action.clone())
                                     };
                                     if let Some(spec) = spec {
                                         actions::execute(&app, &spec, &qa_id).await;
@@ -684,9 +760,9 @@ pub fn run() {
                 }
             }
 
-            // start MQTT if configured
+            // start the selected transport if configured
             let handle = app.handle().clone();
-            tauri::async_runtime::spawn(mqtt::restart(handle));
+            tauri::async_runtime::spawn(transport::restart(handle));
             Ok(())
         })
         .on_window_event(|window, event| {

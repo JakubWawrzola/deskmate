@@ -1,5 +1,26 @@
 # STATUS — Deskmate
-Aktualizacja: 2026-07-15 (wydanie security hardening 0.3.1)
+Aktualizacja: 2026-07-19 (Deskmate Link, fala odbudowy HAOS 4)
+
+## Sesja 2026-07-19 — Deskmate Link
+
+- [x] Worktree wyrownany przez wymagane `git fetch` i
+  `git reset --hard origin/main`, nastepnie branch `feature/deskmate-link`.
+- [x] Rownolegly transport `mqtt|link`; stara konfiguracja i default pozostaja
+  MQTT. Klucz Link jest tylko w Windows Credential Manager.
+- [x] Hello/welcome HMAC, kontrola skew, HKDF, AES-256-GCM, rosnacy licznik,
+  reconnect 2/3/5 s i rotacja local/remote zgodne z `DESKMATE-LINK.md`.
+- [x] Link obsluguje `declare`, partial `state`, `cmd`/`ack`, `notify`,
+  `notify_action`, `ping`/`pong` przez wspolne rejestry i handlery MQTT.
+- [x] UI Settings i pierwszy kreator maja wybor transportu, URL, fallback i
+  klucz. README oraz `docs/LINK.md` opisuja konfiguracje i ograniczenia.
+- [x] Publiczny fixture zostal wygenerowany pythonowym `FrameCodec` z repo HA;
+  test Rust potwierdza HMAC/HKDF, deszyfrowanie i blokade replayu.
+- [x] Finalne `cargo check`, `cargo test` (2/2), `npx tsc --noEmit` i
+  `cargo tree` przeszly. Drzewo nie zawiera ring/openssl/rustls.
+- Commit: `5c3c706`. Bez builda, zywego HA, push i merge.
+- Do manualnego E2E: parowanie, encje, komendy, toast/action, reconnect/fallback,
+  kontrolowany replay i powrot do MQTT; pelna checklista jest w STATUS.md repo
+  HomeAssistant, T20.
 
 ## Sesja 2026-07-15 — release 0.3.1 i installery
 
@@ -71,9 +92,9 @@ kontekst dla kolejnego agenta.
 
 ## Nastepny krok (DOKLADNY)
 Czeka na Kube:
-- przetestowac lokalnie installery 0.3.1 wedlug checklisty ponizej
-- po testach wrzucic artefakty z `dist-installers/` do GitHub Release 0.3.1;
-  opis jest gotowy w `docs/RELEASE-0.3.1.md`
+- przetestowac lokalnie installery 0.4.0 x64 i ARM64 wedlug checklisty T41
+- po zaliczonym E2E osobno zdecydowac o merge i publikacji; opis jest gotowy
+  w `docs/RELEASE-0.4.0.md`, ale bez jawnego `tak` nic nie publikowac
 - dograe screenshoty do docs/screenshots/{status,sensors,hotkeys,widgets,
   notifications,settings}.png (instrukcja dana w czacie i w HANDOFF.md)
 - powrot do buga z przyciskami toastu — WYLACZNIE na wyrazne polecenie
@@ -93,12 +114,12 @@ Czeka na Kube:
 
 ## Kanoniczne fakty
 - Worktree Claude: `C:\dev\web\deskmate` (`master`). Worktree Codex:
-  `C:\dev\web\deskmate-codex` (`codex/work`). Protokol: `AGENTS.md`.
+  `C:\dev\web\deskmate-codex` (`feature/deskmate-link`). Protokol: `AGENTS.md`.
 - Archiwum 0.2.3: `C:\dev\web\deskmate-0.2.3-archiwum` - NIE RUSZAC.
-- Wersja: 0.3.1 (security hardening po feedbacku z Reddita).
+- Wersja robocza: 0.4.0 release-prep; opublikowana wersja pozostaje 0.3.1.
 - Build: npx tauri build --target x86_64-pc-windows-msvc / aarch64-pc-windows-msvc
-- node_id laptopa Kuby: laptopwawrzola; broker LAN 192.168.18.9, TS 100.84.40.85
-- HA: http://192.168.18.9:8123 (LAN), http://100.84.40.85:8123 (Tailscale)
+- node_id laptopa Kuby: laptopwawrzola. Stare adresy brokera/HA wymagaja
+  zastapienia adresami zapisanymi po odbudowie sprzetu.
 
 ## DO PRZETESTOWANIA / DO ZROBIENIA (zalegle u Kuby)
 - Instalacja/upgrade 0.3.1 osobno na Windows x64 i ARM64.
@@ -110,3 +131,99 @@ Czeka na Kube:
 - Przyciski toastu - ODLOZONE, nie ruszac bez polecenia
 - Stream Deck plugin (brak sprzetu przy Kubie)
 - LilyGo kalibracja dotyku (Kuba poza domem, wczesniejsza sesja)
+
+## Fala 7 — T32 sensory sprzetowe
+
+Status: wykonane offline; E2E na rzeczywistym sprzecie pozostaje manualne
+
+- Dodano dynamiczne sensory GPU usage, VRAM used/total, wolnego miejsca i
+  uzycia per wolumen, lacznego odczytu/zapisu dyskow oraz temperatur CPU/GPU.
+- Zrodla sa lekkie i natywne: PDH (GPU), DXGI (calkowita pamiec GPU), WMI
+  (Libre/OpenHardwareMonitor jako istniejacy provider, bez procesu-agenta,
+  oraz fallback ACPI) i istniejace `sysinfo` dla wolumenow/transferow.
+- Encje sprzetowe sa deklarowane przez MQTT discovery i Link `declare` dopiero
+  po uzyskaniu prawidlowego odczytu. Znikniecie telemetrii usuwa retained
+  discovery MQTT; ponowny Link `declare` umozliwia prune po stronie HA.
+- Domyslnie sensory wykrytego sprzetu sa wlaczone i pojawiaja sie w istniejacej
+  stronie Sensors. Niedostepny odczyt nie dostaje wartosci zastepczej ani encji.
+- `cargo check`, `cargo test` (6/6), `npx tsc --noEmit` zakonczyly sie kodem 0.
+  `cargo tree` ma 860 linii i nie zawiera ring/openssl/rustls.
+- Nie uruchamiano aplikacji, MQTT, Link ani polaczenia z HA. Brak push i merge.
+
+## Fala 7 — T34 Link Files v1
+
+Status: wykonane offline; E2E przez integracje HA pozostaje manualne
+
+- Dodano obsluge zaszyfrowanych ramek `fs`/`fs_res` dla operacji read-only
+  `list`, `stat` i `read`. Protokol klienta nie ma operacji zapisu, zmiany
+  nazwy ani kasowania.
+- Nowe `link_file_roots` jest domyslnie pusta lista. Settings ma sekcje
+  `File access (Link)` z jawnym ostrzezeniem, dodawaniem i usuwaniem rootow.
+- Backend wymaga istniejacej absolutnej sciezki lokalnego dysku, canonicalize
+  i zgodnosci komponentow z allowlista. Odrzuca `.`/`..`, UNC/device paths,
+  ADS, symlinki i Windows reparse points; wpisy reparse sa pomijane w listingu.
+- `read` ma limit 256 KiB/chunk, 16 MiB/file i globalny gate 4 MiB/s.
+  Kazda operacja zapisuje op/path/wynik w rotowanym `security.log`, bez tresci.
+- `cargo check`, `cargo test` (13/13), `npx tsc --noEmit` przeszly; finalna
+  kontrola `cargo tree` nie zawiera ring/openssl/rustls.
+- Nie wykonywano dostepu do prawdziwych plikow przez Link, polaczen z HA,
+  uruchomienia aplikacji, push ani merge.
+
+## Fala 7 — T35 finalizacja
+
+Status: kod klienta wykonany offline; E2E pozostaje manualne
+
+- Commity tej fali w Deskmate: `3d709d9` (dynamiczne sensory sprzetowe) i
+  `e4c907d` (read-only Link Files v1). Finalny backup HomeAssistant przeszedl
+  selftest: 2396 plikow, 20 008 960 B, skan sekretow i hashe bez bledow.
+- Sensory sa gotowe dla MQTT discovery i Link declare, lecz karty nowych
+  encji na dashboardzie Komputery wymagaja zmiany w strefie Claude'a.
+- Klient Files jest gotowy, ale E2E z HA/Jarvis wymaga serwerowej czesci T36.
+  Do tego czasu nalezy testowac lokalne odmowy walidacji i security log.
+- Nie uruchamiano aplikacji ani rzeczywistego sprzetu, nie budowano
+  instalatora, nie wykonywano deployu, merge ani push.
+
+### DO PRZETESTOWANIA - Deskmate fala 7
+
+1. Na Windows x64 i ARM64 potwierdzic wykrywanie GPU/VRAM, dyskow, transferow
+   i dostepnych temperatur przez MQTT, a nastepnie Link; niedostepna metryka
+   nie moze utworzyc encji.
+2. Przy pustej allowliscie potwierdzic odmowe Files i wpis w `security.log`.
+   Po wdrozeniu T36 dodac katalog testowy i sprawdzic list/stat/read.
+3. Potwierdzic odmowe dla `..`, UNC/device, ADS, symlink/reparse point,
+   wyjscia poza root i pliku ponad 16 MiB; log nie moze zawierac tresci.
+
+## Fala 9 - T41 release-prep 0.4.0
+
+Status: wykonane offline; merge, publikacja i E2E wymagaja osobnej zgody/testu
+
+- Wersje package/npm, Cargo i Tauri podniesiono do 0.4.0. Dodano CHANGELOG,
+  release notes 0.4.0 i wskazanie nowego opisu w README.
+- `cargo check`, `cargo test` (13/13), `npx tsc --noEmit`, parsowanie JSON i
+  `cargo tree` (860 linii, bez ring/openssl/rustls) przeszly.
+- Zbudowano NSIS x64 (3 133 750 B) i ARM64 (2 728 037 B). Oba pliki maja
+  ProductVersion i FileVersion 0.4.0; hashe kopii w `dist-installers/` sa
+  identyczne z artefaktami Tauri.
+- `SHA256SUMS.txt` zawiera:
+  - x64: `29D85276A8E85216D099F4F46841E2014CF8797D452F80A0F2904C7D5E13494B`;
+  - ARM64: `EBAE8D45A0149734CE12F3D93B925DAD0E79D0882DC2075B9965519D7CF44A13`.
+- `Deskmate_0.4.0_installers.zip` ma 5 825 504 B i SHA-256
+  `6C22201B654585B2DB91B16E6095FE66630235FA3AE83C08546EE3DA0D669D02`;
+  listing zawiera dokladnie oba installery i `SHA256SUMS.txt`.
+- EXE i ZIP pozostaja lokalnymi, niesledzonymi artefaktami. Nie wykonano
+  instalacji, polaczenia z HA/MQTT/Link, merge, tagu, release ani push.
+
+### DO PRZETESTOWANIA - Deskmate 0.4.0
+
+1. Wykonac upgrade z 0.3.1 na 0.4.0 osobno instalatorem x64 i ARM64;
+   potwierdzic zachowanie konfiguracji i danych Windows Credential Manager.
+2. Potwierdzic, ze MQTT pozostaje transportem domyslnym i discovery nadal
+   deklaruje dotychczasowe encje.
+3. Sparowac Link i sprawdzic sensory, text, hotkeye/eventy oraz prune po
+   zmianie konfiguracji.
+4. Sprawdzic sensory GPU/VRAM/dysk/temperatury na realnym sprzecie; brak
+   wiarygodnego odczytu nie moze utworzyc encji.
+5. Przy pustej allowliscie Files oczekiwac odmowy. Po dodaniu katalogu
+   testowego sprawdzic list/stat/read oraz odmowy dla `..`, UNC, ADS i reparse.
+6. Dopiero po zaliczonym E2E Kuba moze osobno zgodzic sie na merge, tag,
+   publikacje GitHub Release i push.

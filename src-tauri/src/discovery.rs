@@ -5,7 +5,7 @@ use serde_json::{json, Value};
 
 use crate::config::AppConfig;
 use crate::consts;
-use crate::sensors::SENSOR_DEFS;
+use crate::sensors::{OwnedSensorDef, SENSOR_DEFS};
 use crate::sys_commands::{COMMAND_DEFS, PRESENT_DEFS};
 
 fn device_block(cfg: &AppConfig) -> Value {
@@ -33,7 +33,7 @@ fn cfg_topic(component: &str, node_id: &str, object_id: &str) -> String {
 
 /// Full set of discovery messages derived from the config.
 /// Disabled entities get an empty payload (removal from HA).
-pub fn build_all(cfg: &AppConfig) -> Vec<DiscoveryMsg> {
+pub fn build_all(cfg: &AppConfig, hardware_defs: &[OwnedSensorDef]) -> Vec<DiscoveryMsg> {
     let mut out = Vec::new();
     let node = &cfg.node_id;
     let avail = consts::availability_topic(node);
@@ -61,8 +61,12 @@ pub fn build_all(cfg: &AppConfig) -> Vec<DiscoveryMsg> {
                     "availability_topic": avail,
                     "device": device,
                 });
-                if let Some(i) = def.icon { p["icon"] = json!(i); }
-                if let Some(u) = def.unit { p["unit_of_measurement"] = json!(u); }
+                if let Some(i) = def.icon {
+                    p["icon"] = json!(i);
+                }
+                if let Some(u) = def.unit {
+                    p["unit_of_measurement"] = json!(u);
+                }
                 out.push((topic, p.to_string()));
             }
             comp => {
@@ -81,15 +85,49 @@ pub fn build_all(cfg: &AppConfig) -> Vec<DiscoveryMsg> {
                 if comp == "sensor" || comp == "binary_sensor" {
                     p["expire_after"] = json!(expire);
                 }
-                if let Some(u) = def.unit { p["unit_of_measurement"] = json!(u); }
-                if let Some(d) = def.device_class { p["device_class"] = json!(d); }
-                if let Some(i) = def.icon { p["icon"] = json!(i); }
+                if let Some(u) = def.unit {
+                    p["unit_of_measurement"] = json!(u);
+                }
+                if let Some(d) = def.device_class {
+                    p["device_class"] = json!(d);
+                }
+                if let Some(i) = def.icon {
+                    p["icon"] = json!(i);
+                }
                 if def.unit.is_some() && comp == "sensor" && def.device_class != Some("duration") {
                     p["state_class"] = json!("measurement");
                 }
                 out.push((topic, p.to_string()));
             }
         }
+    }
+
+    // Optional hardware sensors are included only after a successful local probe.
+    for def in hardware_defs {
+        let topic = cfg_topic("sensor", node, &def.id);
+        if !crate::sensors::is_hardware_enabled(cfg, &def.id) {
+            out.push((topic, String::new()));
+            continue;
+        }
+        let mut payload = json!({
+            "name": def.name,
+            "unique_id": format!("deskmate_{}_{}", node, def.id),
+            "state_topic": consts::state_topic(node, &def.id),
+            "availability_topic": avail,
+            "expire_after": expire,
+            "device": device,
+            "state_class": "measurement",
+        });
+        if let Some(unit) = &def.unit {
+            payload["unit_of_measurement"] = json!(unit);
+        }
+        if let Some(device_class) = &def.device_class {
+            payload["device_class"] = json!(device_class);
+        }
+        if let Some(icon) = &def.icon {
+            payload["icon"] = json!(icon);
+        }
+        out.push((topic, payload.to_string()));
     }
 
     // --- predefined commands (buttons) ---
@@ -166,11 +204,16 @@ pub fn build_all(cfg: &AppConfig) -> Vec<DiscoveryMsg> {
             .to_string(),
         )
     };
-    let remove = |comp: &str, key: &str| -> DiscoveryMsg { (cfg_topic(comp, node, key), String::new()) };
+    let remove =
+        |comp: &str, key: &str| -> DiscoveryMsg { (cfg_topic(comp, node, key), String::new()) };
 
     // clipboard: text entity for setting it (when the clipboard bridge is enabled)
     if cfg.clipboard_write_mode != "off" {
-        out.push(text_entity("clipboard_set", "Set clipboard", "mdi:clipboard-arrow-down"));
+        out.push(text_entity(
+            "clipboard_set",
+            "Set clipboard",
+            "mdi:clipboard-arrow-down",
+        ));
     } else {
         out.push(remove("text", "clipboard_set"));
     }
@@ -188,7 +231,8 @@ pub fn build_all(cfg: &AppConfig) -> Vec<DiscoveryMsg> {
                 "expire_after": expire,
                 "availability_topic": avail,
                 "device": device,
-            }).to_string(),
+            })
+            .to_string(),
         ));
     } else {
         out.push(remove("sensor", "clipboard"));
@@ -196,7 +240,11 @@ pub fn build_all(cfg: &AppConfig) -> Vec<DiscoveryMsg> {
 
     // text entry + presentation buttons (opt-in allow_input)
     if cfg.allow_input {
-        out.push(text_entity("type_text", "Type text", "mdi:keyboard-outline"));
+        out.push(text_entity(
+            "type_text",
+            "Type text",
+            "mdi:keyboard-outline",
+        ));
         for def in PRESENT_DEFS {
             out.push((
                 cfg_topic("button", node, def.id),
@@ -270,9 +318,162 @@ pub fn build_all(cfg: &AppConfig) -> Vec<DiscoveryMsg> {
     out
 }
 
+/// Dynamic entity declaration for the Deskmate Link integration.
+pub fn build_link_declare(cfg: &AppConfig, hardware_defs: &[OwnedSensorDef]) -> Value {
+    let mut entities = Vec::new();
+    for def in SENSOR_DEFS {
+        if !crate::sensors::is_enabled(cfg, def.id) {
+            continue;
+        }
+        let mut entity = json!({
+            "key": def.id,
+            "kind": def.component,
+            "name": def.name,
+        });
+        if let Some(unit) = def.unit {
+            entity["unit"] = json!(unit);
+        }
+        if let Some(device_class) = def.device_class {
+            entity["device_class"] = json!(device_class);
+        }
+        if let Some(icon) = def.icon {
+            entity["icon"] = json!(icon);
+        }
+        if def.unit.is_some() && def.component == "sensor" && def.device_class != Some("duration") {
+            entity["state_class"] = json!("measurement");
+        }
+        if def.component == "number" {
+            entity["min"] = json!(0);
+            entity["max"] = json!(100);
+            entity["step"] = json!(1);
+        }
+        entities.push(entity);
+    }
+    for def in hardware_defs {
+        if !crate::sensors::is_hardware_enabled(cfg, &def.id) {
+            continue;
+        }
+        let mut entity = json!({
+            "key": def.id,
+            "kind": "sensor",
+            "name": def.name,
+            "state_class": "measurement",
+        });
+        if let Some(unit) = &def.unit {
+            entity["unit"] = json!(unit);
+        }
+        if let Some(device_class) = &def.device_class {
+            entity["device_class"] = json!(device_class);
+        }
+        if let Some(icon) = &def.icon {
+            entity["icon"] = json!(icon);
+        }
+        entities.push(entity);
+    }
+    for def in COMMAND_DEFS {
+        entities.push(json!({"key": def.id, "kind": "button", "name": def.name, "icon": def.icon}));
+    }
+    for command in cfg.custom_commands.iter().filter(|command| command.enabled) {
+        let kind = match command.kind.as_str() {
+            "switch" | "number" => command.kind.as_str(),
+            _ => "button",
+        };
+        let mut entity = json!({
+            "key": format!("custom_{}", command.id),
+            "kind": kind,
+            "name": command.name,
+            "icon": if kind == "switch" { "mdi:toggle-switch" } else if kind == "number" { "mdi:tune" } else { "mdi:console" },
+        });
+        if kind == "number" {
+            entity["min"] = json!(command.num_min);
+            entity["max"] = json!(command.num_max);
+            entity["step"] = json!(command.num_step);
+        }
+        entities.push(entity);
+    }
+    if cfg.allow_input {
+        entities.push(json!({
+            "key": "type_text",
+            "kind": "text",
+            "name": "Type text",
+            "icon": "mdi:keyboard-outline",
+            "mode": "text",
+        }));
+        for def in PRESENT_DEFS {
+            entities
+                .push(json!({"key": def.id, "kind": "button", "name": def.name, "icon": def.icon}));
+        }
+        entities.push(json!({
+            "key": "open_url",
+            "kind": "text",
+            "name": "Open URL",
+            "icon": "mdi:open-in-new",
+            "mode": "text",
+        }));
+    }
+    if cfg.tts_enabled {
+        entities.push(json!({
+            "key": "tts_say",
+            "kind": "text",
+            "name": "Say (TTS)",
+            "icon": "mdi:account-voice",
+            "mode": "text",
+        }));
+    }
+    if cfg.clipboard_write_mode != "off" {
+        entities.push(json!({
+            "key": "clipboard_set",
+            "kind": "text",
+            "name": "Set clipboard",
+            "icon": "mdi:clipboard-arrow-down",
+            "mode": "text",
+        }));
+    }
+    if cfg.clipboard_read_mode != "off" {
+        entities.push(json!({"key": "clipboard", "kind": "sensor", "name": "Clipboard", "icon": "mdi:clipboard-text"}));
+    }
+    entities.push(
+        json!({"key": "keep_awake", "kind": "switch", "name": "Keep awake", "icon": "mdi:coffee"}),
+    );
+    for hotkey in &cfg.hotkeys {
+        let display_name = if hotkey.name.is_empty() {
+            &hotkey.id
+        } else {
+            &hotkey.name
+        };
+        entities.push(json!({
+            "key": link_hotkey_key(&hotkey.id),
+            "kind": "event",
+            "name": format!("hotkey: {display_name}"),
+            "event_types": ["press"],
+        }));
+    }
+
+    json!({
+        "t": "declare",
+        "device": {
+            "name": cfg.device_name,
+            "model": "Deskmate for Windows",
+            "sw_version": env!("CARGO_PKG_VERSION"),
+        },
+        "entities": entities,
+    })
+}
+
+pub fn link_hotkey_key(hotkey_id: &str) -> String {
+    format!("hotkey_{hotkey_id}")
+}
+
+pub fn remove_hardware(node_id: &str, id: &str) -> DiscoveryMsg {
+    (cfg_topic("sensor", node_id, id), String::new())
+}
+
 /// Removal of a hotkey's device trigger (when deleting a hotkey from the UI).
 pub fn remove_hotkey(node_id: &str, hotkey_id: &str) -> DiscoveryMsg {
-    (cfg_topic("device_automation", node_id, &format!("hotkey_{hotkey_id}")), String::new())
+    (
+        cfg_topic("device_automation", node_id, &format!("hotkey_{hotkey_id}")),
+        String::new(),
+    )
 }
 
 /// Messages that remove the custom-control entities (all 3 components).
@@ -282,4 +483,116 @@ pub fn remove_custom(node_id: &str, custom_id: &str) -> Vec<DiscoveryMsg> {
         .iter()
         .map(|comp| (cfg_topic(comp, node_id, &object_id), String::new()))
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::{ActionSpec, Hotkey};
+    use crate::sensors::OwnedSensorDef;
+
+    fn entities(cfg: &AppConfig) -> Vec<Value> {
+        build_link_declare(cfg, &[])["entities"]
+            .as_array()
+            .unwrap()
+            .clone()
+    }
+
+    fn descriptor<'a>(entities: &'a [Value], key: &str) -> Option<&'a Value> {
+        entities.iter().find(|entity| entity["key"] == key)
+    }
+
+    #[test]
+    fn link_declare_adds_text_and_hotkey_event_with_mqtt_names() {
+        let mut cfg = AppConfig::default();
+        cfg.allow_input = true;
+        cfg.tts_enabled = true;
+        cfg.clipboard_write_mode = "automatic".into();
+        cfg.hotkeys.push(Hotkey {
+            id: "desk_lamp".into(),
+            name: "Desk lamp".into(),
+            accelerator: "Ctrl+Alt+L".into(),
+            action: ActionSpec {
+                kind: "mqtt".into(),
+                ..Default::default()
+            },
+        });
+        let declared = entities(&cfg);
+
+        for (key, name) in [
+            ("type_text", "Type text"),
+            ("open_url", "Open URL"),
+            ("tts_say", "Say (TTS)"),
+            ("clipboard_set", "Set clipboard"),
+        ] {
+            let entity = descriptor(&declared, key).unwrap();
+            assert_eq!(entity["kind"], "text");
+            assert_eq!(entity["name"], name);
+            assert_eq!(entity["mode"], "text");
+        }
+        let event = descriptor(&declared, "hotkey_desk_lamp").unwrap();
+        assert_eq!(event["kind"], "event");
+        assert_eq!(event["name"], "hotkey: Desk lamp");
+        assert_eq!(event["event_types"], json!(["press"]));
+    }
+
+    #[test]
+    fn smaller_link_declare_omits_disabled_dynamic_entities() {
+        let mut cfg = AppConfig::default();
+        cfg.allow_input = true;
+        cfg.hotkeys.push(Hotkey {
+            id: "temporary".into(),
+            name: String::new(),
+            accelerator: String::new(),
+            action: ActionSpec::default(),
+        });
+        let before = entities(&cfg);
+        assert!(descriptor(&before, "type_text").is_some());
+        assert_eq!(
+            descriptor(&before, "hotkey_temporary").unwrap()["name"],
+            "hotkey: temporary"
+        );
+
+        cfg.allow_input = false;
+        cfg.hotkeys.clear();
+        let after = entities(&cfg);
+        assert!(descriptor(&after, "type_text").is_none());
+        assert!(descriptor(&after, "hotkey_temporary").is_none());
+    }
+
+    #[test]
+    fn hardware_sensor_is_declared_only_when_detected_and_enabled() {
+        let mut cfg = AppConfig::default();
+        let hardware = vec![OwnedSensorDef {
+            id: "gpu_usage".into(),
+            name: "GPU usage".into(),
+            component: "sensor".into(),
+            unit: Some("%".into()),
+            device_class: None,
+            icon: Some("mdi:expansion-card".into()),
+            privacy: false,
+            default_enabled: true,
+        }];
+        let declared = build_link_declare(&cfg, &hardware);
+        assert!(declared["entities"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|entity| entity["key"] == "gpu_usage"));
+
+        cfg.sensors_enabled.insert("gpu_usage".into(), false);
+        let disabled = build_link_declare(&cfg, &hardware);
+        assert!(!disabled["entities"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|entity| entity["key"] == "gpu_usage"));
+
+        let unavailable = build_link_declare(&AppConfig::default(), &[]);
+        assert!(!unavailable["entities"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|entity| entity["key"] == "gpu_usage"));
+    }
 }

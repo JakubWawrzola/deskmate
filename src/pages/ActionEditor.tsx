@@ -5,7 +5,7 @@ const KINDS: { value: ActionKind; label: string; needsApi: boolean }[] = [
   { value: "service", label: "Call HA service", needsApi: true },
   { value: "command", label: "Local command", needsApi: false },
   { value: "widget", label: "Show/hide widgets", needsApi: false },
-  { value: "mqtt", label: "MQTT trigger (automation in HA)", needsApi: false },
+  { value: "mqtt", label: "HA event trigger (MQTT / Link)", needsApi: false },
 ];
 
 /** Edytor ActionSpec - wspolny dla hotkeyow i tray quick actions. */
@@ -95,8 +95,8 @@ export default function ActionEditor({
 
       {value.kind === "mqtt" && (
         <p className="text-[12px] text-muted leading-relaxed">
-          Publishes a device trigger to Home Assistant. Build the automation in HA:
-          the trigger appears under this device as “hotkey: ...”.
+          Publishes an event through the selected transport. With MQTT it is a device
+          trigger; with Link it is an event entity and a deskmate_link_trigger bus event.
         </p>
       )}
     </div>

@@ -39,8 +39,10 @@ export default function StatusPage({ snapshot, config }: { snapshot: Snapshot; c
             <StatusDot on={snapshot.status.connected} />
             {snapshot.status.detail}
           </dd>
-          <dt className="text-muted">Broker</dt>
-          <dd className="mono">{config.broker_host}:{config.broker_port}</dd>
+          <dt className="text-muted">Transport</dt>
+          <dd>{config.transport === "link" ? "Deskmate Link" : "MQTT"}</dd>
+          <dt className="text-muted">Endpoint</dt>
+          <dd className="mono">{config.transport === "link" ? config.link_url : `${config.broker_host}:${config.broker_port}`}</dd>
           <dt className="text-muted">Device</dt>
           <dd>{config.device_name}</dd>
           <dt className="text-muted">Node ID</dt>
@@ -54,9 +56,9 @@ export default function StatusPage({ snapshot, config }: { snapshot: Snapshot; c
 
       <Panel title="In Home Assistant">
         <p className="text-[13px] text-muted leading-relaxed">
-          This computer is registered via MQTT discovery as device{" "}
+          This computer is registered through {config.transport === "link" ? "the Deskmate Link integration" : "MQTT discovery"} as device{" "}
           <span className="mono text-ink">{config.device_name}</span>. Find it under
-          Settings &gt; Devices &amp; services &gt; MQTT. Entity ids follow the pattern{" "}
+          Settings &gt; Devices &amp; services &gt; {config.transport === "link" ? "Deskmate Link" : "MQTT"}. Entity ids follow the pattern{" "}
           <span className="mono text-ink">sensor.{config.node_id}_cpu</span>.
         </p>
       </Panel>

@@ -29,6 +29,7 @@ fork already does what you want, there's no reason to switch.
 - [Screenshots](#screenshots)
 - [Highlights](#highlights)
 - [Requirements](#requirements)
+- [Connection transports](#connection-transports)
 - [Install](#install)
 - [Building from source](#building-from-source)
 - [Notifications from Home Assistant](#notifications-from-home-assistant)
@@ -95,10 +96,23 @@ WebSocket. Works independently of the desktop app.
 ## Requirements
 
 - Windows 11 (x64 or ARM64)
-- An MQTT broker reachable from the PC. TLS with a verified certificate is the
-  default (normally port 8883). Plain MQTT is an explicit trusted-LAN-only mode.
+- An MQTT broker reachable from the PC, or Home Assistant with the optional
+  Deskmate Link integration. MQTT remains the default.
 - Optional, for hotkeys/widgets/tray acting on HA entities: a **long-lived
   access token** (HA profile → Security) entered in Deskmate Settings.
+
+## Connection transports
+
+Deskmate supports two parallel transports. **MQTT is the default** and keeps
+the existing discovery, text entities and MQTT device-trigger hotkeys. TLS with
+a verified certificate is recommended; plain MQTT is an explicit
+trusted-LAN-only mode.
+
+**Deskmate Link** connects directly to its Home Assistant custom integration
+over WebSocket. A pairing key authenticates the handshake, then every
+application frame is encrypted with independent session keys and replay
+protection. The key is stored in Windows Credential Manager. See
+[docs/LINK.md](docs/LINK.md) for setup and current entity coverage.
 
 ## Install
 
@@ -113,8 +127,8 @@ Grab the installer from Releases (`Deskmate_x64-setup.exe` or
    hotkeys/widgets/tray actions that talk to HA directly.
 
 Configuration lives in `%APPDATA%\Deskmate\config.json`. Secrets (MQTT
-password, HA token) are stored in **Windows Credential Manager**, never on
-disk in plain text.
+password, Link pairing key, HA token) are stored in **Windows Credential
+Manager**, never on disk in plain text.
 
 Security migration note: configs created before these controls move to
 TLS/8883, clipboard Off and custom commands disabled/confirmation-required.
@@ -198,9 +212,10 @@ residual risks and deployment checklist in [docs/SECURITY.md](docs/SECURITY.md).
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — how it is put together
 - [docs/HA-SETUP.md](docs/HA-SETUP.md) — Home Assistant side setup
+- [docs/LINK.md](docs/LINK.md) — encrypted direct transport setup
 - [docs/ROADMAP.md](docs/ROADMAP.md) — where this is going
 - [docs/SECURITY.md](docs/SECURITY.md) — security threat model and hardening plan
-- [docs/RELEASE-0.3.1.md](docs/RELEASE-0.3.1.md) — GitHub release notes for the security update
+- [docs/RELEASE-0.4.0.md](docs/RELEASE-0.4.0.md) — GitHub release notes for Deskmate Link, Files and hardware sensors
 - [streamdeck-plugin/README.md](streamdeck-plugin/README.md) — Stream Deck plugin
 - [HANDOFF.md](HANDOFF.md) — working state, for contributors and AI agents (Polish)
 
