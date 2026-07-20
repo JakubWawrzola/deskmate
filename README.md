@@ -5,13 +5,20 @@ successor to HASS.Agent. Your PC shows up in Home Assistant as a device with
 sensors, buttons, switches and notifications, and your keyboard becomes a
 remote control for your home. Five-field setup instead of a config maze.
 
+Since 0.4.0 Deskmate speaks two transports: classic **MQTT** (default) and
+**Deskmate Link** — its own end-to-end encrypted WebSocket channel to a
+companion Home Assistant integration, with no broker to install. Link also
+adds hardware sensors (GPU, VRAM, per-volume disks, temperatures) and
+opt-in, read-only, allowlisted **remote file access** from Home Assistant.
+
 Runs natively on Windows 11, both **x64 and ARM64** (Snapdragon laptops
 included) — no emulation, no C toolchain, one ~2.5 MB installer per arch.
 
 **What kind of app is this?** A regular Windows desktop app (Tauri, so a small
 native binary + webview UI) that lives in the **system tray**. There is no
 separate background service — while your Windows user session is active,
-Deskmate runs, connects to your MQTT broker, and keeps your entities in sync.
+Deskmate runs, connects to Home Assistant (your MQTT broker or the encrypted
+Deskmate Link channel), and keeps your entities in sync.
 Closing the window minimizes it to the tray; quitting from the tray menu (or
 signing out) actually stops it. It starts with Windows if you enable autostart
 in Settings.
@@ -66,6 +73,14 @@ fork already does what you want, there's no reason to switch.
   `$env:DESKMATE_VALUE` environment variable.
 - **Keep awake switch** — an HA switch that stops the PC from sleeping and the
   display from turning off (great for backups and downloads).
+- **Hardware sensors (0.4.0)** — GPU usage and temperature, VRAM, per-volume
+  disk free/usage, disk read/write speed, CPU temperature where cheaply
+  available. Sensors that cannot be read on a given machine are simply not
+  declared — no fake entities.
+- **Remote file access over Link (0.4.0, opt-in)** — read-only browsing and
+  reading of explicitly allowlisted folders from Home Assistant (e.g. via a
+  voice assistant tool), with path normalization, size caps, rate limiting
+  and a local security log. Disabled by default with an empty allowlist.
 - **Notifications** — publish JSON to one MQTT topic, get a native Windows
   toast with title, message, an image, and **action buttons**; the clicked
   button is published back to HA, so an automation can react to it.
