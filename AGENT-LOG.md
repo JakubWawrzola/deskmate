@@ -44,3 +44,25 @@ lokalnymi po rozmiarze i SHA-256. Opis jawnie zaznacza brak ponownego testu
 end-to-end z HA, bo HA byl niedostepny. Tag v0.3.1 wskazuje commit 1be1607.
 Nastepny krok: po powrocie HA Jakub wykonuje manualna checkliste z STATUS.md;
 ewentualne problemy ida do kolejnego patch release, bez podmiany v0.3.1.
+
+## [2026-07-15 ~16:10] Claude — pojednanie master z origin/main (Kuba: "prawda jest to co jest na githubie")
+Kontekst: po publikacji release 0.3.1 lokalny `master` (worktree deskmate) i
+`origin/main` na GitHubie mialy ROZNE historie commitow (Codex robil merge +
+push w osobnym locie, przez Git Data API, ktory nie wrocil do lokalnego
+master w tym worktree). Kuba zdecydowal wprost: GitHub main jest zrodlem
+prawdy.
+Zrobione: `git fetch origin`, zweryfikowano `git diff --stat master
+origin/main` PRZED resetem - jedyna roznica to 3 pliki binarne installerow
+(celowo tylko jako GitHub Release assets, nie w repo) - zero roznicy w
+kodzie/docsach. Wykonano `git reset --hard origin/main` w worktree
+`C:\dev\web\deskmate`. `cargo check` + `npx tsc --noEmit` przeszly na nowym
+stanie. Lokalny tag `v0.3.1` pobrany z fetch.
+Dotkniete pliki: brak zmian w kodzie, tylko ref brancha master + working tree
+(usuniete z dysku: dist-installers/*.exe/*.zip - byly tylko lokalnymi build
+artefaktami, sa na GitHub Release jako assets).
+UWAGA dla Codexa: `codex/work` w worktree deskmate-codex NADAL wskazuje na
+stara, rozjezdzona historie (commit 87378d1) - nie zostal dotkniety. Przy
+kolejnej sesji w tym worktree rozwaz `git fetch && git reset --hard
+origin/main` tam tez, zeby oba worktree byly zgodne z GitHubem - ale to
+robi Codex swiadomie, nie zostalo zrobione automatycznie.
+Nastepny krok: brak w toku.
