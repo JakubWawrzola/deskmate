@@ -10,6 +10,7 @@ mod ha_api;
 mod hardware;
 mod hotkeys;
 mod link;
+mod link_files;
 mod media;
 mod mqtt;
 mod notify;
@@ -79,6 +80,7 @@ async fn save_config(
     }
     new_config.link_url = link::normalize_url(&new_config.link_url)?;
     new_config.link_url_remote = link::normalize_url(&new_config.link_url_remote)?;
+    new_config.link_file_roots = link_files::normalize_roots(&new_config.link_file_roots)?;
     new_config.configured = if new_config.transport == "link" {
         !new_config.link_url.is_empty()
     } else {

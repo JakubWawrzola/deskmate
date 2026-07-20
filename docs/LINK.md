@@ -54,6 +54,28 @@ new declaration. Link v0.2 removes entities omitted from that declaration, so
 turning an option off or deleting a hotkey/custom control needs no integration
 reload.
 
+## Hardware sensors
+
+On Windows systems that expose the corresponding counters, Deskmate declares
+GPU usage, GPU memory used/total, free/used space per local volume, aggregate
+disk read/write speed and CPU/GPU temperatures. It uses native PDH, DXGI and
+WMI plus the existing lightweight disk collector. Unsupported readings are not
+declared and never receive synthetic values. The same detected set is used for
+MQTT discovery and Link `declare`.
+
+## Link Files v1 (read-only)
+
+Settings → File access (Link) contains the directory allowlist. It is empty by
+default, which disables every `fs` request. Each root must be an existing
+absolute local-drive directory. UNC/device paths, `.`/`..`, alternate data
+streams, symlinks and reparse points are rejected before access.
+
+The encrypted Link session accepts `list`, `stat` and chunked `read` only.
+Reads are limited to 256 KiB per chunk and 16 MiB per file, with a global 4
+MiB/s rate gate. Every allowed or rejected operation writes its operation,
+path and result to `%APPDATA%\Deskmate\security.log`; file contents are never
+logged. Link Files v1 has no write, rename or delete operation.
+
 ## MQTT and Link parity
 
 | Capability | MQTT | Deskmate Link |
@@ -65,6 +87,8 @@ reload.
 | Clipboard read | MQTT sensor | Link sensor |
 | Hotkeys | MQTT device trigger for the event action | Event entity plus `deskmate_link_trigger`; every configured hotkey emits `press` |
 | Toasts and action buttons | Notify/action topics | Encrypted notify/ack and `deskmate_link_notify_action` |
+| Hardware sensors | Dynamic MQTT discovery | Same detected set in `declare` |
+| Read-only files | Not available | `fs` / `fs_res`, empty allowlist by default |
 | Native MQTT device-trigger representation and raw topics | Supported | MQTT-only; Link uses its event entity and event-bus equivalent |
 | Hotkeys/widgets/tray using the direct HA API | Independent of transport | Independent of transport |
 

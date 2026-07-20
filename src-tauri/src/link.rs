@@ -464,6 +464,24 @@ async fn handle_incoming(app: &AppHandle, tx: &mpsc::UnboundedSender<Value>, pay
             crate::transport::handle_notify(app, &notification.to_string()).await;
             let _ = tx.send(json!({"t": "ack", "id": id, "ok": true}));
         }
+        Some("fs") => {
+            let id = payload.get("id").cloned().unwrap_or(Value::Null);
+            let op = payload.get("op").and_then(Value::as_str).unwrap_or("").to_string();
+            let path = payload.get("path").and_then(Value::as_str).unwrap_or("").to_string();
+            let cfg = app.state::<AppState>().config.lock().await.clone();
+            let response = match tokio::task::spawn_blocking(move || {
+                crate::link_files::handle_request(&cfg, &payload)
+            })
+            .await
+            {
+                Ok(response) => response,
+                Err(_) => {
+                    crate::security::audit_file(&op, &path, "error: file worker failed");
+                    json!({"t": "fs_res", "id": id, "ok": false, "error": "file worker failed"})
+                }
+            };
+            let _ = tx.send(response);
+        }
         Some("ping") => {
             let _ = tx.send(json!({"t": "pong"}));
         }

@@ -138,6 +138,8 @@ pub struct AppConfig {
     pub link_url: String,
     /// Optional fallback Deskmate Link endpoint.
     pub link_url_remote: String,
+    /// Absolute local directories exposed read-only through Link Files v1.
+    pub link_file_roots: Vec<String>,
     /// friendly device name in HA (default: hostname)
     pub device_name: String,
     /// id used in topics/unique_id: [a-z0-9_], default: sanitized hostname
@@ -194,6 +196,7 @@ impl Default for AppConfig {
             username: String::new(),
             link_url: String::new(),
             link_url_remote: String::new(),
+            link_file_roots: Vec::new(),
             device_name: host.clone(),
             node_id: sanitize_id(&host),
             publish_interval_secs: 15,

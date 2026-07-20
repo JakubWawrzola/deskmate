@@ -26,6 +26,8 @@ export default function SettingsPage({
   const [linkUrl, setLinkUrl] = useState(config.link_url);
   const [linkUrlRemote, setLinkUrlRemote] = useState(config.link_url_remote);
   const [linkKey, setLinkKey] = useState("");
+  const [fileRoots, setFileRoots] = useState(config.link_file_roots);
+  const [fileRootDraft, setFileRootDraft] = useState("");
   const [deviceName, setDeviceName] = useState(config.device_name);
   const [interval, setIntervalS] = useState(String(config.publish_interval_secs));
   const [launchHidden, setLaunchHidden] = useState(config.launch_hidden);
@@ -94,6 +96,7 @@ export default function SettingsPage({
           username: username.trim(),
           link_url: linkUrl.trim(),
           link_url_remote: linkUrlRemote.trim(),
+          link_file_roots: fileRoots,
           device_name: deviceName.trim() || config.device_name,
           publish_interval_secs: Math.max(2, parseInt(interval, 10) || 15),
           launch_hidden: launchHidden,
@@ -119,6 +122,13 @@ export default function SettingsPage({
     } finally {
       setSaving(false);
     }
+  };
+
+  const addFileRoot = () => {
+    const root = fileRootDraft.trim();
+    if (!root || fileRoots.some((item) => item.toLocaleLowerCase() === root.toLocaleLowerCase())) return;
+    setFileRoots((items) => [...items, root]);
+    setFileRootDraft("");
   };
 
   const toggleAutostart = async (v: boolean) => {
@@ -227,6 +237,39 @@ export default function SettingsPage({
           </p>
         </div>
       </Panel>}
+
+      <Panel title="File access (Link)">
+        <p className="text-[12px] border border-hairline-strong rounded p-2 mb-3 leading-relaxed">
+          Read-only remote access. Home Assistant can list, inspect and read files inside the folders below.
+          Leave this list empty to keep file access disabled. Never add a folder containing secrets you do not want exposed to HA.
+        </p>
+        <div className="flex items-end gap-2">
+          <div className="flex-1">
+            <Field
+              label="Allowed local folder"
+              value={fileRootDraft}
+              onChange={setFileRootDraft}
+              placeholder="C:\\Users\\Kuba\\Documents"
+              hint="Absolute local path only. UNC shares, symbolic links and alternate data streams are rejected."
+            />
+          </div>
+          <Button onClick={addFileRoot} disabled={!fileRootDraft.trim()}>Add folder</Button>
+        </div>
+        {fileRoots.length === 0 ? (
+          <p className="mt-3 text-[12px] text-muted">Disabled — no folders are allowed.</p>
+        ) : (
+          <div className="mt-3 space-y-2">
+            {fileRoots.map((root) => (
+              <div key={root.toLocaleLowerCase()} className="flex items-center gap-2 border-b border-hairline pb-2 last:border-b-0">
+                <span className="flex-1 mono text-[12px] break-all">{root}</span>
+                <Button kind="danger" onClick={() => setFileRoots((items) => items.filter((item) => item !== root))}>
+                  Remove
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </Panel>
 
       <Panel title="Clipboard security">
         <p className="text-[12px] text-muted mb-3 leading-relaxed">

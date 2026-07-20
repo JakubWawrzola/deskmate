@@ -8,7 +8,6 @@ or delete another agent's entry.
 
 | Area | Agent | Since |
 |---|---|---|
-| Sensors hardware + Link Files v1 (T32/T34) | Codex | 2026-07-19 |
 
 ## Log
 
@@ -110,3 +109,15 @@ ring/openssl/rustls. Bez uruchamiania aplikacji, HA, push i merge.
 Dotkniete pliki: hardware/sensors/discovery/transport i petle transportow,
 stan aplikacji, feature flags Windows, STATUS.md i AGENT-LOG.md.
 Nastepny krok: T34 Link Files v1; wpis IN PROGRESS pozostaje aktywny.
+
+## [2026-07-19] Codex — T34 Link Files v1
+Zrobione: dodano read-only fs/fs_res z pusta domyslna allowlista, UI rootow,
+canonicalize i ochrona przed traversal/UNC/ADS/reparse point. Read ma limity
+256 KiB/chunk, 16 MiB/file i 4 MiB/s; kazda proba trafia do security.log bez
+tresci pliku. Testy jednostkowe obejmuja .., UNC/device paths, ADS, sciezke
+drive-relative, case-insensitive containment i pusty default.
+Weryfikacja: cargo check, cargo test (13/13), tsc i cargo tree bez
+ring/openssl/rustls. Bez zywego Link/HA, push i merge.
+Dotkniete pliki: link_files.rs, handler Link, config/save, security audit,
+Settings/types, docs/LINK.md, STATUS.md i AGENT-LOG.md.
+Nastepny krok: T35 finalny tar i raport fali 7.

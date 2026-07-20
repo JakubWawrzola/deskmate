@@ -1,5 +1,5 @@
-//! Local security helpers. The audit log records event metadata only, never
-//! clipboard contents, URLs, MQTT payloads, credentials or command text.
+//! Local security helpers. The audit log records event metadata and Link Files
+//! paths, never file contents, clipboard contents, URLs, credentials or commands.
 
 use std::fs::{self, OpenOptions};
 use std::io::Write;
@@ -36,6 +36,13 @@ pub fn safe_preview(text: &str, max_chars: usize) -> String {
         .map(|c| if c.is_control() { ' ' } else { c })
         .take(max_chars)
         .collect()
+}
+
+pub fn audit_file(op: &str, path: &str, result: &str) {
+    let safe_op = safe_preview(op, 24).replace(' ', "_");
+    let safe_path = safe_preview(path, 512);
+    let safe_result = safe_preview(result, 160);
+    audit("link_fs", &format!("op={safe_op} path={safe_path} result={safe_result}"));
 }
 
 #[cfg(windows)]

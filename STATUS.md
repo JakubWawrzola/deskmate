@@ -149,3 +149,22 @@ Status: wykonane offline; E2E na rzeczywistym sprzecie pozostaje manualne
 - `cargo check`, `cargo test` (6/6), `npx tsc --noEmit` zakonczyly sie kodem 0.
   `cargo tree` ma 860 linii i nie zawiera ring/openssl/rustls.
 - Nie uruchamiano aplikacji, MQTT, Link ani polaczenia z HA. Brak push i merge.
+
+## Fala 7 — T34 Link Files v1
+
+Status: wykonane offline; E2E przez integracje HA pozostaje manualne
+
+- Dodano obsluge zaszyfrowanych ramek `fs`/`fs_res` dla operacji read-only
+  `list`, `stat` i `read`. Protokol klienta nie ma operacji zapisu, zmiany
+  nazwy ani kasowania.
+- Nowe `link_file_roots` jest domyslnie pusta lista. Settings ma sekcje
+  `File access (Link)` z jawnym ostrzezeniem, dodawaniem i usuwaniem rootow.
+- Backend wymaga istniejacej absolutnej sciezki lokalnego dysku, canonicalize
+  i zgodnosci komponentow z allowlista. Odrzuca `.`/`..`, UNC/device paths,
+  ADS, symlinki i Windows reparse points; wpisy reparse sa pomijane w listingu.
+- `read` ma limit 256 KiB/chunk, 16 MiB/file i globalny gate 4 MiB/s.
+  Kazda operacja zapisuje op/path/wynik w rotowanym `security.log`, bez tresci.
+- `cargo check`, `cargo test` (13/13), `npx tsc --noEmit` przeszly; finalna
+  kontrola `cargo tree` nie zawiera ring/openssl/rustls.
+- Nie wykonywano dostepu do prawdziwych plikow przez Link, polaczen z HA,
+  uruchomienia aplikacji, push ani merge.

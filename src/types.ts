@@ -69,6 +69,7 @@ export interface AppConfig {
   username: string;
   link_url: string;
   link_url_remote: string;
+  link_file_roots: string[];
   device_name: string;
   node_id: string;
   publish_interval_secs: number;
