@@ -16,6 +16,8 @@ pub struct AppState {
     pub config: Mutex<AppConfig>,
     pub status: Mutex<StatusView>,
     pub sensor_values: Mutex<HashMap<String, String>>,
+    /// Hardware entities detected on this PC. Unsupported telemetry is omitted.
+    pub hardware_sensor_defs: Mutex<Vec<crate::sensors::OwnedSensorDef>>,
     pub notif_history: Mutex<VecDeque<crate::notify::NotifyRecord>>,
     pub notification_times: Mutex<VecDeque<std::time::Instant>>,
     pub published_count: AtomicU64,
@@ -42,6 +44,7 @@ impl AppState {
                 detail: "Starting...".into(),
             }),
             sensor_values: Mutex::new(HashMap::new()),
+            hardware_sensor_defs: Mutex::new(Vec::new()),
             notif_history: Mutex::new(VecDeque::new()),
             notification_times: Mutex::new(VecDeque::new()),
             published_count: AtomicU64::new(0),

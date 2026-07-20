@@ -1,7 +1,9 @@
 //! MQTT client: connection, LWT, discovery after ConnAck, command and notify
 //! routing, sensor loop. Restarted via a watch channel (config change in the UI).
 
-use rumqttc::{AsyncClient, Event, LastWill, MqttOptions, Packet, QoS, TlsConfiguration, Transport};
+use rumqttc::{
+    AsyncClient, Event, LastWill, MqttOptions, Packet, QoS, TlsConfiguration, Transport,
+};
 use std::collections::HashMap;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
@@ -62,11 +64,18 @@ pub async fn restart(app: AppHandle) {
             let ca = match std::fs::read(cfg.mqtt_ca_path.trim()) {
                 Ok(ca) => ca,
                 Err(e) => {
-                    set_status(&app, false, &format!("Cannot read MQTT CA certificate: {e}"));
+                    set_status(
+                        &app,
+                        false,
+                        &format!("Cannot read MQTT CA certificate: {e}"),
+                    );
                     return;
                 }
             };
-            TlsConfiguration::SimpleNative { ca, client_auth: None }
+            TlsConfiguration::SimpleNative {
+                ca,
+                client_auth: None,
+            }
         };
         Some(Transport::tls_with_config(tls))
     } else {
@@ -155,15 +164,18 @@ pub async fn restart(app: AppHandle) {
                 let secs = cfg.publish_interval_secs.clamp(2, 3600);
 
                 // collection may block (WinAPI/SMTC) - keep it off the executor
-                let mut coll = collector.take().unwrap_or_else(crate::sensors::Collector::new);
-                let (coll_back, values) = tokio::task::spawn_blocking(move || {
-                    let v = coll.collect(&cfg, mqtt_connected);
-                    (coll, v)
+                let mut coll = collector
+                    .take()
+                    .unwrap_or_else(crate::sensors::Collector::new);
+                let (coll_back, values, hardware_defs) = tokio::task::spawn_blocking(move || {
+                    let (values, hardware_defs) = coll.collect(&cfg, mqtt_connected);
+                    (coll, values, hardware_defs)
                 })
                 .await
-                .unwrap_or_else(|_| (crate::sensors::Collector::new(), HashMap::new()));
+                .unwrap_or_else(|_| (crate::sensors::Collector::new(), HashMap::new(), Vec::new()));
                 collector = Some(coll_back);
 
+                crate::transport::update_hardware_defs(&app_sn, hardware_defs).await;
                 crate::transport::publish_states(&app_sn, &values).await;
                 secs
             };
@@ -190,12 +202,16 @@ async fn on_connected(app: &AppHandle, node: &str) {
         )
         .await;
 
-    for (topic, payload) in crate::discovery::build_all(&cfg) {
+    let hardware_defs = state.hardware_sensor_defs.lock().await.clone();
+    for (topic, payload) in crate::discovery::build_all(&cfg, &hardware_defs) {
         let _ = client.publish(topic, QoS::AtLeastOnce, true, payload).await;
     }
 
     let _ = client
-        .subscribe(format!("{}/cmd/+", consts::base_topic(node)), QoS::AtLeastOnce)
+        .subscribe(
+            format!("{}/cmd/+", consts::base_topic(node)),
+            QoS::AtLeastOnce,
+        )
         .await;
     let _ = client
         .subscribe(consts::notify_topic(node), QoS::AtLeastOnce)
@@ -232,7 +248,9 @@ fn route_incoming(app: AppHandle, node: String, topic: String, payload: String, 
         let base = consts::base_topic(&node);
         // Commands and notifications are events, never desired state. Accepting a
         // retained message here would replay it after every reconnect/startup.
-        if retained && (topic == consts::notify_topic(&node) || topic.starts_with(&format!("{base}/cmd/"))) {
+        if retained
+            && (topic == consts::notify_topic(&node) || topic.starts_with(&format!("{base}/cmd/")))
+        {
             log::warn!("retained MQTT event ignored: {topic}");
             return;
         }
@@ -240,7 +258,10 @@ fn route_incoming(app: AppHandle, node: String, topic: String, payload: String, 
             crate::transport::handle_notify(&app, &payload).await;
             return;
         }
-        let Some(key) = topic.strip_prefix(&format!("{base}/cmd/")).map(|s| s.to_string()) else {
+        let Some(key) = topic
+            .strip_prefix(&format!("{base}/cmd/"))
+            .map(|s| s.to_string())
+        else {
             return;
         };
         if let Err(error) = crate::transport::handle_command(
@@ -280,7 +301,11 @@ pub(crate) async fn legacy_handle_notify(app: &AppHandle, payload: &str) {
         let state = app.state::<AppState>();
         let mut times = state.notification_times.lock().await;
         let now = std::time::Instant::now();
-        while times.front().map(|t| now.duration_since(*t) > WINDOW).unwrap_or(false) {
+        while times
+            .front()
+            .map(|t| now.duration_since(*t) > WINDOW)
+            .unwrap_or(false)
+        {
             times.pop_front();
         }
         if times.len() >= LIMIT {

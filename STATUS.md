@@ -131,3 +131,21 @@ Czeka na Kube:
 - Przyciski toastu - ODLOZONE, nie ruszac bez polecenia
 - Stream Deck plugin (brak sprzetu przy Kubie)
 - LilyGo kalibracja dotyku (Kuba poza domem, wczesniejsza sesja)
+
+## Fala 7 — T32 sensory sprzetowe
+
+Status: wykonane offline; E2E na rzeczywistym sprzecie pozostaje manualne
+
+- Dodano dynamiczne sensory GPU usage, VRAM used/total, wolnego miejsca i
+  uzycia per wolumen, lacznego odczytu/zapisu dyskow oraz temperatur CPU/GPU.
+- Zrodla sa lekkie i natywne: PDH (GPU), DXGI (calkowita pamiec GPU), WMI
+  (Libre/OpenHardwareMonitor jako istniejacy provider, bez procesu-agenta,
+  oraz fallback ACPI) i istniejace `sysinfo` dla wolumenow/transferow.
+- Encje sprzetowe sa deklarowane przez MQTT discovery i Link `declare` dopiero
+  po uzyskaniu prawidlowego odczytu. Znikniecie telemetrii usuwa retained
+  discovery MQTT; ponowny Link `declare` umozliwia prune po stronie HA.
+- Domyslnie sensory wykrytego sprzetu sa wlaczone i pojawiaja sie w istniejacej
+  stronie Sensors. Niedostepny odczyt nie dostaje wartosci zastepczej ani encji.
+- `cargo check`, `cargo test` (6/6), `npx tsc --noEmit` zakonczyly sie kodem 0.
+  `cargo tree` ma 860 linii i nie zawiera ring/openssl/rustls.
+- Nie uruchamiano aplikacji, MQTT, Link ani polaczenia z HA. Brak push i merge.

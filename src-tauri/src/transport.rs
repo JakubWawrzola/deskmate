@@ -8,7 +8,13 @@ use tauri::{AppHandle, Emitter, Manager};
 use crate::state::AppState;
 
 pub async fn restart(app: AppHandle) {
-    let transport = app.state::<AppState>().config.lock().await.transport.clone();
+    let transport = app
+        .state::<AppState>()
+        .config
+        .lock()
+        .await
+        .transport
+        .clone();
     if transport == "link" {
         crate::link::restart(app).await;
     } else {
@@ -17,7 +23,13 @@ pub async fn restart(app: AppHandle) {
 }
 
 pub async fn publish_states(app: &AppHandle, values: &HashMap<String, String>) {
-    let transport = app.state::<AppState>().config.lock().await.transport.clone();
+    let transport = app
+        .state::<AppState>()
+        .config
+        .lock()
+        .await
+        .transport
+        .clone();
     let sent = if transport == "link" {
         crate::link::publish_states_network(app, values).await
     } else {
@@ -25,7 +37,9 @@ pub async fn publish_states(app: &AppHandle, values: &HashMap<String, String>) {
     };
     let state = app.state::<AppState>();
     if sent > 0 {
-        state.published_count.fetch_add(sent as u64, Ordering::Relaxed);
+        state
+            .published_count
+            .fetch_add(sent as u64, Ordering::Relaxed);
     }
     {
         let mut cache = state.sensor_values.lock().await;
@@ -36,10 +50,61 @@ pub async fn publish_states(app: &AppHandle, values: &HashMap<String, String>) {
     let _ = app.emit("deskmate://sensors", values.clone());
 }
 
+pub async fn update_hardware_defs(app: &AppHandle, defs: Vec<crate::sensors::OwnedSensorDef>) {
+    let (changed, removed) = {
+        let state = app.state::<AppState>();
+        let mut current = state.hardware_sensor_defs.lock().await;
+        if *current == defs {
+            (false, Vec::new())
+        } else {
+            let ids: std::collections::HashSet<&str> =
+                defs.iter().map(|def| def.id.as_str()).collect();
+            let removed = current
+                .iter()
+                .filter(|def| !ids.contains(def.id.as_str()))
+                .map(|def| def.id.clone())
+                .collect();
+            *current = defs;
+            (true, removed)
+        }
+    };
+    if changed {
+        let state = app.state::<AppState>();
+        {
+            let mut cache = state.sensor_values.lock().await;
+            for id in &removed {
+                cache.remove(id);
+            }
+        }
+        let cfg = state.config.lock().await.clone();
+        if cfg.transport == "mqtt" {
+            if let Some(client) = state.client.lock().await.clone() {
+                for id in &removed {
+                    let (topic, payload) = crate::discovery::remove_hardware(&cfg.node_id, id);
+                    let _ = client
+                        .publish(topic, rumqttc::QoS::AtLeastOnce, true, payload)
+                        .await;
+                }
+            }
+        }
+        refresh_entities(app).await;
+    }
+}
+
 pub async fn publish_action(app: &AppHandle, action: &str) {
-    let transport = app.state::<AppState>().config.lock().await.transport.clone();
+    let transport = app
+        .state::<AppState>()
+        .config
+        .lock()
+        .await
+        .transport
+        .clone();
     if transport == "link" {
-        crate::link::send(app, serde_json::json!({"t": "notify_action", "action": action})).await;
+        crate::link::send(
+            app,
+            serde_json::json!({"t": "notify_action", "action": action}),
+        )
+        .await;
     } else {
         crate::mqtt::publish_action_network(app, action).await;
     }
@@ -59,7 +124,11 @@ pub async fn publish_trigger(app: &AppHandle, hotkey_id: &str) {
         )
         .await;
     } else if let Some(client) = state.client.lock().await.clone() {
-        let topic = format!("{}/hotkey/{}", crate::consts::base_topic(&cfg.node_id), hotkey_id);
+        let topic = format!(
+            "{}/hotkey/{}",
+            crate::consts::base_topic(&cfg.node_id),
+            hotkey_id
+        );
         let _ = client
             .publish(topic, rumqttc::QoS::AtLeastOnce, false, "PRESS")
             .await;
@@ -69,11 +138,18 @@ pub async fn publish_trigger(app: &AppHandle, hotkey_id: &str) {
 pub async fn refresh_entities(app: &AppHandle) {
     let state = app.state::<AppState>();
     let cfg = state.config.lock().await.clone();
+    let hardware_defs = state.hardware_sensor_defs.lock().await.clone();
     if cfg.transport == "link" {
-        crate::link::send(app, crate::discovery::build_link_declare(&cfg)).await;
+        crate::link::send(
+            app,
+            crate::discovery::build_link_declare(&cfg, &hardware_defs),
+        )
+        .await;
     } else if let Some(client) = state.client.lock().await.clone() {
-        for (topic, payload) in crate::discovery::build_all(&cfg) {
-            let _ = client.publish(topic, rumqttc::QoS::AtLeastOnce, true, payload).await;
+        for (topic, payload) in crate::discovery::build_all(&cfg, &hardware_defs) {
+            let _ = client
+                .publish(topic, rumqttc::QoS::AtLeastOnce, true, payload)
+                .await;
         }
     }
 }
@@ -85,7 +161,13 @@ pub async fn handle_notify(app: &AppHandle, payload: &str) {
 fn payload_string(value: Option<&Value>) -> String {
     match value {
         Some(Value::String(value)) => value.clone(),
-        Some(Value::Bool(value)) => if *value { "ON".into() } else { "OFF".into() },
+        Some(Value::Bool(value)) => {
+            if *value {
+                "ON".into()
+            } else {
+                "OFF".into()
+            }
+        }
         Some(Value::Number(value)) => value.to_string(),
         Some(value) => value.to_string(),
         None => "PRESS".into(),
@@ -116,16 +198,22 @@ pub async fn handle_command(
         state.keep_awake_tx.send(on).map_err(|e| e.to_string())?;
         if cfg.transport == "mqtt" {
             if let Some(client) = state.client.lock().await.clone() {
-                client.publish(
-                    crate::consts::state_topic(&cfg.node_id, "keep_awake"),
-                    rumqttc::QoS::AtLeastOnce,
-                    true,
-                    if on { "ON" } else { "OFF" },
-                ).await.map_err(|e| e.to_string())?;
+                client
+                    .publish(
+                        crate::consts::state_topic(&cfg.node_id, "keep_awake"),
+                        rumqttc::QoS::AtLeastOnce,
+                        true,
+                        if on { "ON" } else { "OFF" },
+                    )
+                    .await
+                    .map_err(|e| e.to_string())?;
             }
         } else {
             let mut values = HashMap::new();
-            values.insert("keep_awake".to_string(), if on { "ON".into() } else { "OFF".into() });
+            values.insert(
+                "keep_awake".to_string(),
+                if on { "ON".into() } else { "OFF".into() },
+            );
             publish_states(app, &values).await;
         }
         return Ok(());
@@ -166,7 +254,10 @@ pub async fn handle_command(
             })
             .await
             .unwrap_or(false);
-            crate::security::audit("clipboard_write_confirmation", if approved { "approved" } else { "denied" });
+            crate::security::audit(
+                "clipboard_write_confirmation",
+                if approved { "approved" } else { "denied" },
+            );
             if !approved {
                 return Err("clipboard write denied".into());
             }
@@ -184,25 +275,32 @@ pub async fn handle_command(
     if key == "open_url" {
         let cfg2 = cfg.clone();
         let url = payload.clone();
-        let result = tokio::task::spawn_blocking(move || crate::sys_commands::open_allowed_url(&cfg2, &url))
-            .await
-            .map_err(|e| e.to_string())?;
-        crate::security::audit("open_url", if result.is_ok() { "allowed" } else { "blocked" });
+        let result =
+            tokio::task::spawn_blocking(move || crate::sys_commands::open_allowed_url(&cfg2, &url))
+                .await
+                .map_err(|e| e.to_string())?;
+        crate::security::audit(
+            "open_url",
+            if result.is_ok() { "allowed" } else { "blocked" },
+        );
         return result;
     }
 
     if let Some(id) = key.strip_prefix("custom_") {
         let cfg2 = cfg.clone();
         let id = id.to_string();
-        return tokio::task::spawn_blocking(move || crate::sys_commands::run_custom(&cfg2, &id, &payload))
-            .await
-            .map_err(|e| e.to_string())?;
+        return tokio::task::spawn_blocking(move || {
+            crate::sys_commands::run_custom(&cfg2, &id, &payload)
+        })
+        .await
+        .map_err(|e| e.to_string())?;
     }
 
     let key_owned = key.to_string();
-    let result = tokio::task::spawn_blocking(move || crate::sys_commands::run_builtin(&key_owned, &payload))
-        .await
-        .map_err(|e| e.to_string())?;
+    let result =
+        tokio::task::spawn_blocking(move || crate::sys_commands::run_builtin(&key_owned, &payload))
+            .await
+            .map_err(|e| e.to_string())?;
     result?;
     if key == "volume" {
         if let Some(volume) = tokio::task::spawn_blocking(crate::sys_commands::get_volume)

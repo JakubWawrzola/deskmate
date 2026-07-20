@@ -8,6 +8,7 @@ or delete another agent's entry.
 
 | Area | Agent | Since |
 |---|---|---|
+| Sensors hardware + Link Files v1 (T32/T34) | Codex | 2026-07-19 |
 
 ## Log
 
@@ -98,3 +99,14 @@ checkliste E2E dla text, hotkey trigger, prune oraz narzedzi Jarvisa. IN
 PROGRESS wyczyszczone.
 Dotkniete pliki w tym repo: AGENT-LOG.md.
 Nastepny krok: Jakub wykonuje E2E; push/merge dopiero po jego jawnym "tak".
+
+## [2026-07-19] Codex — T32 sensory sprzetowe
+Zrobione: dodano lekkie sensory GPU/VRAM/dyskow/temperatur przez natywne
+PDH, DXGI, WMI i istniejace sysinfo. Definicje sa dynamiczne: brak poprawnego
+odczytu oznacza brak deklaracji; wykryte sensory trafiaja rownolegle do MQTT
+discovery i Link declare, a znikniecie sensora usuwa retained discovery.
+Weryfikacja: cargo check, cargo test (6/6), tsc oraz cargo tree bez
+ring/openssl/rustls. Bez uruchamiania aplikacji, HA, push i merge.
+Dotkniete pliki: hardware/sensors/discovery/transport i petle transportow,
+stan aplikacji, feature flags Windows, STATUS.md i AGENT-LOG.md.
+Nastepny krok: T34 Link Files v1; wpis IN PROGRESS pozostaje aktywny.

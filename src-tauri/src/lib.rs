@@ -7,17 +7,18 @@ mod config;
 mod consts;
 mod discovery;
 mod ha_api;
+mod hardware;
 mod hotkeys;
+mod link;
 mod media;
 mod mqtt;
-mod link;
 mod notify;
-mod sensors;
 mod security;
+mod sensors;
 mod state;
 mod sys_commands;
-mod tts;
 mod transport;
+mod tts;
 
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
@@ -41,7 +42,7 @@ struct Snapshot {
     sensor_values: HashMap<String, String>,
     published_count: u64,
     notifications: Vec<notify::NotifyRecord>,
-    sensor_defs: Vec<sensors::SensorDef>,
+    sensor_defs: Vec<sensors::OwnedSensorDef>,
     command_defs: Vec<sys_commands::CommandDef>,
     hostname: String,
     /// whether the HA API channel (URL + token) is configured
@@ -53,7 +54,11 @@ async fn get_config(state: State<'_, AppState>) -> Result<ConfigView, String> {
     let cfg = state.config.lock().await.clone();
     let has_password = config::get_password(&cfg).is_some();
     let has_link_key = config::get_link_key(&cfg.node_id).is_some();
-    Ok(ConfigView { config: cfg, has_password, has_link_key })
+    Ok(ConfigView {
+        config: cfg,
+        has_password,
+        has_link_key,
+    })
 }
 
 #[tauri::command]
@@ -83,11 +88,17 @@ async fn save_config(
         return Err("MQTT transport must be tls or insecure".into());
     }
     if new_config.mqtt_transport == "insecure" && !new_config.broker_host_remote.trim().is_empty() {
-        return Err("MQTT fallback address requires TLS; plaintext MQTT is trusted-LAN only".into());
+        return Err(
+            "MQTT fallback address requires TLS; plaintext MQTT is trusted-LAN only".into(),
+        );
     }
-    if !matches!(new_config.clipboard_read_mode.as_str(), "off" | "confirm" | "automatic")
-        || !matches!(new_config.clipboard_write_mode.as_str(), "off" | "confirm" | "automatic")
-    {
+    if !matches!(
+        new_config.clipboard_read_mode.as_str(),
+        "off" | "confirm" | "automatic"
+    ) || !matches!(
+        new_config.clipboard_write_mode.as_str(),
+        "off" | "confirm" | "automatic"
+    ) {
         return Err("clipboard mode must be off, confirm or automatic".into());
     }
     if new_config.broker_port == 0 {
@@ -97,11 +108,20 @@ async fn save_config(
     let mut custom_ids = std::collections::HashSet::new();
     for command in &mut new_config.custom_commands {
         let normalized_id = config::sanitize_id(&command.id);
-        if normalized_id != command.id || command.id.is_empty() || !custom_ids.insert(command.id.clone()) {
-            return Err(format!("invalid or duplicate custom command id: {}", command.id));
+        if normalized_id != command.id
+            || command.id.is_empty()
+            || !custom_ids.insert(command.id.clone())
+        {
+            return Err(format!(
+                "invalid or duplicate custom command id: {}",
+                command.id
+            ));
         }
         command.name = command.name.trim().chars().take(120).collect();
-        if command.name.is_empty() || command.command.trim().is_empty() || command.command.len() > 8192 {
+        if command.name.is_empty()
+            || command.command.trim().is_empty()
+            || command.command.len() > 8192
+        {
             return Err(format!("invalid custom command: {}", command.id));
         }
         if !matches!(command.kind.as_str(), "button" | "switch" | "number")
@@ -124,8 +144,8 @@ async fn save_config(
     }
     new_config.allowed_url_origins = origins;
     let old = state.config.lock().await.clone();
-    let keeps_existing_link_key = old.node_id == new_config.node_id
-        && config::get_link_key(&new_config.node_id).is_some();
+    let keeps_existing_link_key =
+        old.node_id == new_config.node_id && config::get_link_key(&new_config.node_id).is_some();
     if new_config.transport == "link" && link_key.is_none() && !keeps_existing_link_key {
         return Err("Deskmate Link pairing key is required".into());
     }
@@ -155,12 +175,14 @@ async fn save_config(
 #[tauri::command]
 async fn get_snapshot(state: State<'_, AppState>) -> Result<Snapshot, String> {
     let cfg = state.config.lock().await.clone();
+    let mut sensor_defs = sensors::static_defs();
+    sensor_defs.extend(state.hardware_sensor_defs.lock().await.clone());
     Ok(Snapshot {
         status: state.status.lock().await.clone(),
         sensor_values: state.sensor_values.lock().await.clone(),
         published_count: state.published_count.load(Ordering::Relaxed),
         notifications: state.notif_history.lock().await.iter().cloned().collect(),
-        sensor_defs: sensors::SENSOR_DEFS.to_vec(),
+        sensor_defs,
         command_defs: sys_commands::COMMAND_DEFS.to_vec(),
         hostname: config::hostname(),
         ha_configured: ha_api::is_configured(&cfg),
@@ -234,7 +256,10 @@ async fn update_hotkeys(
         let old_ids: Vec<String> = cfg.hotkeys.iter().map(|h| h.id.clone()).collect();
         cfg.hotkeys = clean;
         let new_ids: Vec<String> = cfg.hotkeys.iter().map(|h| h.id.clone()).collect();
-        let removed: Vec<String> = old_ids.into_iter().filter(|i| !new_ids.contains(i)).collect();
+        let removed: Vec<String> = old_ids
+            .into_iter()
+            .filter(|i| !new_ids.contains(i))
+            .collect();
         (cfg.clone(), removed)
     };
     config::save(&cfg)?;
@@ -245,12 +270,17 @@ async fn update_hotkeys(
     }
     let client = state.client.lock().await.clone();
     if let Some(client) = client {
-        for (topic, payload) in discovery::build_all(&cfg) {
-            let _ = client.publish(topic, rumqttc::QoS::AtLeastOnce, true, payload).await;
+        let hardware_defs = state.hardware_sensor_defs.lock().await.clone();
+        for (topic, payload) in discovery::build_all(&cfg, &hardware_defs) {
+            let _ = client
+                .publish(topic, rumqttc::QoS::AtLeastOnce, true, payload)
+                .await;
         }
         for id in removed {
             let (topic, payload) = discovery::remove_hotkey(&cfg.node_id, &id);
-            let _ = client.publish(topic, rumqttc::QoS::AtLeastOnce, true, payload).await;
+            let _ = client
+                .publish(topic, rumqttc::QoS::AtLeastOnce, true, payload)
+                .await;
         }
     }
     Ok(errors)
@@ -291,12 +321,27 @@ async fn widget_states(state: State<'_, AppState>) -> Result<Vec<WidgetState>, S
         return Err("HA API not configured".into());
     }
     let items = cfg.widgets.clone();
-    let ids: Vec<String> = items.iter().map(|w| w.entity_id.trim().to_string()).collect();
+    let ids: Vec<String> = items
+        .iter()
+        .map(|w| w.entity_id.trim().to_string())
+        .collect();
     let cfg2 = cfg.clone();
     let states = tokio::task::spawn_blocking(move || ha_api::get_states_for(&cfg2, &ids))
         .await
         .map_err(|e| e.to_string())?;
-    const TOGGLABLE: &[&str] = &["light", "switch", "fan", "input_boolean", "media_player", "cover", "script", "scene", "automation", "humidifier", "siren"];
+    const TOGGLABLE: &[&str] = &[
+        "light",
+        "switch",
+        "fan",
+        "input_boolean",
+        "media_player",
+        "cover",
+        "script",
+        "scene",
+        "automation",
+        "humidifier",
+        "siren",
+    ];
     let out = items
         .iter()
         .map(|w| {
@@ -310,8 +355,14 @@ async fn widget_states(state: State<'_, AppState>) -> Result<Vec<WidgetState>, S
             let domain = id.split('.').next().unwrap_or("");
             WidgetState {
                 entity_id: id.to_string(),
-                label: if w.label.trim().is_empty() { friendly } else { w.label.clone() },
-                state: found.map(|s| s.state.clone()).unwrap_or_else(|| "unavailable".into()),
+                label: if w.label.trim().is_empty() {
+                    friendly
+                } else {
+                    w.label.clone()
+                },
+                state: found
+                    .map(|s| s.state.clone())
+                    .unwrap_or_else(|| "unavailable".into()),
                 togglable: TOGGLABLE.contains(&domain),
             }
         })
@@ -326,7 +377,13 @@ async fn widget_toggle(state: State<'_, AppState>, entity_id: String) -> Result<
     tokio::task::spawn_blocking(move || {
         let domain = entity_id.split('.').next().unwrap_or("");
         match domain {
-            "scene" | "script" => ha_api::call_service(&cfg, domain, "turn_on", Some(&entity_id), &serde_json::json!({})),
+            "scene" | "script" => ha_api::call_service(
+                &cfg,
+                domain,
+                "turn_on",
+                Some(&entity_id),
+                &serde_json::json!({}),
+            ),
             _ => ha_api::toggle(&cfg, &entity_id),
         }
     })
@@ -509,7 +566,11 @@ async fn update_custom_command_security(
 }
 
 #[tauri::command]
-async fn remove_custom_command(app: AppHandle, state: State<'_, AppState>, id: String) -> Result<(), String> {
+async fn remove_custom_command(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<(), String> {
     let cfg = {
         let mut cfg = state.config.lock().await;
         cfg.custom_commands.retain(|c| c.id != id);
@@ -545,8 +606,14 @@ fn test_toast(state: State<'_, AppState>) -> Result<(), String> {
             message: "Notifications work. Try the buttons below.".into(),
             image: None,
             actions: vec![
-                notify::NotifyAction { title: "OK".into(), action: "test_ok".into() },
-                notify::NotifyAction { title: "Snooze".into(), action: "test_snooze".into() },
+                notify::NotifyAction {
+                    title: "OK".into(),
+                    action: "test_ok".into(),
+                },
+                notify::NotifyAction {
+                    title: "Snooze".into(),
+                    action: "test_snooze".into(),
+                },
             ],
         },
         Some(state.action_tx.clone()),
@@ -660,7 +727,10 @@ pub fn run() {
                                     let spec = {
                                         let st = app.state::<AppState>();
                                         let cfg = st.config.lock().await;
-                                        cfg.tray_actions.iter().find(|t| t.id == qa_id).map(|t| t.action.clone())
+                                        cfg.tray_actions
+                                            .iter()
+                                            .find(|t| t.id == qa_id)
+                                            .map(|t| t.action.clone())
                                     };
                                     if let Some(spec) = spec {
                                         actions::execute(&app, &spec, &qa_id).await;
