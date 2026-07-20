@@ -44,3 +44,11 @@ lokalnymi po rozmiarze i SHA-256. Opis jawnie zaznacza brak ponownego testu
 end-to-end z HA, bo HA byl niedostepny. Tag v0.3.1 wskazuje commit 1be1607.
 Nastepny krok: po powrocie HA Jakub wykonuje manualna checkliste z STATUS.md;
 ewentualne problemy ida do kolejnego patch release, bez podmiany v0.3.1.
+
+## [2026-07-19] Codex — przygotowanie worktree do Deskmate Link
+Zrobione: zgodnie z fala 4 wykonano `git fetch origin`, a nastepnie jawnie
+zlecony `git reset --hard origin/main`. Worktree zostal wyrownany do commita
+`bac7c8b`, po czym utworzono branch `feature/deskmate-link` bez push i merge.
+Dotkniete pliki: AGENT-LOG.md.
+Nastepny krok: T17 i T19 w repo HomeAssistant, potem implementacja klienta
+Deskmate Link na tym branchu.
