@@ -1,32 +1,41 @@
 import { useState } from "react";
 import { api } from "../api";
 import { Button, Field, StatusDot } from "../components";
-import type { AppConfig, MqttTransport, StatusView } from "../types";
+import type { AppConfig, MqttTransport, StatusView, TransportKind } from "../types";
 
 /** First run: the minimum fields needed to connect to the MQTT broker. */
 export default function Wizard({
   config,
   status,
+  hasLinkKey,
   onDone,
 }: {
   config: AppConfig;
   status: StatusView | null;
+  hasLinkKey: boolean;
   onDone: () => Promise<void>;
 }) {
   const [host, setHost] = useState(config.broker_host);
-  const [transport, setTransport] = useState<MqttTransport>(config.mqtt_transport);
+  const [selectedTransport, setSelectedTransport] = useState<TransportKind>(config.transport);
+  const [mqttTransport, setMqttTransport] = useState<MqttTransport>(config.mqtt_transport);
   const [port, setPort] = useState(String(config.broker_port || 8883));
   const [caPath, setCaPath] = useState(config.mqtt_ca_path);
   const [username, setUsername] = useState(config.username);
   const [password, setPassword] = useState("");
+  const [linkUrl, setLinkUrl] = useState(config.link_url);
+  const [linkKey, setLinkKey] = useState("");
   const [deviceName, setDeviceName] = useState(config.device_name);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const connect = async () => {
     setError(null);
-    if (!host.trim()) {
-      setError("Broker address is required.");
+    if (selectedTransport === "mqtt" ? !host.trim() : !linkUrl.trim()) {
+      setError(selectedTransport === "mqtt" ? "Broker address is required." : "Link URL is required.");
+      return;
+    }
+    if (selectedTransport === "link" && !linkKey && !hasLinkKey) {
+      setError("Link pairing key is required.");
       return;
     }
     setSaving(true);
@@ -34,15 +43,18 @@ export default function Wizard({
       await api.saveConfig(
         {
           ...config,
+          transport: selectedTransport,
           broker_host: host.trim(),
-          broker_port: parseInt(port, 10) || (transport === "tls" ? 8883 : 1883),
-          mqtt_transport: transport,
+          broker_port: parseInt(port, 10) || (mqttTransport === "tls" ? 8883 : 1883),
+          mqtt_transport: mqttTransport,
           mqtt_ca_path: caPath.trim(),
           username: username.trim(),
+          link_url: linkUrl.trim(),
           device_name: deviceName.trim() || config.device_name,
           configured: true,
         },
         password || undefined,
+        linkKey || undefined,
       );
       await onDone();
     } catch (e) {
@@ -58,19 +70,29 @@ export default function Wizard({
         <p className="font-semibold tracking-[0.14em] text-[13px] mb-1">DESKMATE</p>
         <h1 className="text-lg font-semibold mb-1">Connect to Home Assistant</h1>
         <p className="text-[13px] text-muted mb-5 leading-relaxed">
-          Deskmate talks to Home Assistant over MQTT. Point it at your broker
-          (for Home Assistant OS that is the Mosquitto add-on) and the device
-          will appear in HA automatically.
+          Choose MQTT or the encrypted Deskmate Link integration. MQTT remains the default.
         </p>
 
         <div className="space-y-3">
           <label className="block">
             <span className="microlabel">Transport</span>
             <select
-              value={transport}
+              value={selectedTransport}
+              onChange={(e) => setSelectedTransport(e.target.value as TransportKind)}
+              className="mt-1 w-full h-9 px-2 bg-panel border border-hairline-strong rounded text-ink text-[13px] focus-visible:border-ink"
+            >
+              <option value="mqtt">MQTT (default)</option>
+              <option value="link">Deskmate Link</option>
+            </select>
+          </label>
+          {selectedTransport === "mqtt" && <>
+          <label className="block">
+            <span className="microlabel">MQTT security</span>
+            <select
+              value={mqttTransport}
               onChange={(e) => {
                 const next = e.target.value as MqttTransport;
-                setTransport(next);
+                setMqttTransport(next);
                 if (next === "tls" && port === "1883") setPort("8883");
                 if (next === "insecure" && port === "8883") setPort("1883");
               }}
@@ -80,7 +102,7 @@ export default function Wizard({
               <option value="insecure">Plain MQTT — trusted LAN only</option>
             </select>
           </label>
-          {transport === "insecure" && (
+          {mqttTransport === "insecure" && (
             <p className="text-[12px] border border-hairline-strong rounded p-2">
               Plain MQTT exposes credentials, sensor values and commands on the network.
             </p>
@@ -89,7 +111,7 @@ export default function Wizard({
             <Field label="Broker address" value={host} onChange={setHost} placeholder="192.168.1.10" />
             <Field label="Port" value={port} onChange={setPort} placeholder="1883" />
           </div>
-          {transport === "tls" && (
+          {mqttTransport === "tls" && (
             <Field
               label="Custom CA certificate (PEM path)"
               value={caPath}
@@ -99,6 +121,17 @@ export default function Wizard({
           )}
           <Field label="Username" value={username} onChange={setUsername} placeholder="dedicated Deskmate MQTT user" />
           <Field label="Password" value={password} onChange={setPassword} type="password" placeholder="stored in Windows Credential Manager" />
+          </>}
+          {selectedTransport === "link" && <>
+            <Field label="Home Assistant WebSocket URL" value={linkUrl} onChange={setLinkUrl} placeholder="ws://homeassistant.local:8123" />
+            <Field
+              label="Pairing key"
+              value={linkKey}
+              onChange={setLinkKey}
+              type="password"
+              placeholder={hasLinkKey ? "unchanged (stored in Credential Manager)" : "base64 key from Home Assistant"}
+            />
+          </>}
           <Field
             label="Device name"
             value={deviceName}

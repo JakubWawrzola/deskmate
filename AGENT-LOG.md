@@ -8,6 +8,7 @@ or delete another agent's entry.
 
 | Area | Agent | Since |
 |---|---|---|
+| Wave 4 finalization (T20) | Codex | 2026-07-19 |
 
 ## Log
 
@@ -52,3 +53,16 @@ zlecony `git reset --hard origin/main`. Worktree zostal wyrownany do commita
 Dotkniete pliki: AGENT-LOG.md.
 Nastepny krok: T17 i T19 w repo HomeAssistant, potem implementacja klienta
 Deskmate Link na tym branchu.
+
+## [2026-07-19] Codex — T18 klient Deskmate Link
+Zrobione: dodano wybieralny transport `mqtt|link` (domyslnie MQTT), klienta
+WebSocket z hello/welcome, HMAC, HKDF, AES-256-GCM, licznikami anti-replay,
+rotacja local/remote i reconnect. Klucz parowania trafia do Windows Credential
+Manager. Wspolne rejestry encji, handlery komend, stany i toasty obsluguja oba
+transporty. Dodano UI Settings/Wizard, dokumentacje oraz test zgodnosci na
+wektorach wygenerowanych pythonowym kodem integracji HA (tylko odczyt).
+Weryfikacja: `cargo check`, `cargo test` (2/2), `npx tsc --noEmit`; `cargo tree`
+bez ring/openssl/rustls. Bez testow z zywym HA, bez builda, push i merge.
+Dotkniete pliki: Rust/Cargo transportu i konfiguracji, UI TS/TSX, README.md,
+docs/LINK.md, generator i publiczny fixture testowy, AGENT-LOG.md.
+Nastepny krok: T20 — finalny status obu repo, backup selftest i manualny E2E.

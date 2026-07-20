@@ -1,0 +1,26 @@
+{
+  "protocol": "dml1",
+  "psk_b64": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+  "node": "compat_node",
+  "cn_b64": "EBESExQVFhcYGRobHB0eHw==",
+  "sn_b64": "ICEiIyQlJicoKSorLC0uLw==",
+  "hello_ts": 1750000000,
+  "welcome_ts": 1750000001,
+  "hello_mac_b64": "vFif0xWDFeGY/R8c9ILeyagRsnupYR6zTSXb0ssYlQ0=",
+  "welcome_mac_b64": "+gljPwiOPKm2xKXcvHAcFh2xmdkUTgQSmZlAiBGXxzw=",
+  "c2s_key_b64": "l0k1hZfNp6ROiVH1YPjmVOGg2CN5kbmW42JZAUDpcQA=",
+  "s2c_key_b64": "f9xNTsYsL+NtxOpAbwbbwiHLFPgh1H5wNTOP0Ms8iAM=",
+  "payload": {
+    "t": "state",
+    "s": {
+      "ac_power": true,
+      "volume": 37,
+      "cpu": "12.5"
+    }
+  },
+  "python_c2s_frame": {
+    "t": "e",
+    "n": 1,
+    "p": "Swy0fTiaHimu8A/DRVoThZTkrJSTtFZGO6GgN1isk5oaNzc5nWJliV7FhFxyb8pSSlqjz6QYAnmno7QHXFHcSya8bPhvhEFMaZsX55twGDq+fEgZ"
+  }
+}

@@ -19,6 +19,9 @@ fn default_num_step() -> f64 {
 fn default_mqtt_transport() -> String {
     "tls".into()
 }
+fn default_transport() -> String {
+    "mqtt".into()
+}
 fn default_clipboard_mode() -> String {
     "off".into()
 }
@@ -116,6 +119,9 @@ pub struct WidgetItem {
 #[serde(default)]
 pub struct AppConfig {
     pub configured: bool,
+    /// mqtt (default) | link
+    #[serde(default = "default_transport")]
+    pub transport: String,
     pub broker_host: String,
     /// optional fallback host (e.g. public IP / Tailscale). When set,
     /// the client first tries broker_host (local), and after a failed connection
@@ -128,6 +134,10 @@ pub struct AppConfig {
     /// Optional PEM CA certificate for a self-signed/private MQTT broker.
     pub mqtt_ca_path: String,
     pub username: String,
+    /// Deskmate Link websocket endpoint. The API path is appended when omitted.
+    pub link_url: String,
+    /// Optional fallback Deskmate Link endpoint.
+    pub link_url_remote: String,
     /// friendly device name in HA (default: hostname)
     pub device_name: String,
     /// id used in topics/unique_id: [a-z0-9_], default: sanitized hostname
@@ -175,12 +185,15 @@ impl Default for AppConfig {
         let host = hostname();
         Self {
             configured: false,
+            transport: default_transport(),
             broker_host: String::new(),
             broker_host_remote: String::new(),
             broker_port: 8883,
             mqtt_transport: default_mqtt_transport(),
             mqtt_ca_path: String::new(),
             username: String::new(),
+            link_url: String::new(),
+            link_url_remote: String::new(),
             device_name: host.clone(),
             node_id: sanitize_id(&host),
             publish_interval_secs: 15,
@@ -282,5 +295,28 @@ pub fn delete_password_for(username: &str, broker_host: &str) {
     let account = format!("{}@{}", username, broker_host);
     if let Ok(e) = keyring::Entry::new(consts::KEYRING_SERVICE, &account) {
         let _ = e.delete_credential();
+    }
+}
+
+fn link_keyring_entry(node_id: &str) -> Result<keyring::Entry, String> {
+    keyring::Entry::new(consts::LINK_KEYRING_SERVICE, node_id).map_err(|e| e.to_string())
+}
+
+pub fn set_link_key(node_id: &str, pairing_key: &str) -> Result<(), String> {
+    let entry = link_keyring_entry(node_id)?;
+    if pairing_key.is_empty() {
+        let _ = entry.delete_credential();
+        return Ok(());
+    }
+    entry.set_password(pairing_key).map_err(|e| e.to_string())
+}
+
+pub fn get_link_key(node_id: &str) -> Option<String> {
+    link_keyring_entry(node_id).ok()?.get_password().ok()
+}
+
+pub fn delete_link_key_for(node_id: &str) {
+    if let Ok(entry) = link_keyring_entry(node_id) {
+        let _ = entry.delete_credential();
     }
 }

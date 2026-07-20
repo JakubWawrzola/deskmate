@@ -38,6 +38,14 @@ native-tls = "0.2"
 url = "2"
 log = "0.4"
 env_logger = "0.11"
+aes-gcm = "0.10"
+base64 = "0.22"
+futures-util = "0.3"
+hkdf = "0.12"
+hmac = "0.12"
+rand = "0.8"
+sha2 = "0.10"
+tokio-tungstenite = { version = "0.28", default-features = false, features = ["connect", "native-tls"] }
 
 [target.'cfg(windows)'.dependencies.windows]
 version = "0.61"

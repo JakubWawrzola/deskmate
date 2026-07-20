@@ -21,6 +21,8 @@ pub struct AppState {
     pub published_count: AtomicU64,
     pub stop_tx: Mutex<Option<watch::Sender<bool>>>,
     pub client: Mutex<Option<rumqttc::AsyncClient>>,
+    /// Outbound encrypted Link payloads for the currently established session.
+    pub link_tx: Mutex<Option<mpsc::UnboundedSender<serde_json::Value>>>,
     /// toast actions clicked (from the WinRT thread) -> the drain loop publishes to MQTT
     pub action_tx: mpsc::UnboundedSender<String>,
     pub action_rx: Mutex<Option<mpsc::UnboundedReceiver<String>>>,
@@ -45,6 +47,7 @@ impl AppState {
             published_count: AtomicU64::new(0),
             stop_tx: Mutex::new(None),
             client: Mutex::new(None),
+            link_tx: Mutex::new(None),
             action_tx,
             action_rx: Mutex::new(Some(action_rx)),
             tts_tx: crate::tts::spawn(),

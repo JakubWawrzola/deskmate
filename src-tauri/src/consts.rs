@@ -5,6 +5,8 @@ pub const APP_NAME: &str = "Deskmate";
 pub const CONFIG_DIR: &str = "Deskmate";
 /// Service name in Windows Credential Manager (MQTT password)
 pub const KEYRING_SERVICE: &str = "Deskmate MQTT";
+/// Service name in Windows Credential Manager (Deskmate Link pairing key).
+pub const LINK_KEYRING_SERVICE: &str = "Deskmate Link";
 /// Toast AUMID: in release builds NSIS registers the identifier from tauri.conf.json
 pub const TOAST_AUMID: &str = "com.deskmate.desktop";
 /// Toast source label shown in the notification corner (branding)

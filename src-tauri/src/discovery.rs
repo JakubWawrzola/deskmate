@@ -270,6 +270,74 @@ pub fn build_all(cfg: &AppConfig) -> Vec<DiscoveryMsg> {
     out
 }
 
+/// Dynamic entity declaration for the Deskmate Link integration.
+/// Link v1 intentionally exposes only kinds implemented by the HA integration.
+pub fn build_link_declare(cfg: &AppConfig) -> Value {
+    let mut entities = Vec::new();
+    for def in SENSOR_DEFS {
+        if !crate::sensors::is_enabled(cfg, def.id) {
+            continue;
+        }
+        let mut entity = json!({
+            "key": def.id,
+            "kind": def.component,
+            "name": def.name,
+        });
+        if let Some(unit) = def.unit { entity["unit"] = json!(unit); }
+        if let Some(device_class) = def.device_class { entity["device_class"] = json!(device_class); }
+        if let Some(icon) = def.icon { entity["icon"] = json!(icon); }
+        if def.unit.is_some() && def.component == "sensor" && def.device_class != Some("duration") {
+            entity["state_class"] = json!("measurement");
+        }
+        if def.component == "number" {
+            entity["min"] = json!(0);
+            entity["max"] = json!(100);
+            entity["step"] = json!(1);
+        }
+        entities.push(entity);
+    }
+    for def in COMMAND_DEFS {
+        entities.push(json!({"key": def.id, "kind": "button", "name": def.name, "icon": def.icon}));
+    }
+    for command in cfg.custom_commands.iter().filter(|command| command.enabled) {
+        let kind = match command.kind.as_str() {
+            "switch" | "number" => command.kind.as_str(),
+            _ => "button",
+        };
+        let mut entity = json!({
+            "key": format!("custom_{}", command.id),
+            "kind": kind,
+            "name": command.name,
+            "icon": if kind == "switch" { "mdi:toggle-switch" } else if kind == "number" { "mdi:tune" } else { "mdi:console" },
+        });
+        if kind == "number" {
+            entity["min"] = json!(command.num_min);
+            entity["max"] = json!(command.num_max);
+            entity["step"] = json!(command.num_step);
+        }
+        entities.push(entity);
+    }
+    if cfg.allow_input {
+        for def in PRESENT_DEFS {
+            entities.push(json!({"key": def.id, "kind": "button", "name": def.name, "icon": def.icon}));
+        }
+    }
+    if cfg.clipboard_read_mode != "off" {
+        entities.push(json!({"key": "clipboard", "kind": "sensor", "name": "Clipboard", "icon": "mdi:clipboard-text"}));
+    }
+    entities.push(json!({"key": "keep_awake", "kind": "switch", "name": "Keep awake", "icon": "mdi:coffee"}));
+
+    json!({
+        "t": "declare",
+        "device": {
+            "name": cfg.device_name,
+            "model": "Deskmate for Windows",
+            "sw_version": env!("CARGO_PKG_VERSION"),
+        },
+        "entities": entities,
+    })
+}
+
 /// Removal of a hotkey's device trigger (when deleting a hotkey from the UI).
 pub fn remove_hotkey(node_id: &str, hotkey_id: &str) -> DiscoveryMsg {
     (cfg_topic("device_automation", node_id, &format!("hotkey_{hotkey_id}")), String::new())

@@ -2,24 +2,30 @@ import { useEffect, useState } from "react";
 import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
 import { api } from "../api";
 import { Button, Field, Panel, Toggle } from "../components";
-import type { AppConfig, ClipboardMode, MqttTransport } from "../types";
+import type { AppConfig, ClipboardMode, MqttTransport, TransportKind } from "../types";
 
 export default function SettingsPage({
   config,
   hasPassword,
+  hasLinkKey,
   onSaved,
 }: {
   config: AppConfig;
   hasPassword: boolean;
+  hasLinkKey: boolean;
   onSaved: () => Promise<void>;
 }) {
   const [host, setHost] = useState(config.broker_host);
+  const [transport, setTransport] = useState<TransportKind>(config.transport);
   const [hostRemote, setHostRemote] = useState(config.broker_host_remote);
   const [port, setPort] = useState(String(config.broker_port));
   const [mqttTransport, setMqttTransport] = useState<MqttTransport>(config.mqtt_transport);
   const [mqttCaPath, setMqttCaPath] = useState(config.mqtt_ca_path);
   const [username, setUsername] = useState(config.username);
   const [password, setPassword] = useState("");
+  const [linkUrl, setLinkUrl] = useState(config.link_url);
+  const [linkUrlRemote, setLinkUrlRemote] = useState(config.link_url_remote);
+  const [linkKey, setLinkKey] = useState("");
   const [deviceName, setDeviceName] = useState(config.device_name);
   const [interval, setIntervalS] = useState(String(config.publish_interval_secs));
   const [launchHidden, setLaunchHidden] = useState(config.launch_hidden);
@@ -79,12 +85,15 @@ export default function SettingsPage({
       await api.saveConfig(
         {
           ...config,
+          transport,
           broker_host: host.trim(),
           broker_host_remote: hostRemote.trim(),
           broker_port: parseInt(port, 10) || (mqttTransport === "tls" ? 8883 : 1883),
           mqtt_transport: mqttTransport,
           mqtt_ca_path: mqttCaPath.trim(),
           username: username.trim(),
+          link_url: linkUrl.trim(),
+          link_url_remote: linkUrlRemote.trim(),
           device_name: deviceName.trim() || config.device_name,
           publish_interval_secs: Math.max(2, parseInt(interval, 10) || 15),
           launch_hidden: launchHidden,
@@ -99,8 +108,10 @@ export default function SettingsPage({
           toast_branding: branding,
         },
         password || undefined,
+        linkKey || undefined,
       );
       setPassword("");
+      setLinkKey("");
       setMsg("Saved. Reconnecting...");
       await onSaved();
     } catch (e) {
@@ -122,7 +133,21 @@ export default function SettingsPage({
 
   return (
     <>
-      <Panel title="MQTT broker">
+      <Panel title="Home Assistant transport">
+        <label className="block">
+          <span className="microlabel">Active transport</span>
+          <select
+            value={transport}
+            onChange={(event) => setTransport(event.target.value as TransportKind)}
+            className="mt-1 w-full h-9 px-2 bg-panel border border-hairline-strong rounded text-ink text-[13px] focus-visible:border-ink"
+          >
+            <option value="mqtt">MQTT (default)</option>
+            <option value="link">Deskmate Link</option>
+          </select>
+        </label>
+      </Panel>
+
+      {transport === "mqtt" && <Panel title="MQTT broker">
         <div className="space-y-3">
           <label className="block">
             <span className="microlabel">Transport</span>
@@ -173,7 +198,35 @@ export default function SettingsPage({
             placeholder={hasPassword ? "unchanged (stored in Credential Manager)" : "none"}
           />
         </div>
-      </Panel>
+      </Panel>}
+
+      {transport === "link" && <Panel title="Deskmate Link">
+        <div className="space-y-3">
+          <Field
+            label="Home Assistant WebSocket URL (local)"
+            value={linkUrl}
+            onChange={setLinkUrl}
+            placeholder="ws://homeassistant.local:8123"
+            hint="The /api/deskmate_link/ws path is added automatically."
+          />
+          <Field
+            label="Fallback WebSocket URL"
+            value={linkUrlRemote}
+            onChange={setLinkUrlRemote}
+            placeholder="wss://ha.example.com"
+          />
+          <Field
+            label="Pairing key"
+            value={linkKey}
+            onChange={setLinkKey}
+            type="password"
+            placeholder={hasLinkKey ? "unchanged (stored in Credential Manager)" : "32-byte base64 key from Home Assistant"}
+          />
+          <p className="text-[12px] text-muted leading-relaxed">
+            Link encrypts application frames end to end. MQTT settings remain saved and can be selected again at any time.
+          </p>
+        </div>
+      </Panel>}
 
       <Panel title="Clipboard security">
         <p className="text-[12px] text-muted mb-3 leading-relaxed">

@@ -17,6 +17,7 @@ export type Page = (typeof PAGES)[number];
 export default function App() {
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [hasPassword, setHasPassword] = useState(false);
+  const [hasLinkKey, setHasLinkKey] = useState(false);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [page, setPage] = useState<Page>("Status");
 
@@ -24,6 +25,7 @@ export default function App() {
     const view = await api.getConfig();
     setConfig(view.config);
     setHasPassword(view.has_password);
+    setHasLinkKey(view.has_link_key);
   }, []);
 
   const reloadSnapshot = useCallback(async () => {
@@ -59,6 +61,7 @@ export default function App() {
     return (
       <Wizard
         config={config}
+        hasLinkKey={hasLinkKey}
         onDone={async () => {
           await reloadConfig();
           await reloadSnapshot();
@@ -119,6 +122,7 @@ export default function App() {
             <SettingsPage
               config={config}
               hasPassword={hasPassword}
+              hasLinkKey={hasLinkKey}
               onSaved={async () => {
                 await reloadConfig();
                 await reloadSnapshot();
