@@ -167,3 +167,15 @@ Dotkniete pliki: metadane wersji, Cargo.lock, README.md, CHANGELOG.md,
 docs/RELEASE-0.4.0.md, STATUS.md, AGENT-LOG.md, dist-installers/SHA256SUMS.txt.
 Nastepny krok: manualny upgrade/E2E na x64 i ARM64. Merge, tag, release i push
 wylacznie po osobnym `tak` Kuby; niczego nie opublikowano.
+
+## [2026-07-20] Claude — publikacja 0.4.0 na GitHub (polecenie Kuby)
+Zrobione: commit wpisu pojednania z 07-15 (dbae113), merge
+feature/deskmate-link -> master (2a624f3, konflikt AGENT-LOG.md rozwiazany
+zachowaniem OBU wpisow - append-only), README odswiezone pod 0.4.0 (Link,
+hw sensors, Files), push HEAD:main (bac7c8b..d100067), tag v0.4.0.
+Release v0.4.0 utworzony jako PRERELEASE (brak testu E2E z zywym HA -
+uczciwie oznaczone; po zaliczonym E2E na nowym HAOS mozna zdjac flage).
+UWAGA dla Codexa: po tym merge'u worktree deskmate-codex wymaga
+git fetch && git reset --hard origin/main przy nastepnej sesji.
+Nastepny krok: E2E po odbudowie HAOS (checklista w STATUS.md repo
+HomeAssistant), potem ewentualnie zdjecie flagi prerelease.
