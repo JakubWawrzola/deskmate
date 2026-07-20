@@ -1,5 +1,26 @@
 # STATUS — Deskmate
-Aktualizacja: 2026-07-15 (wydanie security hardening 0.3.1)
+Aktualizacja: 2026-07-19 (Deskmate Link, fala odbudowy HAOS 4)
+
+## Sesja 2026-07-19 — Deskmate Link
+
+- [x] Worktree wyrownany przez wymagane `git fetch` i
+  `git reset --hard origin/main`, nastepnie branch `feature/deskmate-link`.
+- [x] Rownolegly transport `mqtt|link`; stara konfiguracja i default pozostaja
+  MQTT. Klucz Link jest tylko w Windows Credential Manager.
+- [x] Hello/welcome HMAC, kontrola skew, HKDF, AES-256-GCM, rosnacy licznik,
+  reconnect 2/3/5 s i rotacja local/remote zgodne z `DESKMATE-LINK.md`.
+- [x] Link obsluguje `declare`, partial `state`, `cmd`/`ack`, `notify`,
+  `notify_action`, `ping`/`pong` przez wspolne rejestry i handlery MQTT.
+- [x] UI Settings i pierwszy kreator maja wybor transportu, URL, fallback i
+  klucz. README oraz `docs/LINK.md` opisuja konfiguracje i ograniczenia.
+- [x] Publiczny fixture zostal wygenerowany pythonowym `FrameCodec` z repo HA;
+  test Rust potwierdza HMAC/HKDF, deszyfrowanie i blokade replayu.
+- [x] Finalne `cargo check`, `cargo test` (2/2), `npx tsc --noEmit` i
+  `cargo tree` przeszly. Drzewo nie zawiera ring/openssl/rustls.
+- Commit: `5c3c706`. Bez builda, zywego HA, push i merge.
+- Do manualnego E2E: parowanie, encje, komendy, toast/action, reconnect/fallback,
+  kontrolowany replay i powrot do MQTT; pelna checklista jest w STATUS.md repo
+  HomeAssistant, T20.
 
 ## Sesja 2026-07-15 — release 0.3.1 i installery
 

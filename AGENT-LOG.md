@@ -8,7 +8,6 @@ or delete another agent's entry.
 
 | Area | Agent | Since |
 |---|---|---|
-| Wave 4 finalization (T20) | Codex | 2026-07-19 |
 
 ## Log
 
@@ -66,3 +65,12 @@ bez ring/openssl/rustls. Bez testow z zywym HA, bez builda, push i merge.
 Dotkniete pliki: Rust/Cargo transportu i konfiguracji, UI TS/TSX, README.md,
 docs/LINK.md, generator i publiczny fixture testowy, AGENT-LOG.md.
 Nastepny krok: T20 — finalny status obu repo, backup selftest i manualny E2E.
+
+## [2026-07-19] Codex — T20 finalizacja fali 4
+Zrobione: finalny backup HomeAssistant wygenerowany z commita `f559ef9` i
+przeszedl selftest (2391 plikow, 19 978 240 B, komplet deskmate_link, skan
+sekretow). STATUS obu repo zawiera wyniki, decyzje i manualna checkliste E2E.
+Strefy Claude'a pozostaly bez zmian. IN PROGRESS wyczyszczone.
+Dotkniete pliki w tym repo: STATUS.md, AGENT-LOG.md.
+Nastepny krok: Jakub wykonuje E2E na HAOS; dopiero po jego jawnym "tak" mozna
+pushowac lub scalac branch.
