@@ -168,3 +168,27 @@ Status: wykonane offline; E2E przez integracje HA pozostaje manualne
   kontrola `cargo tree` nie zawiera ring/openssl/rustls.
 - Nie wykonywano dostepu do prawdziwych plikow przez Link, polaczen z HA,
   uruchomienia aplikacji, push ani merge.
+
+## Fala 7 — T35 finalizacja
+
+Status: kod klienta wykonany offline; E2E pozostaje manualne
+
+- Commity tej fali w Deskmate: `3d709d9` (dynamiczne sensory sprzetowe) i
+  `e4c907d` (read-only Link Files v1). Finalny backup HomeAssistant przeszedl
+  selftest: 2396 plikow, 20 008 960 B, skan sekretow i hashe bez bledow.
+- Sensory sa gotowe dla MQTT discovery i Link declare, lecz karty nowych
+  encji na dashboardzie Komputery wymagaja zmiany w strefie Claude'a.
+- Klient Files jest gotowy, ale E2E z HA/Jarvis wymaga serwerowej czesci T36.
+  Do tego czasu nalezy testowac lokalne odmowy walidacji i security log.
+- Nie uruchamiano aplikacji ani rzeczywistego sprzetu, nie budowano
+  instalatora, nie wykonywano deployu, merge ani push.
+
+### DO PRZETESTOWANIA - Deskmate fala 7
+
+1. Na Windows x64 i ARM64 potwierdzic wykrywanie GPU/VRAM, dyskow, transferow
+   i dostepnych temperatur przez MQTT, a nastepnie Link; niedostepna metryka
+   nie moze utworzyc encji.
+2. Przy pustej allowliscie potwierdzic odmowe Files i wpis w `security.log`.
+   Po wdrozeniu T36 dodac katalog testowy i sprawdzic list/stat/read.
+3. Potwierdzic odmowe dla `..`, UNC/device, ADS, symlink/reparse point,
+   wyjscia poza root i pliku ponad 16 MiB; log nie moze zawierac tresci.

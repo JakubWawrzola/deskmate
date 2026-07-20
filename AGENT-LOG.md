@@ -121,3 +121,15 @@ ring/openssl/rustls. Bez zywego Link/HA, push i merge.
 Dotkniete pliki: link_files.rs, handler Link, config/save, security audit,
 Settings/types, docs/LINK.md, STATUS.md i AGENT-LOG.md.
 Nastepny krok: T35 finalny tar i raport fali 7.
+
+## [2026-07-19] Codex — T35 finalizacja fali 7
+Zrobione: finalny backup HomeAssistant po commicie Claude'a z piecioma
+panelami glass przeszedl selftest (2396 plikow, 20 008 960 B), kontrole
+sekretow, czterech zasobow Lovelace i porownanie hashy plikow buildow, motywu
+oraz card-mod. STATUS obu repo zawiera decyzje, ograniczenia i manualna
+checkliste sensorow oraz Files. Zweryfikowano szkic delegowanego zadania
+`[TANI]`; nie przyjeto od niego zmian w repo.
+Dotkniete pliki w tym repo: STATUS.md, AGENT-LOG.md.
+Nastepny krok: Jakub wykonuje E2E na sprzecie i HAOS; dashboard Komputery
+wymaga zmiany Claude'a, a pelny Files E2E serwerowej czesci T36. Bez push,
+merge i deployu.
