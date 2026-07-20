@@ -69,14 +69,8 @@ pub async fn execute(app: &AppHandle, spec: &ActionSpec, source_id: &str) {
         }
         "widget" => toggle_widget_window(app),
         "mqtt" => {
-            // event to HA (device trigger) - automations without needing an API token
-            let client = { state.client.lock().await.clone() };
-            if let Some(client) = client {
-                let topic = format!("{}/hotkey/{}", crate::consts::base_topic(&cfg.node_id), source_id);
-                let _ = client
-                    .publish(topic, rumqttc::QoS::AtLeastOnce, false, "PRESS")
-                    .await;
-            }
+            // Event to HA over the selected transport; no HA API token needed.
+            crate::transport::publish_trigger(app, source_id).await;
         }
         other => log::warn!("action {source_id}: unknown kind '{other}'"),
     }

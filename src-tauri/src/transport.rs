@@ -45,6 +45,27 @@ pub async fn publish_action(app: &AppHandle, action: &str) {
     }
 }
 
+pub async fn publish_trigger(app: &AppHandle, hotkey_id: &str) {
+    let state = app.state::<AppState>();
+    let cfg = state.config.lock().await.clone();
+    if cfg.transport == "link" {
+        crate::link::send(
+            app,
+            serde_json::json!({
+                "t": "trigger",
+                "key": crate::discovery::link_hotkey_key(hotkey_id),
+                "event": "press",
+            }),
+        )
+        .await;
+    } else if let Some(client) = state.client.lock().await.clone() {
+        let topic = format!("{}/hotkey/{}", crate::consts::base_topic(&cfg.node_id), hotkey_id);
+        let _ = client
+            .publish(topic, rumqttc::QoS::AtLeastOnce, false, "PRESS")
+            .await;
+    }
+}
+
 pub async fn refresh_entities(app: &AppHandle) {
     let state = app.state::<AppState>();
     let cfg = state.config.lock().await.clone();

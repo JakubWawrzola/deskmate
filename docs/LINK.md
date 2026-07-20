@@ -27,7 +27,7 @@ Changing the node ID requires pairing that node again. Local and fallback
 connections perform a fresh authenticated handshake and derive fresh session
 keys on every reconnect.
 
-## Entity and notification coverage
+## Text controls, presentation and hotkeys
 
 Link declares the existing sensor, binary sensor, number, button, switch and
 enabled custom-control definitions with the same keys and names used by MQTT.
@@ -36,12 +36,37 @@ return an acknowledgement to Home Assistant. Notifications support title,
 message, optional image and action buttons; a click produces the
 `deskmate_link_notify_action` event in Home Assistant.
 
-The current Home Assistant Link schema does not expose MQTT-only text entities
-(`clipboard_set`, `type_text`, `tts_say`, `open_url`) or MQTT device-automation
-hotkey triggers. Clipboard reading, presentation buttons, standard commands,
-custom controls, sensors and toast actions are supported where their entity
-kind exists in the integration. Use MQTT when those MQTT-only entities are
-required.
+Link v0.2 also declares the same conditional text controls as MQTT:
+`type_text`, `open_url`, `tts_say` and `clipboard_set`. Their names are exactly
+`Type text`, `Open URL`, `Say (TTS)` and `Set clipboard`; the existing opt-in,
+allowlist, confirmation, lock-screen and size checks still apply. Presentation
+controls remain buttons and use the same `Presentation ...` names as MQTT.
+
+Every configured global hotkey is declared as a Link event entity named
+`hotkey: <name>`, with event type `press`. Pressing it sends a `trigger` frame;
+Home Assistant updates the event entity and fires `deskmate_link_trigger` with
+`node_id`, `key` and `event`. The key is `hotkey_<hotkey id>`. Hotkeys using a
+local/API action still perform that action; the dedicated HA event action only
+publishes the event.
+
+After every entity or hotkey configuration change, Deskmate sends a complete
+new declaration. Link v0.2 removes entities omitted from that declaration, so
+turning an option off or deleting a hotkey/custom control needs no integration
+reload.
+
+## MQTT and Link parity
+
+| Capability | MQTT | Deskmate Link |
+|---|---|---|
+| Sensors, binary sensors and volume | MQTT discovery/state topics | Same names and partial states |
+| Built-in and presentation buttons | Command topics | `cmd` with encrypted `ack` |
+| Keep-awake and custom controls | Switch/number/button discovery | Same kinds, keys and names |
+| Text input, URL, TTS, clipboard write | MQTT text entities | Link text entities with the same names |
+| Clipboard read | MQTT sensor | Link sensor |
+| Hotkeys | MQTT device trigger for the event action | Event entity plus `deskmate_link_trigger`; every configured hotkey emits `press` |
+| Toasts and action buttons | Notify/action topics | Encrypted notify/ack and `deskmate_link_notify_action` |
+| Native MQTT device-trigger representation and raw topics | Supported | MQTT-only; Link uses its event entity and event-bus equivalent |
+| Hotkeys/widgets/tray using the direct HA API | Independent of transport | Independent of transport |
 
 ## Security notes
 
@@ -61,6 +86,6 @@ required.
 - `welcome timestamp outside allowed skew`: correct the Windows and Home
   Assistant clocks.
 - Repeated local connection failures rotate to the configured fallback URL.
-- If entities do not match the current settings after toggling sensors, reload
-  the Deskmate Link integration or reconnect the client. Dynamic entity removal
-  is limited by the current Home Assistant integration.
+- If entities do not match the current settings, save the relevant setting or
+  reconnect once. Both operations send a fresh full declaration; Link v0.2
+  prunes omitted entities automatically.

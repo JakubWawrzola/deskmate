@@ -80,7 +80,7 @@ export default function HotkeysPage({
           System-wide shortcuts that work while Deskmate sits in the tray — control
           Home Assistant without a Stream Deck. Format: <span className="mono text-ink">Ctrl+Alt+L</span>,{" "}
           <span className="mono text-ink">Ctrl+Shift+F5</span>. HA actions need the HA API
-          configured in Settings; the MQTT trigger kind works without it.
+          configured in Settings; the HA event trigger works without it over MQTT or Link.
         </p>
         {hotkeys.length === 0 && <EmptyState text="No hotkeys yet." />}
         <div className="space-y-4">

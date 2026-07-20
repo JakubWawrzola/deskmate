@@ -82,6 +82,12 @@ pub fn on_shortcut(app: &AppHandle, pressed: &Shortcut) {
             if let Ok(sc) = parse(&h.accelerator) {
                 if sc == pressed {
                     log::info!("hotkey fired: {} ({})", h.id, h.accelerator);
+                    // Link exposes every configured hotkey as an event entity.
+                    // The dedicated event action publishes through execute(), so
+                    // only other action kinds need the additional trigger here.
+                    if cfg.transport == "link" && h.action.kind != "mqtt" {
+                        crate::transport::publish_trigger(&app, &h.id).await;
+                    }
                     crate::actions::execute(&app, &h.action, &h.id).await;
                     return;
                 }

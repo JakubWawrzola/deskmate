@@ -8,6 +8,7 @@ or delete another agent's entry.
 
 | Area | Agent | Since |
 |---|---|---|
+| Wave 5 finalization (T22/T23) | Codex | 2026-07-19 |
 
 ## Log
 
@@ -74,3 +75,18 @@ Strefy Claude'a pozostaly bez zmian. IN PROGRESS wyczyszczone.
 Dotkniete pliki w tym repo: STATUS.md, AGENT-LOG.md.
 Nastepny krok: Jakub wykonuje E2E na HAOS; dopiero po jego jawnym "tak" mozna
 pushowac lub scalac branch.
+
+## [2026-07-19] Codex — T21 Deskmate Link v0.2
+Zrobione: Link declare obejmuje cztery warunkowe encje text z nazwami MQTT,
+przyciski prezentacji i encje event dla kazdego hotkeya. Nacisniecie hotkeya
+wysyla `trigger`/`press` z kluczem `hotkey_<id>`; akcje lokalne/API pozostaja
+wykonywane, a dedykowana akcja eventowa publikuje tylko zdarzenie. Kazda zmiana
+ustawien encji/hotkeyow wysyla pelny re-declare albo restartuje sesje z pelnym
+declare, co pozwala HA v0.2 usunac znikniete encje. UI i docs/LINK.md opisuja
+oba transporty oraz parity.
+Weryfikacja: `cargo check`, `cargo test` (4/4, w tym niezmienione wektory
+Pythona), `npx tsc --noEmit` i `cargo tree` bez ring/openssl/rustls. Bez zywego
+HA, builda, push i merge.
+Dotkniete pliki: discovery/transport/actions/hotkeys Rust, dwa opisy UI,
+docs/LINK.md i AGENT-LOG.md.
+Nastepny krok: T22 regeneracja backupu HA, potem T23 statusy i raport.

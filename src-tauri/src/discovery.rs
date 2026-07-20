@@ -271,7 +271,6 @@ pub fn build_all(cfg: &AppConfig) -> Vec<DiscoveryMsg> {
 }
 
 /// Dynamic entity declaration for the Deskmate Link integration.
-/// Link v1 intentionally exposes only kinds implemented by the HA integration.
 pub fn build_link_declare(cfg: &AppConfig) -> Value {
     let mut entities = Vec::new();
     for def in SENSOR_DEFS {
@@ -318,14 +317,55 @@ pub fn build_link_declare(cfg: &AppConfig) -> Value {
         entities.push(entity);
     }
     if cfg.allow_input {
+        entities.push(json!({
+            "key": "type_text",
+            "kind": "text",
+            "name": "Type text",
+            "icon": "mdi:keyboard-outline",
+            "mode": "text",
+        }));
         for def in PRESENT_DEFS {
             entities.push(json!({"key": def.id, "kind": "button", "name": def.name, "icon": def.icon}));
         }
+        entities.push(json!({
+            "key": "open_url",
+            "kind": "text",
+            "name": "Open URL",
+            "icon": "mdi:open-in-new",
+            "mode": "text",
+        }));
+    }
+    if cfg.tts_enabled {
+        entities.push(json!({
+            "key": "tts_say",
+            "kind": "text",
+            "name": "Say (TTS)",
+            "icon": "mdi:account-voice",
+            "mode": "text",
+        }));
+    }
+    if cfg.clipboard_write_mode != "off" {
+        entities.push(json!({
+            "key": "clipboard_set",
+            "kind": "text",
+            "name": "Set clipboard",
+            "icon": "mdi:clipboard-arrow-down",
+            "mode": "text",
+        }));
     }
     if cfg.clipboard_read_mode != "off" {
         entities.push(json!({"key": "clipboard", "kind": "sensor", "name": "Clipboard", "icon": "mdi:clipboard-text"}));
     }
     entities.push(json!({"key": "keep_awake", "kind": "switch", "name": "Keep awake", "icon": "mdi:coffee"}));
+    for hotkey in &cfg.hotkeys {
+        let display_name = if hotkey.name.is_empty() { &hotkey.id } else { &hotkey.name };
+        entities.push(json!({
+            "key": link_hotkey_key(&hotkey.id),
+            "kind": "event",
+            "name": format!("hotkey: {display_name}"),
+            "event_types": ["press"],
+        }));
+    }
 
     json!({
         "t": "declare",
@@ -336,6 +376,10 @@ pub fn build_link_declare(cfg: &AppConfig) -> Value {
         },
         "entities": entities,
     })
+}
+
+pub fn link_hotkey_key(hotkey_id: &str) -> String {
+    format!("hotkey_{hotkey_id}")
 }
 
 /// Removal of a hotkey's device trigger (when deleting a hotkey from the UI).
@@ -350,4 +394,70 @@ pub fn remove_custom(node_id: &str, custom_id: &str) -> Vec<DiscoveryMsg> {
         .iter()
         .map(|comp| (cfg_topic(comp, node_id, &object_id), String::new()))
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::{ActionSpec, Hotkey};
+
+    fn entities(cfg: &AppConfig) -> Vec<Value> {
+        build_link_declare(cfg)["entities"].as_array().unwrap().clone()
+    }
+
+    fn descriptor<'a>(entities: &'a [Value], key: &str) -> Option<&'a Value> {
+        entities.iter().find(|entity| entity["key"] == key)
+    }
+
+    #[test]
+    fn link_declare_adds_text_and_hotkey_event_with_mqtt_names() {
+        let mut cfg = AppConfig::default();
+        cfg.allow_input = true;
+        cfg.tts_enabled = true;
+        cfg.clipboard_write_mode = "automatic".into();
+        cfg.hotkeys.push(Hotkey {
+            id: "desk_lamp".into(),
+            name: "Desk lamp".into(),
+            accelerator: "Ctrl+Alt+L".into(),
+            action: ActionSpec { kind: "mqtt".into(), ..Default::default() },
+        });
+        let declared = entities(&cfg);
+
+        for (key, name) in [
+            ("type_text", "Type text"),
+            ("open_url", "Open URL"),
+            ("tts_say", "Say (TTS)"),
+            ("clipboard_set", "Set clipboard"),
+        ] {
+            let entity = descriptor(&declared, key).unwrap();
+            assert_eq!(entity["kind"], "text");
+            assert_eq!(entity["name"], name);
+            assert_eq!(entity["mode"], "text");
+        }
+        let event = descriptor(&declared, "hotkey_desk_lamp").unwrap();
+        assert_eq!(event["kind"], "event");
+        assert_eq!(event["name"], "hotkey: Desk lamp");
+        assert_eq!(event["event_types"], json!(["press"]));
+    }
+
+    #[test]
+    fn smaller_link_declare_omits_disabled_dynamic_entities() {
+        let mut cfg = AppConfig::default();
+        cfg.allow_input = true;
+        cfg.hotkeys.push(Hotkey {
+            id: "temporary".into(),
+            name: String::new(),
+            accelerator: String::new(),
+            action: ActionSpec::default(),
+        });
+        let before = entities(&cfg);
+        assert!(descriptor(&before, "type_text").is_some());
+        assert_eq!(descriptor(&before, "hotkey_temporary").unwrap()["name"], "hotkey: temporary");
+
+        cfg.allow_input = false;
+        cfg.hotkeys.clear();
+        let after = entities(&cfg);
+        assert!(descriptor(&after, "type_text").is_none());
+        assert!(descriptor(&after, "hotkey_temporary").is_none());
+    }
 }
