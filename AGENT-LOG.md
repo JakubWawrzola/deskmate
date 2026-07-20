@@ -8,7 +8,6 @@ or delete another agent's entry.
 
 | Area | Agent | Since |
 |---|---|---|
-| Wave 5 finalization (T22/T23) | Codex | 2026-07-19 |
 
 ## Log
 
@@ -90,3 +89,12 @@ HA, builda, push i merge.
 Dotkniete pliki: discovery/transport/actions/hotkeys Rust, dwa opisy UI,
 docs/LINK.md i AGENT-LOG.md.
 Nastepny krok: T22 regeneracja backupu HA, potem T23 statusy i raport.
+
+## [2026-07-19] Codex — T23 finalizacja fali 5
+Zrobione: backup HA po integracji Link v0.2 przeszedl selftest (2394 pliki,
+19 988 480 B), a DryRun deployu objal event.py, text.py i deskmate_tools.py.
+Centralny STATUS zawiera decyzje, znalezione problemy w strefie Claude'a i
+checkliste E2E dla text, hotkey trigger, prune oraz narzedzi Jarvisa. IN
+PROGRESS wyczyszczone.
+Dotkniete pliki w tym repo: AGENT-LOG.md.
+Nastepny krok: Jakub wykonuje E2E; push/merge dopiero po jego jawnym "tak".
