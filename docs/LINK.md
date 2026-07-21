@@ -6,18 +6,31 @@ selected again without losing its saved settings.
 
 ## Set up Home Assistant
 
-1. Install the `deskmate_link` custom integration and restart Home Assistant.
-2. Open Settings → Devices & services → Add integration → Deskmate Link.
-3. Enter the same stable node ID shown by Deskmate. Complete the flow and copy
-   the generated base64 pairing key while it is displayed.
-4. Do not put the pairing key in YAML or source control.
+1. The `deskmate_link` custom integration must be present under
+   `config/custom_components/deskmate_link` (copy it there, or restore a
+   backup that already includes it) and Home Assistant must be restarted at
+   least once after it appears.
+2. **Settings → Devices & services → Add integration**, search for
+   **Deskmate Link**, select it.
+3. A dialog **"Sparuj urządzenie Deskmate" / "Pair Deskmate device"** asks for
+   a single field, **Node ID** (placeholder example: `laptopwawrzola`). Type
+   the exact same stable node ID Deskmate uses (shown on its Status page) and
+   confirm.
+4. The next screen shows the generated base64 **pairing key exactly once**.
+   Copy it immediately into a password manager — closing the dialog without
+   copying it means starting the pairing over.
+5. Do not put the pairing key in YAML, `config.json` or source control.
 
 ## Set up Deskmate
 
-1. Open Settings → Home Assistant transport and choose **Deskmate Link**.
-2. Enter a local WebSocket URL such as `ws://homeassistant.local:8123`. Deskmate
-   appends `/api/deskmate_link/ws` automatically.
-3. Optionally enter a fallback `wss://` URL for use outside the local network.
+1. Open **Settings → Home Assistant transport** and choose **Deskmate Link**.
+2. Enter a WebSocket URL. On the local network use
+   `ws://homeassistant.local:8123` (Deskmate appends `/api/deskmate_link/ws`
+   automatically). If you are setting this up while away from home, use your
+   remote `wss://` address directly as the primary URL instead — see
+   "Remote access" below — and add the local one later as the fallback.
+3. Optionally fill the fallback `wss://` field for use outside the local
+   network (or vice versa, if you set the remote one as primary).
 4. Paste the pairing key and choose **Save & reconnect**. The key is stored in
    Windows Credential Manager; it is not written to `config.json`.
 5. Check Status for `Connected (Link)`, then find the device under Settings →
@@ -26,6 +39,26 @@ selected again without losing its saved settings.
 Changing the node ID requires pairing that node again. Local and fallback
 connections perform a fresh authenticated handshake and derive fresh session
 keys on every reconnect.
+
+## Remote access (Cloudflare Tunnel / Nabu Casa)
+
+Link works transparently through a reverse proxy that forwards WebSocket
+traffic, since it is just one more path under the Home Assistant API. Verified
+working setups:
+
+- **Cloudflare Tunnel**: point the Deskmate WebSocket URL at your tunneled
+  hostname, e.g. `wss://your-domain.example`. No extra Cloudflare
+  configuration is needed beyond the existing tunnel route to Home Assistant's
+  `8123` — the same route that serves the frontend also serves
+  `/api/deskmate_link/ws`.
+- **Nabu Casa remote UI**: use the `https://xxxx.ui.nabu.casa` hostname as
+  `wss://xxxx.ui.nabu.casa`.
+- **Tailscale**: use the machine's `100.x` tailnet address as
+  `ws://100.x.x.x:8123` (still unencrypted transport-wise if not using
+  `wss://`, but the tailnet link itself is already end-to-end encrypted).
+
+Pick whichever is already reachable from where Deskmate is running; switching
+between them later is just editing the URL field and reconnecting.
 
 ## Text controls, presentation and hotkeys
 
