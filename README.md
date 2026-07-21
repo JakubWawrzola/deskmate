@@ -126,8 +126,10 @@ trusted-LAN-only mode.
 **Deskmate Link** connects directly to its Home Assistant custom integration
 over WebSocket. A pairing key authenticates the handshake, then every
 application frame is encrypted with independent session keys and replay
-protection. The key is stored in Windows Credential Manager. See
-[docs/LINK.md](docs/LINK.md) for setup and current entity coverage.
+protection. The key is stored in Windows Credential Manager. Field-tested over
+a local address as well as through a Cloudflare Tunnel, Nabu Casa remote UI
+and Tailscale — see [docs/LINK.md](docs/LINK.md) for setup, remote access URLs
+and current entity coverage.
 
 ## Install
 
