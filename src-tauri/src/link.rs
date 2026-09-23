@@ -1,4 +1,9 @@
-//! Deskmate Link v1: authenticated WebSocket handshake and encrypted JSON frames.
+//! Deskmate Link v2: authenticated WebSocket handshake and encrypted JSON frames.
+//!
+//! The pairing key (PSK) authenticates both ends; session keys come from an
+//! ephemeral X25519 exchange mixed with the PSK, so a key leaked later does not
+//! decrypt recorded sessions. Every handshake field is covered by the MAC
+//! through a length-prefixed encoding. Protocol description: docs/LINK.md.
 
 use aes_gcm::aead::{Aead, KeyInit, Payload};
 use aes_gcm::{Aes256Gcm, Nonce};
@@ -7,31 +12,41 @@ use chacha20poly1305::ChaCha20Poly1305;
 use futures_util::{SinkExt, StreamExt};
 use hkdf::Hkdf;
 use hmac::{Hmac, Mac};
+use rand::rngs::OsRng;
 use rand::RngCore;
 use serde_json::{json, Map, Value};
-use sha2::Sha256;
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Manager};
 use tokio::sync::{mpsc, watch};
 use tokio_tungstenite::tungstenite::Message;
+use x25519_dalek::{EphemeralSecret, PublicKey};
+use zeroize::Zeroizing;
 
 use crate::config::AppConfig;
 use crate::state::AppState;
 
 type HmacSha256 = Hmac<Sha256>;
+/// A 32-byte secret that is wiped from memory when dropped.
+pub type SecretKey = Zeroizing<[u8; 32]>;
+
 const WS_PATH: &str = "/api/deskmate_link/ws";
 const MAX_SKEW_SECS: i64 = 90;
+const PROTOCOL_VERSION: u64 = 2;
 
 /// Why a Link session ended. Drives both the status text and the retry delay:
 /// a rejected pairing is not worth retrying every two seconds, and repeating it
 /// only pushes the client into the server-side lockout.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum LinkFailure {
-    /// The pairing key or the node name is wrong. Retrying will not help.
+    /// The pairing key, the node, the cascade setting or the protocol version
+    /// does not match. Retrying will not help until someone changes settings.
     Auth,
     /// Home Assistant temporarily refused this node after repeated failures.
     Locked,
+    /// This computer's clock and Home Assistant's differ by more than 90 s.
+    Clock,
     /// Network, URL or a dropped connection.
     Transport,
 }
@@ -42,16 +57,9 @@ struct LinkError {
 }
 
 impl LinkError {
-    fn auth(message: impl Into<String>) -> Self {
+    fn new(kind: LinkFailure, message: impl Into<String>) -> Self {
         Self {
-            kind: LinkFailure::Auth,
-            message: message.into(),
-        }
-    }
-
-    fn locked(message: impl Into<String>) -> Self {
-        Self {
-            kind: LinkFailure::Locked,
+            kind,
             message: message.into(),
         }
     }
@@ -59,10 +67,7 @@ impl LinkError {
 
 impl From<String> for LinkError {
     fn from(message: String) -> Self {
-        Self {
-            kind: LinkFailure::Transport,
-            message,
-        }
+        Self::new(LinkFailure::Transport, message)
     }
 }
 
@@ -72,29 +77,53 @@ impl From<&str> for LinkError {
     }
 }
 
+const LOCKED_MESSAGE: &str =
+    "Home Assistant is temporarily refusing this node after repeated failed handshakes";
+const CLOCK_MESSAGE: &str =
+    "this computer's clock differs from Home Assistant's by more than 90 seconds - sync the Windows time (Settings > Time & language > Sync now)";
+
 /// A 429 during the WebSocket upgrade is the server-side handshake lockout,
 /// not an ordinary network problem.
 fn classify_connect_error(error: tokio_tungstenite::tungstenite::Error) -> LinkError {
     if let tokio_tungstenite::tungstenite::Error::Http(response) = &error {
         if response.status().as_u16() == 429 {
-            return LinkError::locked(
-                "Home Assistant is temporarily refusing this node after repeated failed handshakes",
-            );
+            return LinkError::new(LinkFailure::Locked, LOCKED_MESSAGE);
         }
     }
     LinkError::from(error.to_string())
 }
 
-/// Retry delay after an authentication failure, in seconds.
-fn auth_retry_delay(kind: LinkFailure, attempts: u32) -> u64 {
-    if kind == LinkFailure::Locked {
-        return 60;
+/// Maps the server's `reject` reason to a failure the user can act on.
+fn classify_reject(reason: &str) -> LinkError {
+    match reason {
+        "locked" => LinkError::new(LinkFailure::Locked, LOCKED_MESSAGE),
+        "clock" => LinkError::new(LinkFailure::Clock, CLOCK_MESSAGE),
+        "cascade" => LinkError::new(
+            LinkFailure::Auth,
+            "cascade encryption is on at one end only - enable or disable it on both (Geeky stuff here, Reconfigure in Home Assistant)",
+        ),
+        "version" => LinkError::new(
+            LinkFailure::Auth,
+            "Home Assistant does not accept this protocol version - update the Deskmate Link integration to 0.6.0 or newer",
+        ),
+        _ => LinkError::new(
+            LinkFailure::Auth,
+            "Home Assistant rejected the pairing - the pairing key does not match, or the integration is older than 0.6.0 and needs an update",
+        ),
     }
-    match attempts {
-        0 | 1 => 5,
-        2 => 15,
-        3 => 30,
-        _ => 60,
+}
+
+/// Retry delay after a non-network failure, in seconds.
+fn auth_retry_delay(kind: LinkFailure, attempts: u32) -> u64 {
+    match kind {
+        LinkFailure::Locked => 60,
+        LinkFailure::Clock => 30,
+        _ => match attempts {
+            0 | 1 => 5,
+            2 => 15,
+            3 => 30,
+            _ => 60,
+        },
     }
 }
 
@@ -119,16 +148,56 @@ pub fn normalize_url(raw: &str) -> Result<String, String> {
         WS_PATH => {}
         _ => return Err(format!("Link URL path must be {WS_PATH}")),
     }
+    if url.scheme() == "ws" && !is_private_host(&url) {
+        return Err(
+            "plain ws:// is only allowed for LAN, .local and Tailscale addresses - use wss:// for anything reachable from the internet"
+                .into(),
+        );
+    }
     Ok(url.to_string())
 }
 
-pub fn validate_pairing_key(raw: &str) -> Result<[u8; 32], String> {
-    let decoded = B64
-        .decode(raw.trim())
-        .map_err(|_| "Link pairing key must be base64".to_string())?;
-    decoded
+/// Hosts where an unencrypted WebSocket stays inside a trusted or already
+/// encrypted network: RFC 1918, loopback, link-local, Tailscale's CGNAT range
+/// and IPv6 ULA, plus mDNS and MagicDNS names. Frames are end-to-end encrypted
+/// either way; this keeps the node name and traffic pattern off the internet.
+fn is_private_host(url: &url::Url) -> bool {
+    match url.host() {
+        Some(url::Host::Ipv4(ip)) => {
+            let [a, b, ..] = ip.octets();
+            ip.is_private()
+                || ip.is_loopback()
+                || ip.is_link_local()
+                || (a == 100 && (64..=127).contains(&b))
+        }
+        Some(url::Host::Ipv6(ip)) => {
+            ip.is_loopback()
+                || (ip.segments()[0] & 0xfe00) == 0xfc00
+                || (ip.segments()[0] & 0xffc0) == 0xfe80
+        }
+        Some(url::Host::Domain(name)) => {
+            let name = name.trim_end_matches('.').to_ascii_lowercase();
+            name == "localhost"
+                || name.ends_with(".local")
+                || name.ends_with(".ts.net")
+                || name.ends_with(".lan")
+                || name.ends_with(".home.arpa")
+                || !name.contains('.')
+        }
+        None => false,
+    }
+}
+
+pub fn validate_pairing_key(raw: &str) -> Result<SecretKey, String> {
+    let decoded = Zeroizing::new(
+        B64.decode(raw.trim())
+            .map_err(|_| "Link pairing key must be base64".to_string())?,
+    );
+    let key: [u8; 32] = decoded
+        .as_slice()
         .try_into()
-        .map_err(|_| "Link pairing key must decode to exactly 32 bytes".into())
+        .map_err(|_| "Link pairing key must decode to exactly 32 bytes".to_string())?;
+    Ok(Zeroizing::new(key))
 }
 
 fn now_unix() -> i64 {
@@ -138,65 +207,99 @@ fn now_unix() -> i64 {
         .as_secs() as i64
 }
 
-fn mac(psk: &[u8; 32], message: &str) -> [u8; 32] {
+/// Canonical encoding for MAC and KDF input: every field is prefixed with its
+/// 4-byte big-endian length, so no two different field lists share bytes.
+fn enc(parts: &[&[u8]]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(parts.iter().map(|p| p.len() + 4).sum());
+    for part in parts {
+        out.extend_from_slice(&(part.len() as u32).to_be_bytes());
+        out.extend_from_slice(part);
+    }
+    out
+}
+
+fn hello_bytes(node: &str, cn: &[u8; 16], ts: i64, epk: &[u8; 32], cascade: bool) -> Vec<u8> {
+    enc(&[
+        b"dml2 hello",
+        b"2",
+        node.as_bytes(),
+        cn,
+        ts.to_string().as_bytes(),
+        epk,
+        if cascade { b"1" } else { b"0" },
+    ])
+}
+
+/// The welcome is bound to a hash of the whole hello, so tampering with any
+/// hello field (the cascade flag included) breaks the server's MAC.
+fn welcome_bytes(hello: &[u8], sn: &[u8; 16], ts: i64, epk: &[u8; 32]) -> Vec<u8> {
+    let hello_hash = Sha256::digest(hello);
+    enc(&[
+        b"dml2 welcome",
+        hello_hash.as_slice(),
+        sn,
+        ts.to_string().as_bytes(),
+        epk,
+    ])
+}
+
+fn mac(psk: &[u8; 32], data: &[u8]) -> [u8; 32] {
     let mut hmac = <HmacSha256 as Mac>::new_from_slice(psk).expect("fixed-size HMAC key");
-    hmac.update(message.as_bytes());
+    hmac.update(data);
     hmac.finalize().into_bytes().into()
 }
 
-fn verify_mac(psk: &[u8; 32], message: &str, encoded: &str) -> Result<(), String> {
+fn verify_mac(psk: &[u8; 32], data: &[u8], encoded: &str) -> Result<(), String> {
     let supplied = B64
         .decode(encoded)
         .map_err(|_| "invalid handshake MAC".to_string())?;
     let mut hmac = <HmacSha256 as Mac>::new_from_slice(psk).expect("fixed-size HMAC key");
-    hmac.update(message.as_bytes());
+    hmac.update(data);
     hmac.verify_slice(&supplied)
         .map_err(|_| "handshake authentication failed".into())
 }
 
+/// Session keys: HKDF-SHA256 with the DH result and a pairing key as input
+/// keying material and the transcript hash as salt. `labels` separates the
+/// primary layer from the cascade layer.
 fn derive_keys(
     psk: &[u8; 32],
-    cn: &[u8; 16],
-    sn: &[u8; 16],
-) -> Result<([u8; 32], [u8; 32]), String> {
-    expand_keys(psk, cn, sn, b"dml1 c2s", b"dml1 s2c")
-}
-
-/// Cascade keys come from a separate pairing key and separate HKDF labels, so
-/// the two layers never share key material.
-fn derive_cascade_keys(
-    psk: &[u8; 32],
-    cn: &[u8; 16],
-    sn: &[u8; 16],
-) -> Result<([u8; 32], [u8; 32]), String> {
-    expand_keys(psk, cn, sn, b"dml1 cascade c2s", b"dml1 cascade s2c")
-}
-
-fn expand_keys(
-    psk: &[u8; 32],
-    cn: &[u8; 16],
-    sn: &[u8; 16],
-    info_c2s: &[u8],
-    info_s2c: &[u8],
-) -> Result<([u8; 32], [u8; 32]), String> {
-    let mut salt = [0u8; 32];
-    salt[..16].copy_from_slice(cn);
-    salt[16..].copy_from_slice(sn);
-    let hkdf = Hkdf::<Sha256>::new(Some(&salt), psk);
-    let mut c2s = [0u8; 32];
-    let mut s2c = [0u8; 32];
-    hkdf.expand(info_c2s, &mut c2s)
+    shared: &[u8; 32],
+    hello: &[u8],
+    welcome: &[u8],
+    labels: (&[u8], &[u8]),
+) -> Result<(SecretKey, SecretKey), String> {
+    let salt = Sha256::digest(enc(&[hello, welcome]));
+    let mut ikm = Zeroizing::new([0u8; 64]);
+    ikm[..32].copy_from_slice(shared);
+    ikm[32..].copy_from_slice(psk);
+    let hkdf = Hkdf::<Sha256>::new(Some(salt.as_slice()), ikm.as_slice());
+    let mut c2s = Zeroizing::new([0u8; 32]);
+    let mut s2c = Zeroizing::new([0u8; 32]);
+    hkdf.expand(labels.0, c2s.as_mut_slice())
         .map_err(|_| "HKDF c2s failed".to_string())?;
-    hkdf.expand(info_s2c, &mut s2c)
+    hkdf.expand(labels.1, s2c.as_mut_slice())
         .map_err(|_| "HKDF s2c failed".to_string())?;
     Ok((c2s, s2c))
+}
+
+const PRIMARY_LABELS: (&[u8], &[u8]) = (b"dml2 c2s", b"dml2 s2c");
+const CASCADE_LABELS: (&[u8], &[u8]) = (b"dml2 cascade c2s", b"dml2 cascade s2c");
+
+fn decode_exact<const N: usize>(value: Option<&Value>, what: &str) -> Result<[u8; N], String> {
+    let text = value
+        .and_then(Value::as_str)
+        .ok_or_else(|| format!("welcome missing {what}"))?;
+    B64.decode(text)
+        .map_err(|_| format!("invalid {what}"))?
+        .try_into()
+        .map_err(|_| format!("{what} must be {N} bytes"))
 }
 
 struct FrameCodec {
     cipher: Aes256Gcm,
     /// Optional second layer. When present every frame is encrypted twice, with
-    /// two different ciphers under two different keys, so breaking one of them
-    /// is not enough to read the traffic.
+    /// two different ciphers under two different keys.
     cascade: Option<ChaCha20Poly1305>,
     nonce_prefix: [u8; 4],
     aad: Vec<u8>,
@@ -221,8 +324,8 @@ impl FrameCodec {
             cascade: cascade_key
                 .map(|k| ChaCha20Poly1305::new_from_slice(k).expect("ChaCha20 key")),
             nonce_prefix: prefix,
-            aad: format!("{node}|{direction}").into_bytes(),
-            cascade_aad: format!("{node}|{direction}|cascade").into_bytes(),
+            aad: enc(&[b"dml2", node.as_bytes(), direction.as_bytes()]),
+            cascade_aad: enc(&[b"dml2 cascade", node.as_bytes(), direction.as_bytes()]),
             counter: 0,
         }
     }
@@ -330,7 +433,7 @@ pub async fn restart(app: AppHandle) {
         crate::mqtt::set_status(&app, false, "Not configured");
         return;
     }
-    let Some(raw_key) = crate::config::get_link_key(&cfg.node_id) else {
+    let Some(raw_key) = crate::config::get_link_key(&cfg.node_id).map(Zeroizing::new) else {
         crate::mqtt::set_status(&app, false, "Link pairing key missing");
         return;
     };
@@ -344,7 +447,15 @@ pub async fn restart(app: AppHandle) {
     // Cascade is opt-in and only takes effect when its own key is present.
     let cascade = if cfg.link_cascade {
         match crate::config::get_link_cascade_key(&cfg.node_id) {
-            Some(raw) => match validate_pairing_key(&raw) {
+            Some(raw) => match validate_pairing_key(&Zeroizing::new(raw)) {
+                Ok(key) if *key == *psk => {
+                    crate::mqtt::set_status(
+                        &app,
+                        false,
+                        "Cascade key is the same as the pairing key - paste the separate cascade key",
+                    );
+                    return;
+                }
                 Ok(key) => Some(key),
                 Err(error) => {
                     crate::mqtt::set_status(&app, false, &format!("Cascade key: {error}"));
@@ -396,7 +507,7 @@ pub async fn restart(app: AppHandle) {
                 &app_connection,
                 &cfg_connection,
                 &psk,
-                cascade.as_ref(),
+                cascade.as_deref(),
                 &endpoints[endpoint_index],
                 stop_connection.clone(),
             )
@@ -418,6 +529,9 @@ pub async fn restart(app: AppHandle) {
                         ),
                         LinkFailure::Locked => {
                             format!("Link locked out{label}: {}", error.message)
+                        }
+                        LinkFailure::Clock => {
+                            format!("Link clock mismatch{label}: {}", error.message)
                         }
                         LinkFailure::Transport => {
                             format!("Link error{label}: {}", error.message)
@@ -491,20 +605,26 @@ async fn run_session(
         .await
         .map_err(classify_connect_error)?;
     let mut cn = [0u8; 16];
-    rand::thread_rng().fill_bytes(&mut cn);
+    OsRng.fill_bytes(&mut cn);
     let cn_b64 = B64.encode(cn);
     let ts = now_unix();
-    let hello_text = format!("hello|{}|{}|{}", cfg.node_id, cn_b64, ts);
+    // Fresh X25519 key for this session only; dropped (and wiped) right after
+    // the shared secret is computed.
+    let ephemeral = EphemeralSecret::random_from_rng(OsRng);
+    let client_epk = PublicKey::from(&ephemeral).to_bytes();
+    let hello_data = hello_bytes(&cfg.node_id, &cn, ts, &client_epk, cascade.is_some());
     let hello = json!({
         "t": "hello",
-        "v": 1,
+        "v": PROTOCOL_VERSION,
         "node": cfg.node_id,
         "cn": cn_b64,
         "ts": ts,
-        "mac": B64.encode(mac(psk, &hello_text)),
+        "epk": B64.encode(client_epk),
         // Cascade must match on both ends; Home Assistant rejects a mismatch
-        // rather than quietly falling back to the weaker single layer.
+        // rather than quietly falling back to the weaker single layer. The flag
+        // is covered by the MAC, so nobody on the path can flip it.
         "casc": cascade.is_some(),
+        "mac": B64.encode(mac(psk, &hello_data)),
     });
     socket
         .send(Message::Text(hello.to_string().into()))
@@ -525,64 +645,59 @@ async fn run_session(
         // Serwer mowi wprost, dlaczego nie wpuscil - bez tego jedynym sladem
         // bylo zerwane polaczenie i zgadywanie po stronie uzytkownika.
         Some("reject") => {
-            let reason = welcome
-                .get("reason")
-                .and_then(Value::as_str)
-                .unwrap_or("auth");
-            return Err(match reason {
-                "locked" => LinkError::locked(
-                    "Home Assistant is temporarily refusing this node after repeated failed handshakes",
-                ),
-                _ => LinkError::auth(
-                    "Home Assistant rejected the pairing - this node is not paired, or the pairing key does not match",
-                ),
-            });
+            return Err(classify_reject(
+                welcome.get("reason").and_then(Value::as_str).unwrap_or("auth"),
+            ));
         }
         _ => return Err("expected welcome".into()),
     }
-    let sn_b64 = welcome
-        .get("sn")
-        .and_then(Value::as_str)
-        .ok_or_else(|| "welcome missing sn".to_string())?;
-    let sn_vec = B64
-        .decode(sn_b64)
-        .map_err(|_| "invalid server nonce".to_string())?;
-    let sn: [u8; 16] = sn_vec
-        .try_into()
-        .map_err(|_| "server nonce must be 16 bytes".to_string())?;
+    if welcome.get("v").and_then(Value::as_u64) != Some(PROTOCOL_VERSION) {
+        return Err(classify_reject("version"));
+    }
+    let sn: [u8; 16] = decode_exact(welcome.get("sn"), "server nonce")?;
+    let server_epk: [u8; 32] = decode_exact(welcome.get("epk"), "server key")?;
     let server_ts = welcome
         .get("ts")
         .and_then(Value::as_i64)
         .ok_or_else(|| "welcome missing ts".to_string())?;
     if (now_unix() - server_ts).abs() > MAX_SKEW_SECS {
-        return Err("welcome timestamp outside allowed skew".into());
+        return Err(LinkError::new(LinkFailure::Clock, CLOCK_MESSAGE));
     }
-    let signed = format!(
-        "welcome|{}|{}|{}|{}",
-        cfg.node_id, cn_b64, sn_b64, server_ts
-    );
+    let welcome_data = welcome_bytes(&hello_data, &sn, server_ts, &server_epk);
     verify_mac(
         psk,
-        &signed,
+        &welcome_data,
         welcome.get("mac").and_then(Value::as_str).unwrap_or(""),
     )?;
-    let (c2s, s2c) = derive_keys(psk, &cn, &sn)?;
+    let shared = ephemeral.diffie_hellman(&PublicKey::from(server_epk));
+    if !shared.was_contributory() {
+        return Err("server sent a low-order X25519 key".into());
+    }
+    let (c2s, s2c) = derive_keys(psk, shared.as_bytes(), &hello_data, &welcome_data, PRIMARY_LABELS)?;
     let cascade_keys = match cascade {
-        Some(key) => Some(derive_cascade_keys(key, &cn, &sn)?),
+        Some(key) => Some(derive_keys(
+            key,
+            shared.as_bytes(),
+            &hello_data,
+            &welcome_data,
+            CASCADE_LABELS,
+        )?),
         None => None,
     };
+    drop(shared);
     let mut encoder = FrameCodec::new(
         &c2s,
         &cfg.node_id,
         "c2s",
-        cascade_keys.as_ref().map(|(c, _)| c),
+        cascade_keys.as_ref().map(|(c, _)| &**c),
     );
     let mut decoder = FrameCodec::new(
         &s2c,
         &cfg.node_id,
         "s2c",
-        cascade_keys.as_ref().map(|(_, s)| s),
+        cascade_keys.as_ref().map(|(_, s)| &**s),
     );
+    drop(cascade_keys);
     let (mut writer, mut reader) = socket.split();
     let (out_tx, mut out_rx) = mpsc::unbounded_channel::<Value>();
     *app.state::<AppState>().link_tx.lock().await = Some(out_tx.clone());
@@ -750,6 +865,7 @@ pub async fn publish_states_network(app: &AppHandle, values: &HashMap<String, St
 #[cfg(test)]
 mod tests {
     use super::*;
+    use x25519_dalek::StaticSecret;
 
     #[test]
     fn normalizes_link_url() {
@@ -762,37 +878,83 @@ mod tests {
     }
 
     #[test]
-    fn matches_home_assistant_python_vectors() {
+    fn plain_ws_only_on_private_hosts() {
+        assert!(normalize_url("ws://192.168.1.10:8123").is_ok());
+        assert!(normalize_url("ws://100.101.102.103:8123").is_ok());
+        assert!(normalize_url("ws://homeassistant:8123").is_ok());
+        assert!(normalize_url("ws://ha.tail1234.ts.net:8123").is_ok());
+        assert!(normalize_url("ws://ha.example.com").is_err());
+        assert!(normalize_url("ws://8.8.8.8:8123").is_err());
+        assert!(normalize_url("wss://ha.example.com").is_ok());
+    }
+
+    #[test]
+    fn encoding_is_unambiguous() {
+        assert_ne!(enc(&[b"ab", b"c"]), enc(&[b"a", b"bc"]));
+    }
+
+    fn b64<const N: usize>(vector: &Value, key: &str) -> [u8; N] {
+        B64.decode(vector[key].as_str().unwrap())
+            .unwrap()
+            .try_into()
+            .unwrap()
+    }
+
+    #[test]
+    fn matches_home_assistant_python_v2_vectors() {
         let vector: Value =
-            serde_json::from_str(include_str!("../tests/fixtures/deskmate_link_v1.json")).unwrap();
+            serde_json::from_str(include_str!("../tests/fixtures/deskmate_link_v2.json")).unwrap();
         let psk = validate_pairing_key(vector["psk_b64"].as_str().unwrap()).unwrap();
+        let cascade = validate_pairing_key(vector["cascade_b64"].as_str().unwrap()).unwrap();
         let node = vector["node"].as_str().unwrap();
-        let cn_b64 = vector["cn_b64"].as_str().unwrap();
-        let sn_b64 = vector["sn_b64"].as_str().unwrap();
-        let hello_ts = vector["hello_ts"].as_i64().unwrap();
-        let welcome_ts = vector["welcome_ts"].as_i64().unwrap();
-        assert_eq!(
-            B64.encode(mac(&psk, &format!("hello|{node}|{cn_b64}|{hello_ts}"))),
-            vector["hello_mac_b64"].as_str().unwrap()
-        );
-        assert_eq!(
-            B64.encode(mac(
-                &psk,
-                &format!("welcome|{node}|{cn_b64}|{sn_b64}|{welcome_ts}")
-            )),
-            vector["welcome_mac_b64"].as_str().unwrap()
-        );
-        let cn: [u8; 16] = B64.decode(cn_b64).unwrap().try_into().unwrap();
-        let sn: [u8; 16] = B64.decode(sn_b64).unwrap().try_into().unwrap();
-        let (c2s, s2c) = derive_keys(&psk, &cn, &sn).unwrap();
-        assert_eq!(B64.encode(c2s), vector["c2s_key_b64"].as_str().unwrap());
-        assert_eq!(B64.encode(s2c), vector["s2c_key_b64"].as_str().unwrap());
-        let mut decoder = FrameCodec::new(&c2s, node, "c2s");
+        let cn: [u8; 16] = b64(&vector, "cn_b64");
+        let sn: [u8; 16] = b64(&vector, "sn_b64");
+        let client_esk = StaticSecret::from(b64::<32>(&vector, "client_esk_b64"));
+        let client_epk = PublicKey::from(&client_esk).to_bytes();
+        assert_eq!(client_epk, b64::<32>(&vector, "client_epk_b64"));
+        let server_epk: [u8; 32] = b64(&vector, "server_epk_b64");
+
+        let hello = hello_bytes(node, &cn, vector["hello_ts"].as_i64().unwrap(), &client_epk, true);
+        assert_eq!(B64.encode(mac(&psk, &hello)), vector["hello_mac_b64"].as_str().unwrap());
+        let welcome = welcome_bytes(&hello, &sn, vector["welcome_ts"].as_i64().unwrap(), &server_epk);
+        verify_mac(&psk, &welcome, vector["welcome_mac_b64"].as_str().unwrap()).unwrap();
+
+        // Flipping the cascade flag must invalidate the MAC chain.
+        let tampered = hello_bytes(node, &cn, vector["hello_ts"].as_i64().unwrap(), &client_epk, false);
+        assert_ne!(mac(&psk, &tampered), mac(&psk, &hello));
+
+        let shared = client_esk.diffie_hellman(&PublicKey::from(server_epk));
+        let (c2s, s2c) = derive_keys(&psk, shared.as_bytes(), &hello, &welcome, PRIMARY_LABELS).unwrap();
+        let (cc2s, cs2c) = derive_keys(&cascade, shared.as_bytes(), &hello, &welcome, CASCADE_LABELS).unwrap();
+        assert_eq!(B64.encode(*c2s), vector["c2s_key_b64"].as_str().unwrap());
+        assert_eq!(B64.encode(*s2c), vector["s2c_key_b64"].as_str().unwrap());
+        assert_eq!(B64.encode(*cc2s), vector["cascade_c2s_key_b64"].as_str().unwrap());
+        assert_eq!(B64.encode(*cs2c), vector["cascade_s2c_key_b64"].as_str().unwrap());
+
+        let mut decoder = FrameCodec::new(&c2s, node, "c2s", Some(&cc2s));
         let frame = vector["python_c2s_frame"].to_string();
         assert_eq!(decoder.decrypt(&frame).unwrap(), vector["payload"]);
         assert!(
             decoder.decrypt(&frame).is_err(),
             "the same counter must be rejected as replay"
         );
+        let mut from_server = FrameCodec::new(&s2c, node, "s2c", Some(&cs2c));
+        let ping = vector["python_s2c_ping_frame"].to_string();
+        assert_eq!(from_server.decrypt(&ping).unwrap()["t"], "ping");
+
+        // Without the cascade layer the same frame must not authenticate.
+        let mut single = FrameCodec::new(&c2s, node, "c2s", None);
+        assert!(single.decrypt(&frame).is_err());
+    }
+
+    #[test]
+    fn rust_frames_round_trip() {
+        let key = [7u8; 32];
+        let mut encoder = FrameCodec::new(&key, "pc", "c2s", None);
+        let mut decoder = FrameCodec::new(&key, "pc", "c2s", None);
+        let frame = encoder.encrypt(&json!({"t": "ping"})).unwrap();
+        assert_eq!(decoder.decrypt(&frame).unwrap()["t"], "ping");
+        let mut other_node = FrameCodec::new(&key, "laptop", "c2s", None);
+        assert!(other_node.decrypt(&frame).is_err(), "AAD binds the node");
     }
 }

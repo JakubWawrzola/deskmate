@@ -51,7 +51,13 @@ Restarting is not optional: a new integration is only picked up at startup.
 Tell them:
 
 > Go to *Settings → Devices & services → Add integration*, search for **Deskmate
-> Link** and confirm. Home Assistant shows a pairing key once. Copy it now.
+> Link** and confirm. Home Assistant shows a pairing code starting with
+> `DMP1.`. Copy it now.
+
+If the user closed the dialog too early, they add the integration again: an
+entry still waiting for pairing shows the same code, nothing is duplicated.
+When upgrading an existing setup, the integration must be updated before the
+Windows app, because Deskmate 0.6 speaks Link protocol v2 only.
 
 There is no device name to type. The entry is created unbound and attaches
 itself to the first computer that authenticates with that key. Do not invent a
@@ -66,8 +72,8 @@ Tell them:
 > Run it. The installer is not signed, so SmartScreen will warn you; choose
 > *More info → Run anyway* if you are comfortable with that.
 >
-> On first launch, pick **Deskmate Link** as the transport, enter your Home
-> Assistant WebSocket address and paste the pairing key.
+> On first launch, paste the pairing code. The address is filled in from it;
+> check that it is right.
 
 The address format matters and is the most common thing to get wrong:
 
@@ -105,6 +111,14 @@ paired entry accepted this computer, or the pairing key does not match. Home
 Assistant also raises a repair issue naming the computer. Either pair again, or
 if an entry already exists that should own this computer, open it and choose
 *Reconfigure → Unbind from the current computer*.
+
+**`Link clock mismatch ...`** - the computer's clock and Home Assistant's
+differ by more than 90 seconds. Have the user sync the Windows time. A dual-boot
+PC whose hardware clock is kept in UTC by Linux is the usual cause.
+
+**`... cascade encryption is on at one end only`** or **`... protocol version`**
+- the key is right, the settings differ. Update the integration to 0.6.0, and
+enable or disable cascade on both sides.
 
 **`Link locked out ...`** - too many failed handshakes in a row. It clears
 itself within five minutes once the underlying problem is fixed.

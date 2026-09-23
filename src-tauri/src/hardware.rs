@@ -6,11 +6,21 @@ use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use sysinfo::Disks;
 
+/// How many collection ticks a detected sensor survives without a reading
+/// before its definition is withdrawn (about 2.5 minutes at the default 15 s).
+const MISSED_TICKS_BEFORE_DROP: u32 = 10;
+
 pub struct HardwareCollector {
     disk_primed: bool,
     gpu: Option<pdh::GpuCounters>,
     gpu_total_mib: Option<f64>,
     temperatures: TemperatureCache,
+    /// Every definition seen so far, with the number of ticks it has been
+    /// missing. A single failed PDH or WMI read used to drop the definition,
+    /// which deleted the entity in Home Assistant and recreated it on the next
+    /// tick. On desktops with a discrete GPU and LibreHardwareMonitor that
+    /// happened constantly.
+    known: HashMap<String, (OwnedSensorDef, u32)>,
 }
 
 impl HardwareCollector {
@@ -20,6 +30,7 @@ impl HardwareCollector {
             gpu: pdh::GpuCounters::new(),
             gpu_total_mib: dxgi_total_vram_mib(),
             temperatures: TemperatureCache::default(),
+            known: HashMap::new(),
         }
     }
 
@@ -150,8 +161,29 @@ impl HardwareCollector {
             values.insert("gpu_temperature".into(), format!("{value:.1}"));
         }
 
-        defs.sort_by(|a, b| a.id.cmp(&b.id));
+        let defs = self.stabilize(defs);
         (values, defs)
+    }
+
+    /// Keeps a definition alive through short gaps in its readings. The value
+    /// is simply not published for those ticks.
+    fn stabilize(&mut self, current: Vec<OwnedSensorDef>) -> Vec<OwnedSensorDef> {
+        let present: std::collections::HashSet<String> =
+            current.iter().map(|def| def.id.clone()).collect();
+        for def in current {
+            self.known.insert(def.id.clone(), (def, 0));
+        }
+        self.known.retain(|id, (_, missed)| {
+            if present.contains(id) {
+                return true;
+            }
+            *missed += 1;
+            *missed < MISSED_TICKS_BEFORE_DROP
+        });
+        let mut defs: Vec<OwnedSensorDef> =
+            self.known.values().map(|(def, _)| def.clone()).collect();
+        defs.sort_by(|a, b| a.id.cmp(&b.id));
+        defs
     }
 }
 
@@ -453,15 +485,37 @@ mod pdh {
         if status != PDH_MORE_DATA || bytes == 0 {
             return None;
         }
-        let words =
-            (bytes as usize + std::mem::size_of::<usize>() - 1) / std::mem::size_of::<usize>();
-        let mut storage = vec![0usize; words];
-        let ptr = storage.as_mut_ptr().cast::<PDH_FMT_COUNTERVALUE_ITEM_W>();
-        if PdhGetFormattedCounterArrayW(counter, PDH_FMT_DOUBLE, &mut bytes, &mut count, Some(ptr))
-            != 0
-        {
+        // GPU Engine instances come and go with every process that touches the
+        // GPU, so the array can grow between the size query and the read. PDH
+        // then reports PDH_MORE_DATA again with the new size; retry with it.
+        let mut storage: Vec<usize> = Vec::new();
+        let mut filled = false;
+        for _ in 0..4 {
+            // slack for instances that appear between the two calls
+            let wanted = bytes as usize + 4096;
+            let words = wanted.div_ceil(std::mem::size_of::<usize>());
+            storage = vec![0usize; words];
+            bytes = (words * std::mem::size_of::<usize>()) as u32;
+            let ptr = storage.as_mut_ptr().cast::<PDH_FMT_COUNTERVALUE_ITEM_W>();
+            match PdhGetFormattedCounterArrayW(
+                counter,
+                PDH_FMT_DOUBLE,
+                &mut bytes,
+                &mut count,
+                Some(ptr),
+            ) {
+                0 => {
+                    filled = true;
+                    break;
+                }
+                status if status == PDH_MORE_DATA => continue,
+                _ => return None,
+            }
+        }
+        if !filled {
             return None;
         }
+        let ptr = storage.as_mut_ptr().cast::<PDH_FMT_COUNTERVALUE_ITEM_W>();
         let items = std::slice::from_raw_parts(ptr, count as usize);
         Some(
             items

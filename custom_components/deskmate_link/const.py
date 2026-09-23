@@ -5,10 +5,18 @@ DOMAIN = "deskmate_link"
 CONF_NODE_ID = "node_id"
 CONF_KEY = "key"  # PSK, base64 32 B
 CONF_CASCADE_KEY = "cascade_key"  # opcjonalna druga warstwa, base64 32 B
+# Najnizsza akceptowana wersja protokolu. Nowe wpisy startuja od 2; stare
+# (sprzed 0.6.0) maja 1 i same przechodza na 2 po pierwszym udanym handshake'u
+# v2 - od tej chwili v1 jest odrzucane (brak cichego downgrade'u).
+CONF_MIN_VERSION = "min_version"
 
 WS_URL = "/api/deskmate_link/ws"
 
-PROTO_VERSION = 1
+PROTO_V1 = 1
+PROTO_V2 = 2
+SUPPORTED_VERSIONS = (PROTO_V1, PROTO_V2)
+# Nazwa node'a z Deskmate to zsanityzowany hostname: [a-z0-9_]
+NODE_ID_PATTERN = r"^[a-z0-9_]{1,64}$"
 HANDSHAKE_MAX_SKEW_S = 90
 HANDSHAKE_FAILS_LOCKOUT = 10          # limit na pare (node, IP)
 HANDSHAKE_FAILS_LOCKOUT_IP = 100      # zapora dla samego IP (anty-flood)
@@ -18,6 +26,12 @@ HANDSHAKE_LOCKOUT_S = 300
 # nieuwierzytelniony, wiec nie potwierdzamy istnienia konkretnego node'a.
 REJECT_AUTH = "auth"
 REJECT_LOCKED = "locked"
+# Zegar komputera rozjechany o wiecej niz HANDSHAKE_MAX_SKEW_S. Zdradza tylko
+# to, co i tak widac po czasie odpowiedzi, a oszczedza godzin szukania klucza.
+REJECT_CLOCK = "clock"
+# Ponizsze dwa wysylane dopiero po poprawnym MAC (klient zna klucz).
+REJECT_CASCADE = "cascade"
+REJECT_VERSION = "version"
 
 # Trwalosc ostatniego `declare` (odpowiednik retained discovery w MQTT)
 STORAGE_VERSION = 1
@@ -29,6 +43,9 @@ UNKNOWN_NODE_ISSUE_AFTER = 3
 ISSUE_UNKNOWN_NODE = "unknown_node"
 
 UNBOUND_TITLE = "Deskmate (oczekuje na parowanie)"
+
+# Kod parowania: klucz + adresy HA w jednym ciagu do wklejenia w Deskmate
+PAIRING_CODE_PREFIX = "DMP1."
 
 # Kierunki szyfrowania (prefiks nonce)
 DIR_C2S = b"\x01\x00\x00\x00"

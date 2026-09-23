@@ -1,0 +1,37 @@
+{
+  "protocol": "dml2",
+  "psk_b64": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+  "cascade_b64": "ZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXp7fH1+f4CBgoM=",
+  "node": "compat_node",
+  "cn_b64": "EBESExQVFhcYGRobHB0eHw==",
+  "sn_b64": "ICEiIyQlJicoKSorLC0uLw==",
+  "hello_ts": 1750000000,
+  "welcome_ts": 1750000001,
+  "client_esk_b64": "ERERERERERERERERERERERERERERERERERERERERERE=",
+  "client_epk_b64": "e06Qm75//kTEZaIgA31gjuNYl9Me+XLwf3SJLLD3PxM=",
+  "server_epk_b64": "D6poTtKIZ7l/Smot7l34zpdOdrcBjj8iocTPJnhXDyA=",
+  "cascade": true,
+  "hello_mac_b64": "l81LOnqykCWpar5GJY/rnLmu7Pes5PplyzesSEynXMw=",
+  "welcome_mac_b64": "9fNBL9lkN97hZdJmh3ntLfi93KRZiC2fRlUrJUCLKbw=",
+  "c2s_key_b64": "AL3P7TAzWApyTjUNqe5LgU8xtL6uVE2HJ8EOugA5MBk=",
+  "s2c_key_b64": "Uec1eqpw62Q9mWuwYhf0XWtnEhm1U2bQ/asiDpdr3D0=",
+  "cascade_c2s_key_b64": "Q+nybvCyRsmB+P8xJVkNg3LcbRhI2SqecfJJh91rGOI=",
+  "cascade_s2c_key_b64": "9Q9A365MkHtuYo7KkgocQIktf7aO7yY66ABvOvE4gPI=",
+  "payload": {
+    "t": "state",
+    "s": {
+      "cpu": 12.5,
+      "locked": false
+    }
+  },
+  "python_c2s_frame": {
+    "t": "e",
+    "n": 1,
+    "p": "QhZxddB5HfLQOoGzz7R7A2iNGeT9BWM1dHMaNTypdCA/kp9PND3Jt7kEH7BN9AhLxCrKw0Pm08ga1kYd1EWbSx337EJQzs8trucrVgXGKVf5Tx0="
+  },
+  "python_s2c_ping_frame": {
+    "t": "e",
+    "n": 1,
+    "p": "CniheVSmTYvwcGBUvh6UdDjzvSF3e5z/b1JJX1a34pkdDsFBc2WPyo6MQptx"
+  }
+}

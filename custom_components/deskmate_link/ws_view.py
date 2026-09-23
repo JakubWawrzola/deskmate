@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 
 from aiohttp import WSMsgType, web
@@ -26,10 +27,16 @@ from .const import (
     HANDSHAKE_FAILS_LOCKOUT,
     HANDSHAKE_FAILS_LOCKOUT_IP,
     HANDSHAKE_LOCKOUT_S,
+    HANDSHAKE_MAX_SKEW_S,
     ISSUE_UNKNOWN_NODE,
     LOG_THROTTLE_S,
+    NODE_ID_PATTERN,
+    PROTO_V2,
     REJECT_AUTH,
+    REJECT_CLOCK,
     REJECT_LOCKED,
+    REJECT_VERSION,
+    SUPPORTED_VERSIONS,
     UNKNOWN_NODE_ISSUE_AFTER,
     WS_URL,
 )
@@ -37,6 +44,7 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 HELLO_TIMEOUT_S = 15
+_NODE_RE = re.compile(NODE_ID_PATTERN)
 MAX_TRACKED_KEYS = 512
 
 
@@ -86,7 +94,9 @@ class DeskmateLinkWsView(HomeAssistantView):
 
     # ── log z throttlingiem ──────────────────────────────────────
 
-    def _log_rejected(self, node: str, ip: str, count: int) -> None:
+    def _log_rejected(
+        self, node: str, ip: str, count: int, reason: str = REJECT_AUTH
+    ) -> None:
         key = f"{node}@{ip}"
         now = time.time()
         last, suppressed = self._logged.get(key, (0.0, 0))
@@ -95,9 +105,10 @@ class DeskmateLinkWsView(HomeAssistantView):
             return
         self._logged[key] = (now, 0)
         _LOGGER.warning(
-            "deskmate_link: odrzucony handshake z %s (node=%s, prob w oknie: %s%s)",
+            "deskmate_link: odrzucony handshake z %s (node=%s, powod=%s, prob w oknie: %s%s)",
             ip,
             node,
+            reason,
             count,
             f", pominietych wpisow: {suppressed}" if suppressed else "",
         )
@@ -160,7 +171,30 @@ class DeskmateLinkWsView(HomeAssistantView):
         if self._locked_node(node, ip):
             return await self._reject(ws, REJECT_LOCKED)
 
-        # 2. Znajdz hub, ktorego klucz potwierdza MAC (nieprzypiety wpis
+        # 2. Kontrole niezalezne od klucza. Konkretny powod zamiast "auth"
+        #    oszczedza szukania bledu w kluczu, gdy winny jest zegar.
+        version = hello.get("v")
+        precheck = None
+        if version not in SUPPORTED_VERSIONS or isinstance(version, bool):
+            precheck = REJECT_VERSION
+        elif version == PROTO_V2 and not (
+            isinstance(hello.get("node"), str) and _NODE_RE.match(hello["node"])
+        ):
+            precheck = REJECT_AUTH
+        else:
+            ts = hello.get("ts")
+            if (
+                not isinstance(ts, (int, float))
+                or isinstance(ts, bool)
+                or abs(time.time() - ts) > HANDSHAKE_MAX_SKEW_S
+            ):
+                precheck = REJECT_CLOCK
+        if precheck is not None:
+            count = self._record_fail(node, ip)
+            self._log_rejected(node, ip, count, precheck)
+            return await self._reject(ws, precheck)
+
+        # 3. Znajdz hub, ktorego klucz potwierdza MAC (nieprzypiety wpis
         #    przyjmuje dowolny node - to jest wlasnie parowanie)
         hubs = hass.data.get(DOMAIN, {}).get("hubs", {})
         result = None
@@ -170,22 +204,25 @@ class DeskmateLinkWsView(HomeAssistantView):
             if result is not None:
                 matched = hub
                 break
-        if matched is None or result is None:
+        if matched is None or not isinstance(result, tuple):
+            reason = result if isinstance(result, str) else REJECT_AUTH
             count = self._record_fail(node, ip)
-            self._log_rejected(node, ip, count)
-            if count >= UNKNOWN_NODE_ISSUE_AFTER:
+            self._log_rejected(node, ip, count, reason)
+            if reason == REJECT_AUTH and count >= UNKNOWN_NODE_ISSUE_AFTER:
                 known = any(h.node_id == node for h in hubs.values())
                 self._raise_unknown_node_issue(hass, node, ip, known)
-            return await self._reject(ws, REJECT_AUTH)
+            return await self._reject(ws, reason)
 
-        welcome, rx, tx, claimed_node = result
-        await matched.async_claim(claimed_node)
+        welcome, rx, tx, claimed_node, proto = result
+        await matched.async_accept(claimed_node, proto)
 
-        # 3. Welcome + petla sesji w hubie
+        # 4. Welcome + petla sesji w hubie
         self._fails.pop(f"node:{claimed_node}@{ip}", None)
         ir.async_delete_issue(hass, DOMAIN, f"{ISSUE_UNKNOWN_NODE}_{claimed_node}")
         await ws.send_str(json.dumps(welcome))
-        _LOGGER.info("deskmate_link[%s]: polaczono (%s)", matched.node_id, ip)
+        _LOGGER.info(
+            "deskmate_link[%s]: polaczono (%s, protokol v%s)", matched.node_id, ip, proto
+        )
         await matched.run_session(ws, rx, tx)
         _LOGGER.info("deskmate_link[%s]: rozlaczono", matched.node_id)
         return ws

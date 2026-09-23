@@ -156,18 +156,25 @@ Without HACS, copy `custom_components/deskmate_link` from this repository into
 your Home Assistant `config/custom_components/` and restart.
 
 Then go to *Settings → Devices & services → Add integration*, search for
-**Deskmate Link** and confirm. Home Assistant shows a pairing key **once** —
-copy it. There is no device name to type: the entry attaches itself to the first
-computer that authenticates with that key.
+**Deskmate Link** and confirm. Home Assistant shows a **pairing code** starting
+with `DMP1.`: copy it. It carries the key and your Home Assistant's addresses.
+There is no device name to type: the entry attaches itself to the first
+computer that authenticates with that code. Closed the dialog too early? Add the
+integration again and the same code is shown, no second entry is created.
+
+Upgrading from 0.5 or older: update the integration **before** the Windows app.
+Deskmate 0.6 speaks Link protocol v2 only. The three steps and a compatibility
+table are in [docs/RELEASE-0.6.0.md](docs/RELEASE-0.6.0.md).
 
 ### 2. The Windows app
 
-Grab the installer from Releases (`Deskmate_0.5.0_x64-setup.exe` or
-`Deskmate_0.5.0_arm64-setup.exe`) and run it. The installers are not signed, so
+Grab the installer from Releases (`Deskmate_0.6.0_x64-setup.exe` or
+`Deskmate_0.6.0_arm64-setup.exe`) and run it. The installers are not signed, so
 SmartScreen shows an unknown-publisher warning.
 
-On first launch, choose **Deskmate Link**, enter the WebSocket address of your
-Home Assistant and paste the pairing key:
+On first launch paste the pairing code. The addresses are filled in from it.
+If Home Assistant does not know its own address (*Settings → System →
+Network*), enter it yourself:
 
 | Situation | Address |
 |---|---|
@@ -177,7 +184,8 @@ Home Assistant and paste the pairing key:
 
 `http` becomes `ws`, `https` becomes `wss`, the port is the one your Home
 Assistant interface uses, and the path is appended for you. A second, fallback
-address can be added for use away from home.
+address can be added for use away from home. Plain `ws://` is accepted only for
+local and Tailscale addresses; anything on the internet needs `wss://`.
 
 The Status page should read `Connected (Link)`, and the device appears under
 *Settings → Devices & services → Deskmate Link*.
@@ -276,6 +284,7 @@ residual risks and deployment checklist in [docs/SECURITY.md](docs/SECURITY.md).
 
 ## Project docs
 
+- [docs/RELEASE-0.6.0.md](docs/RELEASE-0.6.0.md) — fastest setup and the upgrade order for 0.6.0
 - [docs/AI-DEPLOY.md](docs/AI-DEPLOY.md) — deployment procedure written for an AI assistant
 - [docs/MIGRATION.md](docs/MIGRATION.md) — moving an existing setup from MQTT to Link
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — how it is put together

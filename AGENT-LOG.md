@@ -179,3 +179,36 @@ UWAGA dla Codexa: po tym merge'u worktree deskmate-codex wymaga
 git fetch && git reset --hard origin/main przy nastepnej sesji.
 Nastepny krok: E2E po odbudowie HAOS (checklista w STATUS.md repo
 HomeAssistant), potem ewentualnie zdjecie flagi prerelease.
+
+## [2026-09-23] Claude — 0.6.0: Link v2, duplikaty wpisow, stabilne sensory, hardening
+Zrobione: protokol Link v2 (X25519 + PSK, MAC transkryptu, ratchet min_version)
+po obu stronach, wektory Python->Rust, scalanie zdublowanych wpisow HA,
+ponowne uzycie wiszacego wpisu, kod parowania DMP1, powody odrzucenia
+(clock/cascade/version), retry PDH + histereza sensorow sprzetowych,
+transakcyjny save_config z migracja kluczy, tokeny przyciskow toastu, CSP,
+zeroize, polityka ws://, sprzatanie obrazkow, -EncodedCommand. Wersja 0.6.0.
+cargo check, cargo test 16/16, tsc, py_compile. Bez builda, commita i pusha.
+Dotkniete pliki: src-tauri/src/{link,lib,config,consts,ha_api,hardware,notify}.rs,
+Cargo.toml/lock, tauri.conf.json, src/{pairing.ts,pages/Wizard,Settings,Geeky},
+custom_components/deskmate_link/*, docs (LINK, SECURITY, AI-DEPLOY,
+CODEX-TASKS), README, CHANGELOG, STATUS, package.json; fixture v1 usuniety, v2 dodany.
+Nastepny krok: wdrozenie integracji na Pi, potem Deskmate; zgoda Kuby na commit.
+
+## [2026-09-23] Claude — wdrozenie 0.6.0 (Pi + laptop)
+Zrobione: build NSIS ARM64 + x64 0.6.0, SHA256SUMS; backup i deploy integracji
+0.6.0 na Pi przez SMB/Tailscale, restart Core przez API z obserwacja przerwy;
+laptop zainstalowany 0.6.0 i polaczony protokolem v2 (min_version=2). Kopia
+integracji w repo HomeAssistant zsynchronizowana. PC nie zainstalowany (poza
+siecia Tailscale). Bez commita i pusha.
+Dotkniete pliki: dist-installers/SHA256SUMS.txt (+ exe, ignorowane), STATUS.md,
+AGENT-LOG.md; HomeAssistant/domos/custom_components/deskmate_link/*.
+Nastepny krok: instalacja x64 na PC przez Kube, testy, zgoda na commit.
+
+## [2026-09-23] Claude — commity 0.5.0 i 0.6.0, release v0.6.0 (polecenie Kuby)
+Zrobione: stan 0.5.0 odtworzony ze snapshotu 0.6.0 przez odwrocenie podmian
+z tej sesji (integracja z backupu na Pi, lib.rs z file-history), zweryfikowany
+zgodnoscia git diff --stat z poczatkiem sesji; commit 0.5.0, potem 0.6.0
+z docs/RELEASE-0.6.0.md. Bez stopki Co-Authored-By. Push main, tag v0.6.0,
+release Latest z assets. Repo HomeAssistant bez commita.
+Nastepny krok: instalacja x64 na PC.
+

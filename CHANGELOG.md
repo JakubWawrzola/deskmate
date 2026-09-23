@@ -3,6 +3,64 @@
 All notable changes to Deskmate are documented here. Release-specific upgrade
 notes and asset names are available in `docs/RELEASE-*.md`.
 
+## 0.6.0 - 2026-09-23
+
+Protocol v2 for Deskmate Link, a fix for duplicated entities after re-pairing,
+and one pairing code instead of a key plus an address.
+
+Update the Home Assistant integration first. Deskmate 0.6 speaks only protocol
+v2, which integrations older than 0.6.0 reject. Setup and upgrade steps:
+`docs/RELEASE-0.6.0.md`.
+
+### Added
+
+- Pairing code (`DMP1.`) in the integration's pairing dialog. It carries the key
+  and Home Assistant's local and remote addresses; pasting it in the Deskmate
+  wizard or Settings fills in every Link field.
+- Home Assistant tells Deskmate why a handshake failed: wrong key, clock more
+  than 90 s off, cascade on one side only, or an unsupported protocol version.
+  A wrong clock used to look exactly like a wrong key.
+
+### Fixed
+
+- Pairing again after a failed attempt no longer duplicates the computer. The
+  entry the computer connects with takes over the old entry's entities, keeps
+  their entity IDs and history, and removes the old entry. Adding the
+  integration while an entry still waits for pairing shows that entry's code
+  again instead of creating another one.
+- Hardware sensors (GPU usage, GPU memory, temperatures) no longer disappear and
+  reappear in Home Assistant. A failed PDH or WMI read used to withdraw the
+  entity on the spot; PDH reads now retry when the GPU engine list grows
+  mid-read, and a sensor is withdrawn only after about 2.5 minutes without data.
+  This hit desktops with a discrete GPU and LibreHardwareMonitor the most.
+- Saving settings validates every key before touching Credential Manager. A
+  failed cascade check could previously delete the stored pairing key and leave
+  the computer unpaired.
+- Renaming the node keeps the pairing key, the cascade key and the Home
+  Assistant token. The pairing key used to be deleted and the other two were
+  orphaned.
+- The English translation of the integration was missing the cascade menu.
+- Downloaded toast images are deleted ten minutes after display and at startup.
+  Camera snapshots used to accumulate in `%TEMP%`.
+- The unit test for the Link frame codec did not compile.
+
+### Security
+
+- Link protocol v2: ephemeral X25519 per connection mixed with the pairing key
+  (forward secrecy), a MAC over the whole handshake transcript including the
+  cascade flag and both public keys, and length-prefixed encoding for all MAC
+  and KDF input. Existing entries accept v1 until the first v2 connection and
+  refuse it afterwards.
+- Toast buttons carry a single-use random token. Before, any web page or program
+  could launch `deskmate:action?name=...` and fire Home Assistant automations.
+- Content Security Policy for the app's web view (was disabled).
+- Pairing keys and session keys are wiped from memory after use.
+- `ws://` Link addresses are accepted only for LAN, `.local`, `.lan`,
+  single-label names and Tailscale; internet-facing addresses need `wss://`.
+- The cascade key must differ from the pairing key.
+- The toast branding script runs through `-EncodedCommand` instead of a
+  fixed-name script file in `%TEMP%`.
+
 ## 0.5.0 - 2026-07-31
 
 Deskmate Link becomes the recommended way to connect. The integration is

@@ -56,15 +56,15 @@ export default function GeekyPage({
         <div className="space-y-3">
           <p className="text-[13px] leading-relaxed">
             Deskmate Link already encrypts every frame with AES-256-GCM under a key derived
-            per session. Cascade adds a second, independent layer on top:
-            ChaCha20-Poly1305 with its own key, its own HKDF labels and its own
-            authentication tag. The layers share no key material, so breaking one cipher
-            does not reveal the traffic.
+            per session. Cascade adds a second layer on top: ChaCha20-Poly1305 with its own
+            key, its own HKDF labels and its own authentication tag.
           </p>
           <p className="text-[12px] text-muted leading-relaxed">
-            This is defence in depth against a future weakness in one algorithm, not a fix
-            for anything known to be broken today. It costs one extra encryption pass per
-            frame, which is unmeasurable at Deskmate's message rate.
+            It only helps if one of the two ciphers is ever broken. Both keys are stored in
+            the same places (Credential Manager here, the integration entry in Home
+            Assistant), so it does not help if a key is stolen. Protection against a stolen
+            key comes from the X25519 exchange below, which is always on. The extra pass per
+            frame costs nothing you could measure at Deskmate's message rate.
           </p>
 
           {!linkActive && (
@@ -111,9 +111,11 @@ export default function GeekyPage({
       <Panel title="What is actually on the wire">
         <dl className="grid grid-cols-[190px_1fr] gap-y-2 text-[13px]">
           <dt className="text-muted">Handshake</dt>
-          <dd>HMAC-SHA256 over a client nonce, a server nonce and a timestamp</dd>
+          <dd>Protocol v2. HMAC-SHA256 with the pairing key over the whole transcript: version, node, nonces, timestamps, both X25519 public keys and the cascade flag</dd>
           <dt className="text-muted">Session keys</dt>
-          <dd>HKDF-SHA256, fresh per connection, separate per direction</dd>
+          <dd>HKDF-SHA256 over an ephemeral X25519 secret mixed with the pairing key. Fresh per connection, separate per direction, wiped from memory afterwards</dd>
+          <dt className="text-muted">Forward secrecy</dt>
+          <dd>Yes. A pairing key leaked later does not decrypt recorded sessions</dd>
           <dt className="text-muted">Frames</dt>
           <dd className="mono">
             {cascade ? "ChaCha20-Poly1305(AES-256-GCM(json))" : "AES-256-GCM(json)"}
@@ -126,7 +128,8 @@ export default function GeekyPage({
         <p className="text-[12px] text-muted leading-relaxed mt-3">
           Application-layer encryption is independent of the transport, so this holds on a
           plain <span className="mono">ws://</span> connection inside your own network just
-          as it does through a tunnel.
+          as it does through a tunnel. Deskmate accepts <span className="mono">ws://</span> only
+          for LAN, .local and Tailscale addresses; anything else needs <span className="mono">wss://</span>.
         </p>
       </Panel>
     </>

@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import logging
+import secrets
 import time
 from typing import Any
 
@@ -17,14 +19,20 @@ from homeassistant.helpers.storage import Store
 from .const import (
     CONF_CASCADE_KEY,
     CONF_KEY,
+    CONF_MIN_VERSION,
     CONF_NODE_ID,
     DIR_C2S,
     DIR_S2C,
+    DOMAIN,
     EVENT_NOTIFY_ACTION,
     EVENT_TRIGGER,
     HANDSHAKE_MAX_SKEW_S,
     PERSIST_DELAY_S,
-    PROTO_VERSION,
+    PROTO_V1,
+    PROTO_V2,
+    REJECT_AUTH,
+    REJECT_CASCADE,
+    REJECT_VERSION,
     SIGNAL_AVAILABLE,
     SIGNAL_DECLARED,
     SIGNAL_STATE,
@@ -32,12 +40,20 @@ from .const import (
     STORAGE_VERSION,
 )
 from .crypto import (
+    EphemeralKey,
     FrameCodec,
+    b64d_exact,
     derive_cascade_keys,
     derive_session_keys,
     gen_nonce16,
     hs_mac,
     hs_mac_ok,
+    v2_cascade_keys,
+    v2_hello_bytes,
+    v2_mac,
+    v2_mac_ok,
+    v2_session_keys,
+    v2_welcome_bytes,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -45,8 +61,8 @@ _LOGGER = logging.getLogger(__name__)
 CMD_ACK_TIMEOUT = 10.0
 FS_RESPONSE_TIMEOUT = 15.0
 
-# Wynik udanego handshake'u: (welcome, kodek c2s, kodek s2c, node)
-HandshakeResult = tuple[dict, FrameCodec, FrameCodec, str]
+# Wynik udanego handshake'u: (welcome, kodek c2s, kodek s2c, node, wersja)
+HandshakeResult = tuple[dict, FrameCodec, FrameCodec, str, int]
 
 
 class DeskmateHub:
@@ -60,6 +76,7 @@ class DeskmateHub:
         self.node_id: str = entry.data.get(CONF_NODE_ID) or ""
         self._psk: str = entry.data[CONF_KEY]
         self._cascade_key: str = entry.data.get(CONF_CASCADE_KEY) or ""
+        self.min_version: int = int(entry.data.get(CONF_MIN_VERSION, PROTO_V1))
 
         self.device_info: dict[str, Any] = {}
         self.entities: list[dict[str, Any]] = []  # deskryptory z declare
@@ -120,9 +137,12 @@ class DeskmateHub:
         self._seen_hello[cn] = now
         return True
 
-    def try_handshake(self, hello: dict) -> HandshakeResult | None:
-        """Weryfikuje hello; zwraca (welcome, rx, tx, node) albo None.
+    def try_handshake(self, hello: dict) -> HandshakeResult | str | None:
+        """Weryfikuje hello (wersja, node i czas sprawdzone juz w widoku WS).
 
+        Zwraca wynik handshake'u, powod odrzucenia (MAC poprawny, ale cos sie
+        nie zgadza - klucz pasuje do TEGO wpisu, wiec szukanie konczy sie tu)
+        albo None, gdy klucz nie nalezy do tego wpisu.
         NIE zmienia stanu huba - kodeki sesji instaluje dopiero `run_session`.
         """
         node = hello.get("node")
@@ -130,26 +150,39 @@ class DeskmateHub:
             return None
         if self.node_id and node != self.node_id:
             return None
-        if hello.get("v") != PROTO_VERSION:
-            return None
+        if hello.get("v") == PROTO_V2:
+            return self._handshake_v2(hello, node)
+        if hello.get("v") == PROTO_V1:
+            return self._handshake_v1(hello, node)
+        return None
+
+    def _cascade_matches(self, node: str, client_cascade: bool) -> bool:
+        # Kaskada musi byc wlaczona po obu stronach albo po zadnej. Cicha zgoda
+        # na slabszy wariant bylaby najgorszym mozliwym zachowaniem.
+        if client_cascade == bool(self._cascade_key):
+            return True
+        _LOGGER.warning(
+            "deskmate_link[%s]: niezgodna kaskada (klient=%s, HA=%s)",
+            node,
+            client_cascade,
+            bool(self._cascade_key),
+        )
+        return False
+
+    def _handshake_v1(self, hello: dict, node: str) -> HandshakeResult | str | None:
         cn = hello.get("cn", "")
         ts = hello.get("ts", 0)
-        if not isinstance(ts, (int, float)) or abs(time.time() - ts) > HANDSHAKE_MAX_SKEW_S:
+        if not isinstance(cn, str) or not isinstance(ts, (int, float)):
             return None
         if not hs_mac_ok(self._psk, hello.get("mac", ""), "hello", node, cn, str(int(ts))):
             return None
-        if not self._accept_hello_nonce(cn, ts):
-            return None
-        # Kaskada musi byc wlaczona po obu stronach albo po zadnej. Cicha zgoda
-        # na slabszy wariant byla by najgorszym mozliwym zachowaniem.
-        if bool(hello.get("casc")) != bool(self._cascade_key):
-            _LOGGER.warning(
-                "deskmate_link[%s]: niezgodna kaskada (klient=%s, HA=%s)",
-                node,
-                bool(hello.get("casc")),
-                bool(self._cascade_key),
-            )
-            return None
+        if self.min_version > PROTO_V1:
+            # Ten komputer mowil juz v2 - v1 to proba downgrade'u albo stary klient.
+            return REJECT_VERSION
+        if b64d_exact(cn, 16) is None or not self._accept_hello_nonce(cn, ts):
+            return REJECT_AUTH
+        if not self._cascade_matches(node, bool(hello.get("casc"))):
+            return REJECT_CASCADE
         sn = gen_nonce16()
         now = int(time.time())
         k_c2s, k_s2c = derive_session_keys(self._psk, cn, sn)
@@ -164,20 +197,127 @@ class DeskmateHub:
             "ts": now,
             "mac": hs_mac(self._psk, "welcome", node, cn, sn, str(now)),
         }
-        return welcome, rx, tx, node
+        return welcome, rx, tx, node, PROTO_V1
 
-    async def async_claim(self, node_id: str) -> None:
-        """Przypina nieprzypiety wpis do node'a, ktory sie uwierzytelnil."""
-        if self.node_id == node_id:
+    def _handshake_v2(self, hello: dict, node: str) -> HandshakeResult | str | None:
+        """v2: X25519 + PSK, MAC nad calym transkryptem (docs/LINK.md)."""
+        cn_b64 = hello.get("cn")
+        cn = b64d_exact(cn_b64, 16)
+        client_epk = b64d_exact(hello.get("epk"), 32)
+        ts = hello.get("ts")
+        casc = hello.get("casc")
+        if (
+            cn is None
+            or client_epk is None
+            or not isinstance(ts, int)
+            or isinstance(ts, bool)
+            or not isinstance(casc, bool)
+        ):
+            return None
+        hello_bytes = v2_hello_bytes(node, cn, ts, client_epk, casc)
+        if not v2_mac_ok(self._psk, hello.get("mac"), hello_bytes):
+            return None
+        if not self._accept_hello_nonce(str(cn_b64), ts):
+            return REJECT_AUTH
+        if not self._cascade_matches(node, casc):
+            return REJECT_CASCADE
+        ephemeral = EphemeralKey()
+        shared = ephemeral.exchange(client_epk)
+        if shared is None:
+            return REJECT_AUTH
+        sn = secrets.token_bytes(16)
+        now = int(time.time())
+        welcome_bytes = v2_welcome_bytes(hello_bytes, sn, now, ephemeral.public)
+        k_c2s, k_s2c = v2_session_keys(self._psk, shared, hello_bytes, welcome_bytes)
+        casc_c2s = casc_s2c = None
+        if self._cascade_key:
+            casc_c2s, casc_s2c = v2_cascade_keys(
+                self._cascade_key, shared, hello_bytes, welcome_bytes
+            )
+        rx = FrameCodec(k_c2s, DIR_C2S, node, "c2s", casc_c2s, PROTO_V2)
+        tx = FrameCodec(k_s2c, DIR_S2C, node, "s2c", casc_s2c, PROTO_V2)
+        welcome = {
+            "t": "welcome",
+            "v": PROTO_V2,
+            "sn": base64.b64encode(sn).decode(),
+            "ts": now,
+            "epk": base64.b64encode(ephemeral.public).decode(),
+            "mac": v2_mac(self._psk, welcome_bytes),
+        }
+        return welcome, rx, tx, node, PROTO_V2
+
+    async def async_accept(self, node_id: str, version: int) -> None:
+        """Po udanym handshake'u: przypiecie wpisu, scalenie duplikatow, ratchet v2."""
+        data = dict(self.entry.data)
+        changed = False
+        # Takze przy juz przypietym wpisie: duplikaty sprzed 0.6.0 znikaja przy
+        # pierwszym polaczeniu komputera z poprawnym kluczem.
+        await self._absorb_duplicates(node_id)
+        if self.node_id != node_id:
+            self.node_id = node_id
+            data[CONF_NODE_ID] = node_id
+            changed = True
+            _LOGGER.info("deskmate_link: wpis przypiety do node'a %s", node_id)
+        if version > self.min_version:
+            self.min_version = version
+            data[CONF_MIN_VERSION] = version
+            changed = True
+            _LOGGER.info(
+                "deskmate_link[%s]: protokol v%s - starsze wersje beda odrzucane",
+                node_id,
+                version,
+            )
+        if changed:
+            self.hass.config_entries.async_update_entry(
+                self.entry, title=node_id, unique_id=node_id, data=data
+            )
+
+    async def _absorb_duplicates(self, node_id: str) -> None:
+        """Przejmuje encje innych wpisow tego samego node'a i je usuwa.
+
+        Po nieudanym parowaniu zwykle dodaje sie integracje jeszcze raz. Nowy
+        wpis przypinal sie wtedy do tego samego komputera co stary, a HA mial
+        dwa wpisy, jedno wspolne urzadzenie i zdublowane encje z `_2`. Encje
+        starego wpisu przechodza do nowego z zachowaniem entity_id i historii,
+        a stary wpis znika.
+        """
+        from homeassistant.helpers import device_registry as dr
+        from homeassistant.helpers import entity_registry as er
+
+        others = [
+            other
+            for other in self.hass.config_entries.async_entries(DOMAIN)
+            if other.entry_id != self.entry.entry_id
+            and (other.data.get(CONF_NODE_ID) == node_id or other.unique_id == node_id)
+        ]
+        if not others:
             return
-        self.node_id = node_id
-        self.hass.config_entries.async_update_entry(
-            self.entry,
-            title=node_id,
-            unique_id=node_id,
-            data={**self.entry.data, CONF_NODE_ID: node_id},
-        )
-        _LOGGER.info("deskmate_link: wpis przypiety do node'a %s", node_id)
+        ent_reg = er.async_get(self.hass)
+        dev_reg = dr.async_get(self.hass)
+        device = dev_reg.async_get_device(identifiers={(DOMAIN, node_id)})
+        if device is not None:
+            dev_reg.async_update_device(
+                device.id, add_config_entry_id=self.entry.entry_id
+            )
+        for other in others:
+            for ent in er.async_entries_for_config_entry(ent_reg, other.entry_id):
+                key = ent.unique_id.split("-", 1)[-1]
+                new_uid = f"{self.entry.entry_id}-{key}"
+                if ent_reg.async_get_entity_id(ent.domain, DOMAIN, new_uid):
+                    ent_reg.async_remove(ent.entity_id)
+                    continue
+                ent_reg.async_update_entity(
+                    ent.entity_id,
+                    new_unique_id=new_uid,
+                    config_entry_id=self.entry.entry_id,
+                )
+            _LOGGER.warning(
+                "deskmate_link[%s]: scalam zdublowany wpis %s (%s) z nowym parowaniem",
+                node_id,
+                other.entry_id,
+                other.title,
+            )
+            await self.hass.config_entries.async_remove(other.entry_id)
 
     # ── petla polaczenia (wolane z widoku WS) ────────────────────
 

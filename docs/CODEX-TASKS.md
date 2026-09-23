@@ -47,6 +47,13 @@ because the current fixture only proves one direction.
 **Done when.** `cargo test` covers cascade frames and fails if either side
 changes its HKDF labels, AAD or nonce construction.
 
+**Status (2026-09-23, Claude).** Largely done with Link protocol v2:
+`src-tauri/tests/fixtures/deskmate_link_v2.json` is generated from the Python
+`crypto.py` and covers the handshake MACs, X25519, primary and cascade keys in
+both directions, a cascade c2s frame, an s2c frame and replay rejection. Still
+open: several counters per direction and a Rust-generated frame verified in
+Python.
+
 ## C3 - CI for builds and Home Assistant validation
 
 **Why.** Installers are built by hand on one laptop, and the integration has

@@ -1,5 +1,66 @@
 # STATUS — Deskmate
-Aktualizacja: 2026-07-31 (wydanie 0.5.0 przygotowane, czeka na test Kuby)
+Aktualizacja: 2026-09-23 (0.6.0 wydane: commity, tag v0.6.0, release; PC czeka na instalacje)
+
+## Sesja 2026-09-23 — 0.6.0: Link v2, duplikaty, PC, bezpieczenstwo
+
+Stan GitHuba przed sesja: `origin/main` = lokalny `master` (917f211). Cala 0.5.0
+i `custom_components/` + `hacs.json` istnialy TYLKO lokalnie - HACS i przycisk
+w README nie mogly dzialac. Release v0.4.0 jest prerelease, "Latest" to v0.3.1.
+
+Zgloszenia Kuby -> przyczyny -> poprawki:
+- Powielanie po bledzie parowania: kazde "Dodaj integracje" tworzylo nowy
+  wiszacy wpis; nowy wpis przypinal sie do tego samego node'a co stary ->
+  dwa wpisy, jedno urzadzenie, encje `_2`. Teraz: flow pokazuje kod istniejacego
+  wiszacego wpisu; wpis, ktorym komputer sie laczy, przejmuje encje starych
+  (entity_id i historia zostaja) i usuwa je (`hub._absorb_duplicates`).
+- Polaczenie na PC: (a) encje GPU/temperatur znikaly przy kazdym nieudanym
+  odczycie PDH/WMI (retry PDH_MORE_DATA + histereza 10 tickow), (b) rozjechany
+  zegar dawal "zly klucz" (teraz powod `clock`), (c) niezgodna kaskada tez
+  wygladala jak zly klucz (powod `cascade`).
+- Ciezka instalacja: kod parowania `DMP1.` (klucz + adresy z get_url), wklejany
+  w kreatorze/ustawieniach; brakujace tlumaczenie en kaskady; instrukcja HACS.
+
+Link v2 (obie strony): X25519 efemeryczny + PSK w HKDF (forward secrecy), MAC nad
+calym transkryptem z kodowaniem z prefiksem dlugosci, ratchet `min_version`
+w wpisie (v1 do pierwszego polaczenia v2). Klient mowi tylko v2 ->
+**NAJPIERW integracja na Pi, potem Deskmate**.
+
+Inne: tokeny jednorazowe w przyciskach toastu (protokol deskmate:), CSP,
+zeroize kluczy, ws:// tylko dla LAN/Tailscale, cascade != psk, save_config
+waliduje przed zapisem i przenosi klucze/token HA przy zmianie node_id,
+obrazki toastow kasowane po 10 min, branding przez -EncodedCommand.
+
+Weryfikacja: cargo check (0 ostrzezen), cargo test 16/16 (w tym wektory
+Python->Rust v2), tsc, py_compile, symulacja huba v2 z atrapami HA.
+NIE: build installerow, test z zywym HA, commit, push.
+Usuniety `src-tauri/tests/fixtures/deskmate_link_v1.json` (klient nie mowi v1).
+Kopia integracji w repo HomeAssistant NIE zostala zsynchronizowana.
+
+WDROZENIE (2026-09-23, Claude, na polecenie Kuby):
+- Pi (SMB przez Tailscale 100.106.86.21, sesja net use otwarta przez Kube):
+  backup `/config/deskmate_link_bak_20260923/` + `.storage/core.{config_entries,
+  entity_registry,device_registry}.bak_20260923`; integracja 0.6.0 wgrana
+  (20 plikow, hashe zgodne, __pycache__ skasowany), restart Core przez API
+  (przerwa 3 s -> 35 s zaobserwowana). Oba wpisy `loaded`.
+- Laptop na 0.5.0 (v1) polaczyl sie z nowa integracja -> zgodnosc wsteczna OK.
+- Laptop: zainstalowany 0.6.0 ARM64 (/S), polaczony v2, wpis `laptopwawrzola`
+  ma `min_version=2`, 39/39 encji dostepnych, 0 duplikatow.
+- PC: NIE zainstalowany (poza Tailscale). Wpis `kuba` bez min_version (akceptuje
+  v1 i v2). Instalator: `dist-installers/Deskmate_0.6.0_x64-setup.exe`.
+- Instalatory 0.6.0: ARM64 2 782 046 B `37852BAF...43EC5`, x64 3 195 793 B
+  `597BDDDE...CA9EC` (SHA256SUMS.txt zaktualizowany). ZIP nie budowany.
+- Kopia integracji w repo HomeAssistant (`domos/custom_components/deskmate_link`)
+  zsynchronizowana, niezacommitowana.
+- Rollback Pi: przywrocic `deskmate_link_bak_20260923` do custom_components
+  + ewentualnie `.storage/*.bak_20260923`, restart Core.
+
+PUBLIKACJA (na polecenie Kuby): dwa osobne commity na master - 0.5.0
+(odtworzony dokladnie: git diff --stat zgodny co do pliku z poczatkiem sesji,
+27 plikow +1038/-100) i 0.6.0; push na main, tag v0.6.0, GitHub Release 0.6.0
+jako Latest z instalatorami x64/ARM64 i SHA256SUMS. Opis wydania i najszybsza
+sciezka wdrozenia: docs/RELEASE-0.6.0.md. Repo HomeAssistant NIE commitowane.
+
+Nastepny krok: Kuba instaluje x64 na PC i przechodzi checkliste z raportu.
 
 ## Sesja 2026-07-31 — 0.5.0: toasty, HACS, kaskada, dokumentacja
 

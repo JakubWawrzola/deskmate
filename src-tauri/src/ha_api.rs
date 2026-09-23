@@ -11,7 +11,7 @@ use url::Url;
 use crate::config::AppConfig;
 
 /// Service name in Credential Manager for the HA token (separate from the MQTT password).
-const KEYRING_SERVICE_HA: &str = "Deskmate HA Token";
+const KEYRING_SERVICE_HA: &str = crate::consts::HA_TOKEN_KEYRING_SERVICE;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EntityState {

@@ -10,14 +10,58 @@ Rekonfiguracja pozwala wygenerowac nowy klucz albo odpiac wpis od node'a
 """
 from __future__ import annotations
 
+import base64
+import json
 from typing import Any
 
 import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.network import NoURLAvailableError, get_url
 
-from .const import CONF_CASCADE_KEY, CONF_KEY, CONF_NODE_ID, DOMAIN, UNBOUND_TITLE
+from .const import (
+    CONF_CASCADE_KEY,
+    CONF_KEY,
+    CONF_MIN_VERSION,
+    CONF_NODE_ID,
+    DOMAIN,
+    PAIRING_CODE_PREFIX,
+    PROTO_V2,
+    UNBOUND_TITLE,
+)
 from .crypto import gen_psk
+
+
+def _ws_url(url: str) -> str:
+    if url.startswith("https://"):
+        return "wss://" + url[len("https://") :]
+    if url.startswith("http://"):
+        return "ws://" + url[len("http://") :]
+    return ""
+
+
+def build_pairing_code(hass: HomeAssistant, key: str) -> str:
+    """Klucz i adresy HA w jednym ciagu - Deskmate wypelnia z niego wszystkie pola.
+
+    Wczesniej trzeba bylo osobno przepisac adres WebSocket i klucz, a pomylka
+    w adresie wygladala dokladnie tak samo jak zly klucz.
+    """
+    payload: dict[str, str] = {"k": key}
+    for field, kwargs in (
+        ("u", {"allow_external": False, "allow_ip": True}),
+        ("r", {"allow_internal": False, "require_ssl": True}),
+    ):
+        try:
+            url = _ws_url(get_url(hass, **kwargs))
+        except NoURLAvailableError:
+            continue
+        if url:
+            payload[field] = url
+    if payload.get("r") == payload.get("u"):
+        payload.pop("r", None)
+    raw = json.dumps(payload, separators=(",", ":")).encode()
+    return PAIRING_CODE_PREFIX + base64.urlsafe_b64encode(raw).decode().rstrip("=")
 
 
 class DeskmateLinkConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -26,6 +70,7 @@ class DeskmateLinkConfigFlow(ConfigFlow, domain=DOMAIN):
     def __init__(self) -> None:
         self._key: str | None = None
         self._cascade: str | None = None
+        self._pending: ConfigEntry | None = None
 
     # ── nowe parowanie ───────────────────────────────────────────
 
@@ -33,7 +78,20 @@ class DeskmateLinkConfigFlow(ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         if user_input is not None:
-            self._key = gen_psk()
+            # Wpis czekajacy na parowanie juz jest - pokaz jego klucz zamiast
+            # tworzyc kolejny. Kazde ponowne "Dodaj integracje" po nieudanym
+            # parowaniu zostawialo dotad osobny wiszacy wpis.
+            self._pending = next(
+                (
+                    entry
+                    for entry in self._async_current_entries()
+                    if not entry.data.get(CONF_NODE_ID)
+                ),
+                None,
+            )
+            self._key = (
+                self._pending.data[CONF_KEY] if self._pending is not None else gen_psk()
+            )
             return await self.async_step_show_key()
         return self.async_show_form(step_id="user", data_schema=vol.Schema({}))
 
@@ -43,14 +101,24 @@ class DeskmateLinkConfigFlow(ConfigFlow, domain=DOMAIN):
         """Pokazuje wygenerowany klucz - jedyny raz, do wklejenia w Deskmate."""
         assert self._key is not None
         if user_input is not None:
+            if self._pending is not None:
+                return self.async_abort(reason="pending_reused")
             return self.async_create_entry(
                 title=UNBOUND_TITLE,
-                data={CONF_NODE_ID: "", CONF_KEY: self._key, CONF_CASCADE_KEY: ""},
+                data={
+                    CONF_NODE_ID: "",
+                    CONF_KEY: self._key,
+                    CONF_CASCADE_KEY: "",
+                    CONF_MIN_VERSION: PROTO_V2,
+                },
             )
         return self.async_show_form(
             step_id="show_key",
             data_schema=vol.Schema({}),
-            description_placeholders={"key": self._key},
+            description_placeholders={
+                "code": build_pairing_code(self.hass, self._key),
+                "key": self._key,
+            },
         )
 
     # ── rekonfiguracja istniejacego wpisu ────────────────────────
@@ -115,7 +183,10 @@ class DeskmateLinkConfigFlow(ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="new_key",
             data_schema=vol.Schema({}),
-            description_placeholders={"key": self._key},
+            description_placeholders={
+                "code": build_pairing_code(self.hass, self._key),
+                "key": self._key,
+            },
         )
 
     async def async_step_unbind(

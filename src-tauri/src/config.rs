@@ -323,12 +323,6 @@ pub fn get_link_key(node_id: &str) -> Option<String> {
     link_keyring_entry(node_id).ok()?.get_password().ok()
 }
 
-pub fn delete_link_key_for(node_id: &str) {
-    if let Ok(entry) = link_keyring_entry(node_id) {
-        let _ = entry.delete_credential();
-    }
-}
-
 /// The cascade key lives in its own Credential Manager entry, never in
 /// config.json, and never next to the primary pairing key.
 fn cascade_keyring_entry(node_id: &str) -> Result<keyring::Entry, String> {
@@ -346,4 +340,38 @@ pub fn set_link_cascade_key(node_id: &str, key: &str) -> Result<(), String> {
 
 pub fn get_link_cascade_key(node_id: &str) -> Option<String> {
     cascade_keyring_entry(node_id).ok()?.get_password().ok()
+}
+
+/// Moves one Credential Manager secret from `old` to `new` account names.
+/// The target is only written when it is still empty, so a key the user just
+/// pasted is never overwritten by the one it replaces.
+fn move_secret(service: &str, old: &str, new: &str) -> Result<(), String> {
+    let source = keyring::Entry::new(service, old).map_err(|e| e.to_string())?;
+    let Ok(secret) = source.get_password() else {
+        return Ok(());
+    };
+    let secret = zeroize::Zeroizing::new(secret);
+    let target = keyring::Entry::new(service, new).map_err(|e| e.to_string())?;
+    if target.get_password().is_err() {
+        target.set_password(&secret).map_err(|e| e.to_string())?;
+    }
+    let _ = source.delete_credential();
+    Ok(())
+}
+
+/// Renaming the node used to delete the Link key and silently orphan the
+/// cascade key and the Home Assistant token, which are all stored per node id.
+/// They now follow the node to its new name.
+pub fn migrate_node_secrets(old: &str, new: &str) -> Result<(), String> {
+    if old == new || old.is_empty() {
+        return Ok(());
+    }
+    for service in [
+        consts::LINK_KEYRING_SERVICE,
+        consts::CASCADE_KEYRING_SERVICE,
+        consts::HA_TOKEN_KEYRING_SERVICE,
+    ] {
+        move_secret(service, old, new)?;
+    }
+    Ok(())
 }

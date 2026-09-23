@@ -1,43 +1,53 @@
 # Deskmate Link
 
-Deskmate Link is an optional direct transport between the Windows app and the
-`deskmate_link` Home Assistant integration. MQTT remains the default and can be
-selected again without losing its saved settings.
+Deskmate Link is the recommended transport between the Windows app and the
+`deskmate_link` Home Assistant integration: one encrypted WebSocket, no broker.
+MQTT stays available and can be selected again without losing its settings.
 
 ## Set up Home Assistant
 
-1. The `deskmate_link` custom integration must be present under
-   `config/custom_components/deskmate_link` (copy it there, or restore a
-   backup that already includes it) and Home Assistant must be restarted at
-   least once after it appears.
+Update the integration before Deskmate. Deskmate 0.6 speaks protocol v2 only,
+and an integration older than 0.6.0 refuses it as a wrong key.
+
+1. Install the `deskmate_link` integration. With HACS: *HACS → three dots →
+   Custom repositories*, add `https://github.com/JakubWawrzola/deskmate` as an
+   **Integration**, then download **Deskmate Link**. Without HACS: copy
+   `custom_components/deskmate_link` from this repository into
+   `config/custom_components/`. Restart Home Assistant once either way.
 2. **Settings → Devices & services → Add integration**, search for
-   **Deskmate Link**, select it.
-3. Confirm the dialog. There is nothing to type: the integration no longer
-   asks for a node ID. The entry is created unbound and attaches itself to the
-   first computer that authenticates with its pairing key.
-4. The next screen shows the generated base64 **pairing key exactly once**.
-   Copy it immediately into a password manager — closing the dialog without
-   copying it means starting the pairing over.
-5. Do not put the pairing key in YAML, `config.json` or source control.
+   **Deskmate Link**, select it and confirm. There is nothing to type.
+3. The next screen shows a **pairing code** starting with `DMP1.`. It carries
+   the pairing key and this Home Assistant's local and remote addresses, as far
+   as Home Assistant knows them (*Settings → System → Network*). The bare key is
+   shown below it for older Deskmate versions.
+4. If the dialog was closed before the code was copied, just add the integration
+   again: an entry that is still waiting for pairing shows its code again
+   instead of creating a second entry.
+5. Do not put the pairing code or key in YAML, `config.json` or source control.
 
 To rotate a key or move an entry to a different computer, open the entry and
 choose **Reconfigure**: *Generate a new pairing key* invalidates the old key,
 *Unbind from the current computer* releases the entry so the next computer
 using that key takes it over. Entities and their history survive both.
 
+If a computer ends up paired to a second entry (for example after pairing again
+because the first attempt failed), the entry it actually connects with takes
+over the entities of the old one, keeps their entity IDs and history, and the
+old entry is removed. Entities no longer get duplicated with a `_2` suffix.
+
 ## Set up Deskmate
 
-1. Open **Settings → Home Assistant transport** and choose **Deskmate Link**.
-2. Enter a WebSocket URL. On the local network use
-   `ws://homeassistant.local:8123` (Deskmate appends `/api/deskmate_link/ws`
-   automatically). If you are setting this up while away from home, use your
-   remote `wss://` address directly as the primary URL instead — see
-   "Remote access" below — and add the local one later as the fallback.
-3. Optionally fill the fallback `wss://` field for use outside the local
-   network (or vice versa, if you set the remote one as primary).
-4. Paste the pairing key and choose **Save & reconnect**. The key is stored in
-   Windows Credential Manager; it is not written to `config.json`.
-5. Check Status for `Connected (Link)`, then find the device under Settings →
+1. On first run the wizard starts on Deskmate Link. Paste the pairing code: the
+   key, the local address and the remote address are filled in from it.
+   Later changes are under **Settings → Home Assistant transport → Deskmate
+   Link**, where the key field accepts a pairing code as well.
+2. Check the addresses. Deskmate appends `/api/deskmate_link/ws` itself. Plain
+   `ws://` is accepted only for LAN addresses, `.local`, `.lan`, single-label
+   hostnames and Tailscale (`100.64.0.0/10`, `*.ts.net`). Anything reachable
+   from the internet needs `wss://`.
+3. Choose **Save & connect**. The key is stored in Windows Credential Manager,
+   never in `config.json`.
+4. Check Status for `Connected (Link)`, then find the device under Settings →
    Devices & services → Deskmate Link.
 
 Local and fallback connections perform a fresh authenticated handshake and
@@ -45,22 +55,29 @@ derive fresh session keys on every reconnect.
 
 ## When the connection is refused
 
-Home Assistant answers a failed handshake with an explicit rejection instead of
-just dropping the socket, and Deskmate shows which of the two cases happened:
+Home Assistant answers a failed handshake with a reason, and Deskmate shows it:
 
-- **`Link rejected ... (node "<name>")`** — no paired entry accepted this
-  computer. Either the entry is bound to a different computer, or the pairing
-  key does not match. Pair it again, or open the existing entry in Home
-  Assistant and choose Reconfigure → Unbind from the current computer.
-- **`Link locked out ...`** — Home Assistant is temporarily refusing this
+- **`Link rejected ... (node "<name>")`**: no paired entry accepted this
+  computer. The pairing key does not match, the entry is bound to a different
+  computer, or the integration is older than 0.6.0. Update the integration,
+  pair again, or open the entry and choose Reconfigure → Unbind.
+- **`Link clock mismatch ...`**: this computer's clock and Home Assistant's
+  differ by more than 90 seconds. Sync the Windows time (*Settings → Time &
+  language → Sync now*) or fix the clock on the Home Assistant host. Dual-boot
+  PCs where Linux keeps the hardware clock in UTC are the usual cause. Before
+  0.6.0 this looked exactly like a wrong key.
+- **`... cascade encryption is on at one end only`**: the key is right, but only
+  one side has cascade enabled.
+- **`... does not accept this protocol version`**: the integration is too old,
+  or this entry already moved to v2 and something tried to connect with v1.
+- **`Link locked out ...`**: Home Assistant is temporarily refusing this
   computer after repeated failed handshakes. It clears itself within five
   minutes once the cause is fixed.
 
-Both cases retry on a slower schedule (5, 15, 30, then 60 seconds) rather than
-every couple of seconds, because retrying a rejected pairing cannot succeed and
-only keeps the node locked out. Ordinary network failures keep the fast retry.
-Home Assistant also raises a repair issue naming the computer that keeps
-failing, so the problem is visible without reading logs.
+Rejected handshakes retry on a slower schedule (5, 15, 30, then 60 seconds; 30
+seconds for a clock problem) because retrying cannot succeed and only keeps the
+node locked out. Ordinary network failures keep the fast retry. Home Assistant
+also raises a repair issue naming a computer that keeps failing.
 
 ## Remote access (Cloudflare Tunnel / Nabu Casa)
 
@@ -82,23 +99,58 @@ working setups:
 Pick whichever is already reachable from where Deskmate is running; switching
 between them later is just editing the URL field and reconnecting.
 
+## Protocol v2
+
+Deskmate 0.6 and the 0.6.0 integration use protocol v2:
+
+1. Deskmate creates a fresh X25519 key pair for the connection and sends
+   `hello` with the node name, a random 16-byte nonce, a timestamp, its public
+   key and the cascade flag, authenticated with HMAC-SHA256 under the pairing
+   key.
+2. Home Assistant checks the timestamp (90 s), the MAC and that the nonce has
+   not been seen before, creates its own X25519 key pair and answers `welcome`
+   with its nonce, timestamp and public key. That MAC covers a SHA-256 hash of
+   the whole `hello`, so changing any `hello` field breaks it.
+3. Both sides compute the X25519 secret and derive direction-specific session
+   keys with HKDF-SHA256: input keying material = X25519 secret || pairing key,
+   salt = hash of both handshake messages.
+
+Every MAC and KDF input uses a length-prefixed encoding, so no two different
+field lists produce the same bytes. The ephemeral keys and the derived keys are
+wiped from memory after use on the Deskmate side.
+
+What this changes in practice: before v2 the session keys came from the pairing
+key and two public nonces. Anyone who recorded the traffic and later got the
+pairing key (for example from a Home Assistant backup, which contains
+`.storage/core.config_entries`) could decrypt every recorded session. With v2 a
+leaked key lets an attacker impersonate one side from then on, which rotating
+the key stops, but it no longer opens old recordings.
+
+Existing entries accept v1 until the first successful v2 connection. After that
+the entry records `min_version: 2` and refuses v1 from that computer, so a
+downgrade is not possible. New entries accept only v2.
+
 ## Cascade encryption
 
-Every Link frame is already encrypted with AES-256-GCM under a key derived per
-session and per direction. Cascade adds a second, independent layer around it:
-ChaCha20-Poly1305, keyed from a separate pairing key, derived with its own HKDF
-labels and authenticated over its own associated data. The two layers share no
-key material, so a future weakness in one cipher does not expose the traffic.
+Every Link frame is encrypted with AES-256-GCM under a session key. Cascade adds
+a second layer around it: ChaCha20-Poly1305, keyed from a separate cascade key,
+derived with its own HKDF labels and authenticated over its own associated
+data.
+
+Be clear about what it buys. It helps only if one of the two ciphers is ever
+broken. Both keys are stored in the same places (the integration entry in Home
+Assistant, Credential Manager in Deskmate), so anyone who steals one steals
+both. Protection against a stolen key comes from the X25519 exchange in
+protocol v2, which is always on.
 
 Enable it in Home Assistant on the paired entry: **Reconfigure → Enable cascade
 encryption**. Copy the second key it shows into Deskmate under **Geeky stuff**
-and turn the toggle on there.
+and turn the toggle on there. Deskmate refuses a cascade key identical to the
+pairing key.
 
 Both ends must agree. A handshake where one side asks for cascade and the other
-does not is rejected rather than negotiated down to the weaker single layer, so
-expect the connection to stay down between enabling it on one side and the
-other. The cost is one extra encryption pass per frame, which is not measurable
-at Deskmate's message rate.
+does not is rejected rather than negotiated down. The flag is covered by the
+handshake MAC, so it cannot be flipped on the way.
 
 ## Text controls, presentation and hotkeys
 
@@ -167,21 +219,24 @@ logged. Link Files v1 has no write, rename or delete operation.
 
 ## Security notes
 
-- The handshake uses HMAC-SHA256 and checks timestamp skew.
-- Session keys are derived with HKDF-SHA256. Client-to-server and
-  server-to-client keys are separate.
-- Frames use AES-256-GCM with authenticated direction/node metadata and a
+- Handshake: protocol v2 as described above. Timestamp skew is limited to 90 s
+  and every client nonce is accepted once.
+- Session keys: HKDF-SHA256 over an ephemeral X25519 secret and the pairing
+  key. Client-to-server and server-to-client keys are separate.
+- Frames use AES-256-GCM with authenticated node and direction metadata and a
   strictly increasing counter. A replayed or invalid frame closes the session.
 - WebSocket TLS uses Windows Schannel for `wss://`; Link cryptography uses only
-  RustCrypto crates.
-- Treat the pairing key like a password. Remove the integration entry and pair
-  again if it may have been exposed.
+  RustCrypto crates and `x25519-dalek`, all pure Rust.
+- Treat the pairing key like a password. If it may have been exposed, use
+  Reconfigure → Generate a new pairing key.
+- Toast buttons carry a single-use token. A `deskmate:action?...` link opened
+  from a web page or another program is ignored, so it cannot fire Home
+  Assistant automations.
 
 ## Troubleshooting
 
 - `Link pairing key missing`: paste the key in Settings and save again.
-- `welcome timestamp outside allowed skew`: correct the Windows and Home
-  Assistant clocks.
+- `Link clock mismatch`: correct the Windows and Home Assistant clocks.
 - Repeated local connection failures rotate to the configured fallback URL.
 - If entities do not match the current settings, save the relevant setting or
   reconnect once. Both operations send a fresh full declaration; Link v0.2

@@ -149,38 +149,62 @@ async fn save_config(
         }
     }
     new_config.allowed_url_origins = origins;
+    // Everything is validated before the first Credential Manager write. The
+    // old order deleted the stored pairing key first and could then fail on
+    // the cascade check, leaving a computer that had lost its pairing.
     let old = state.config.lock().await.clone();
-    let keeps_existing_link_key =
-        old.node_id == new_config.node_id && config::get_link_key(&new_config.node_id).is_some();
-    if new_config.transport == "link" && link_key.is_none() && !keeps_existing_link_key {
+    let link_key = link_key
+        .map(|key| zeroize::Zeroizing::new(key.trim().to_string()))
+        .filter(|key| !key.is_empty());
+    let cascade_key = cascade_key.map(|key| zeroize::Zeroizing::new(key.trim().to_string()));
+    let new_psk = link_key
+        .as_ref()
+        .map(|key| link::validate_pairing_key(key))
+        .transpose()?;
+    let stored_psk = config::get_link_key(&old.node_id)
+        .and_then(|key| link::validate_pairing_key(&zeroize::Zeroizing::new(key)).ok());
+    let effective_psk = new_psk.as_ref().or(stored_psk.as_ref());
+    if new_config.transport == "link" && effective_psk.is_none() {
         return Err("Deskmate Link pairing key is required".into());
     }
+    let new_cascade = match cascade_key.as_ref() {
+        Some(key) if !key.is_empty() => Some(link::validate_pairing_key(key)?),
+        _ => None,
+    };
+    let cascade_cleared = cascade_key.as_ref().is_some_and(|key| key.is_empty());
+    let has_cascade = new_cascade.is_some()
+        || (!cascade_cleared && config::get_link_cascade_key(&old.node_id).is_some());
+    if new_config.link_cascade && !has_cascade {
+        return Err("Cascade encryption needs its own key from Home Assistant".into());
+    }
+    if let (Some(cascade), Some(psk)) = (new_cascade.as_ref(), effective_psk) {
+        if **cascade == **psk {
+            return Err(
+                "The cascade key must be the separate key Home Assistant shows under Enable cascade encryption, not the pairing key"
+                    .into(),
+            );
+        }
+    }
+
     // clean up an orphaned Credential Manager entry when user/host changes
     if old.username != new_config.username || old.broker_host != new_config.broker_host {
         config::delete_password_for(&old.username, &old.broker_host);
     }
-    if old.node_id != new_config.node_id {
-        config::delete_link_key_for(&old.node_id);
-    }
     if let Some(pw) = password {
         config::set_password(&new_config, &pw)?;
     }
-    if let Some(key) = link_key {
-        link::validate_pairing_key(&key)?;
-        config::set_link_key(&new_config.node_id, key.trim())?;
+    if let Some(key) = link_key.as_ref() {
+        config::set_link_key(&new_config.node_id, key)?;
     }
-    if let Some(key) = cascade_key {
-        let key = key.trim();
-        if !key.is_empty() {
-            link::validate_pairing_key(key)?;
-        }
+    if let Some(key) = cascade_key.as_ref() {
         config::set_link_cascade_key(&new_config.node_id, key)?;
+        if cascade_cleared {
+            // otherwise the migration below would bring the old one back
+            config::set_link_cascade_key(&old.node_id, "")?;
+        }
     }
-    if new_config.link_cascade
-        && config::get_link_cascade_key(&new_config.node_id).is_none()
-    {
-        return Err("Cascade encryption needs its own key from Home Assistant".into());
-    }
+    // Pairing key, cascade key and HA token follow a renamed node.
+    config::migrate_node_secrets(&old.node_id, &new_config.node_id)?;
     let branding = new_config.toast_branding;
     config::save(&new_config)?;
     *state.config.lock().await = new_config;
@@ -656,7 +680,7 @@ pub fn run() {
     // protocol instead, so such a launch must not turn into a second app window.
     if std::env::args().any(|arg| {
         arg.eq_ignore_ascii_case(consts::TOAST_ACTIVATED_ARG) || arg.eq_ignore_ascii_case("-Embedding")
-    }) && !std::env::args().any(|arg| notify::parse_action_url(&arg).is_some())
+    }) && !std::env::args().any(|arg| notify::is_action_url(&arg))
     {
         return;
     }
@@ -671,7 +695,7 @@ pub fn run() {
         // deskmate:action?name=..., this process forwards the URL to the running app
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
             for arg in &argv {
-                if let Some(action) = notify::parse_action_url(arg) {
+                if let Some(action) = notify::redeem_action_url(arg) {
                     let _ = app.state::<AppState>().action_tx.send(action);
                 }
             }
@@ -698,11 +722,14 @@ pub fn run() {
 
             // deskmate scheme: for toast buttons (click -> deskmate:action?name=...)
             notify::register_protocol();
+            std::thread::spawn(notify::cleanup_temp_images);
             // when the app was launched directly from a protocol URL (wasn't already running)
             {
                 let st = app.state::<AppState>();
+                // A fresh process has issued no tokens, so a click on a toast
+                // from an earlier run is rejected here by design.
                 for arg in std::env::args() {
-                    if let Some(action) = notify::parse_action_url(&arg) {
+                    if let Some(action) = notify::redeem_action_url(&arg) {
                         let _ = st.action_tx.send(action);
                     }
                 }

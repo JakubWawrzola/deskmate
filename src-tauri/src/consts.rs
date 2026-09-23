@@ -9,6 +9,8 @@ pub const KEYRING_SERVICE: &str = "Deskmate MQTT";
 pub const LINK_KEYRING_SERVICE: &str = "Deskmate Link";
 /// Service name in Windows Credential Manager (cascade layer key).
 pub const CASCADE_KEYRING_SERVICE: &str = "Deskmate Link Cascade";
+/// Service name in Windows Credential Manager (Home Assistant long-lived token).
+pub const HA_TOKEN_KEYRING_SERVICE: &str = "Deskmate HA Token";
 /// Toast AUMID: in release builds NSIS registers the identifier from tauri.conf.json
 pub const TOAST_AUMID: &str = "com.deskmate.desktop";
 /// Toast source label shown in the notification corner (branding)

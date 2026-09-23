@@ -211,11 +211,20 @@ credentials. It rotates at 1 MiB to `security.log.1`.
 
 ## Deskmate Link transport
 
-Link authenticates with HMAC-SHA256 over a client nonce, a server nonce and a
-timestamp, then derives fresh AES-256-GCM session keys per connection and per
-direction with HKDF-SHA256. Frames carry a strictly increasing counter; a
+Since 0.6.0 Link uses protocol v2 (details in `docs/LINK.md`). Both sides
+authenticate with HMAC-SHA256 under the pairing key over the whole handshake
+transcript, including an ephemeral X25519 public key from each side and the
+cascade flag. Session keys come from HKDF-SHA256 over the X25519 secret mixed
+with the pairing key, per connection and per direction. That gives forward
+secrecy: a pairing key leaked later, for example from a Home Assistant backup
+that contains `.storage/core.config_entries`, does not decrypt recorded
+sessions. Under v1 it did. Frames carry a strictly increasing counter; a
 repeated or out-of-order counter closes the session. The pairing key lives in
-Windows Credential Manager and never reaches `config.json`.
+Windows Credential Manager and never reaches `config.json`; key material is
+wiped from memory after use.
+
+An entry accepts v1 only until its computer connects with v2 once; after that
+v1 is refused, so the protocol cannot be downgraded.
 
 Handshake nonces are single-use within the clock tolerance window. Before 0.5.0
 a captured `hello` replayed inside that window produced a valid welcome and
@@ -228,20 +237,25 @@ Home Assistant counts failed handshakes per computer and address, not per
 address alone. Behind a reverse proxy every client can share one apparent
 address, and the earlier per-address counter meant one misconfigured machine
 could lock out a working one. Rejections are answered with a coarse reason
-(`auth` or `locked`) so a client can distinguish a refused pairing from a
-network fault; the reason is deliberately vague, because the endpoint is
-unauthenticated and must not confirm whether a particular computer is paired.
+so a client can distinguish a refused pairing from a network fault: `auth`,
+`locked`, `clock` (timestamp outside 90 s, checked before the MAC and revealing
+nothing about pairing) and, only after a valid MAC, `cascade` or `version`. The
+endpoint never confirms whether a particular computer is paired.
 
 **Cascade encryption** is an opt-in second layer: ChaCha20-Poly1305 wrapped
-around the AES-256-GCM frame, keyed from a separate pairing key with its own
-HKDF labels and its own associated data. It defends against a future weakness in
-a single cipher, not against anything known to be broken today. A mismatch
+around the AES-256-GCM frame, keyed from a separate key with its own HKDF labels
+and its own associated data. It defends against a future weakness in a single
+cipher, not against anything known to be broken today, and not against key
+theft: both keys are stored side by side on each end. A mismatch
 between the two ends is rejected rather than negotiated down. Its key is stored
 in its own Credential Manager entry and is redacted from Home Assistant
 diagnostics.
 
 Application-layer encryption is independent of the transport, so it holds on a
 plain `ws://` connection inside a trusted network as well as through a tunnel.
+Deskmate accepts `ws://` only for private, `.local`, `.lan`, single-label and
+Tailscale addresses, so the node name and traffic pattern do not cross the
+internet in the clear.
 It does not authenticate the Home Assistant instance beyond possession of the
 pairing key: an attacker who obtains that key can impersonate either side, which
 is why it is shown once and stored in the credential vault on both ends.
@@ -276,9 +290,15 @@ send the same bearer token to a second host.
 - An approved clipboard value exists in plaintext inside HA and may be retained
   by Recorder/backups. End-to-end application encryption would require an HA
   component that decrypts before HA can use the state.
-- The public `deskmate:` URI scheme used by toast actions can be invoked by
-  another local process. HA automations consuming `notify/action` must validate
-  exact expected action values before consequential services.
+- The `deskmate:` URI scheme used by toast actions can be invoked by any web
+  page or local process. Since 0.6.0 every toast button carries a single-use
+  random token that lives only in the running process, and clicks without a
+  valid token are dropped and logged. A consequence: buttons on toasts shown
+  before Deskmate restarted no longer work. HA automations consuming
+  `notify/action` should still check exact expected action values.
+- The app's web view runs under a Content Security Policy (scripts only from
+  the bundled app, no remote connections except Tauri IPC).
+- Downloaded toast images are deleted ten minutes after display.
 - Release installers are currently not Authenticode-signed. Windows SmartScreen
   may warn on first run; verify the SHA-256 hashes published with each release.
   Code signing is planned but requires a trusted publisher certificate.

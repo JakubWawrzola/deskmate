@@ -3,15 +3,15 @@
     "step": {
       "user": {
         "title": "Sparuj urzadzenie Deskmate",
-        "description": "Home Assistant wygeneruje klucz parowania. Wklej go w Deskmate (Ustawienia -> Deskmate Link) na komputerze, ktory chcesz sparowac. Wpis sam przypnie sie do pierwszego komputera, ktory uwierzytelni sie tym kluczem - nie ma nazwy do przepisywania recznie."
+        "description": "Home Assistant wygeneruje kod parowania. Wklej go w Deskmate (ekran pierwszego uruchomienia albo Ustawienia -> Deskmate Link) na komputerze, ktory chcesz sparowac. Kod zawiera klucz i adres tego Home Assistanta, wiec nic wiecej nie trzeba wpisywac. Wpis przypnie sie do pierwszego komputera, ktory sie nim uwierzytelni.\n\nJesli jakis wpis juz czeka na parowanie, pokaze sie jego kod zamiast tworzenia kolejnego."
       },
       "show_key": {
-        "title": "Klucz parowania",
-        "description": "Skopiuj ten klucz do Deskmate teraz. Jest pokazywany tylko raz:\n\n`{key}`"
+        "title": "Kod parowania",
+        "description": "Skopiuj ten kod parowania do Deskmate:\n\n`{code}`\n\nStarsze wersje Deskmate przyjmuja tylko sam klucz:\n\n`{key}`\n\nNajpierw zaktualizuj te integracje, potem Deskmate na komputerze. Deskmate 0.6 mowi wylacznie protokolem v2."
       },
       "new_key": {
-        "title": "Nowy klucz parowania",
-        "description": "Stary klucz przestaje dzialac w momencie potwierdzenia. Skopiuj nowy do Deskmate:\n\n`{key}`"
+        "title": "Nowy kod parowania",
+        "description": "Stary klucz przestaje dzialac w momencie potwierdzenia. Skopiuj nowy kod parowania do Deskmate:\n\n`{code}`\n\nSam klucz dla starszych wersji Deskmate:\n\n`{key}`"
       },
       "unbind": {
         "title": "Odepnij ten wpis",
@@ -19,7 +19,7 @@
       },
       "cascade_on": {
         "title": "Wlacz szyfrowanie kaskadowe",
-        "description": "Dodaje druga, niezalezna warstwe szyfrowania: ChaCha20-Poly1305 owinieta wokol dotychczasowego AES-256-GCM, z osobnym kluczem. Zlamanie jednego szyfru przestaje wystarczac do odczytania ruchu.\n\nObie strony musza miec ja wlaczona. Wklej ten klucz w Deskmate w zakladce Geeky stuff, potem potwierdz tutaj - do czasu zgodnosci obu koncow polaczenie bedzie zerwane. Klucz jest pokazywany tylko raz:\n\n`{key}`"
+        "description": "Dodaje druga warstwe szyfrowania: ChaCha20-Poly1305 wokol AES-256-GCM, z osobnym kluczem. Pomaga tylko wtedy, gdyby jeden z dwoch szyfrow zostal kiedys zlamany. Oba klucze leza w tych samych miejscach (tutaj i w Deskmate), wiec nie chroni przed kradzieza klucza. Protokol v2 i tak wyprowadza swieze klucze sesji z efemerycznej wymiany X25519.\n\nObie strony musza miec ja wlaczona. Wklej ten klucz w Deskmate w zakladce Geeky stuff, potem potwierdz tutaj. Do czasu zgodnosci obu koncow polaczenie bedzie zerwane. Klucz jest pokazywany tylko raz:\n\n`{key}`"
       },
       "cascade_off": {
         "title": "Wylacz szyfrowanie kaskadowe",
@@ -34,7 +34,8 @@
     },
     "abort": {
       "already_configured": "Ten node jest juz sparowany.",
-      "reconfigure_successful": "Gotowe."
+      "reconfigure_successful": "Gotowe.",
+      "pending_reused": "Jeden wpis juz czeka na parowanie. Pokazano ponownie jego kod - nic nowego nie powstalo."
     }
   },
   "issues": {

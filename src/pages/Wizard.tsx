@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { api } from "../api";
+import { parsePairingCode } from "../pairing";
 import { Button, Field, StatusDot } from "../components";
 import type { AppConfig, MqttTransport, StatusView, TransportKind } from "../types";
 
@@ -26,7 +27,18 @@ export default function Wizard({
   const [username, setUsername] = useState(config.username);
   const [password, setPassword] = useState("");
   const [linkUrl, setLinkUrl] = useState(config.link_url);
+  const [linkUrlRemote, setLinkUrlRemote] = useState(config.link_url_remote);
   const [linkKey, setLinkKey] = useState("");
+  const onPairingInput = (value: string) => {
+    const code = parsePairingCode(value);
+    if (!code) {
+      setLinkKey(value);
+      return;
+    }
+    setLinkKey(code.key);
+    if (code.url) setLinkUrl(code.url);
+    setLinkUrlRemote(code.urlRemote ?? "");
+  };
   const [deviceName, setDeviceName] = useState(config.device_name);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,7 +46,11 @@ export default function Wizard({
   const connect = async () => {
     setError(null);
     if (selectedTransport === "mqtt" ? !host.trim() : !linkUrl.trim()) {
-      setError(selectedTransport === "mqtt" ? "Broker address is required." : "Link URL is required.");
+      setError(
+        selectedTransport === "mqtt"
+          ? "Broker address is required."
+          : "Paste the pairing code from Home Assistant, or enter the WebSocket URL.",
+      );
       return;
     }
     if (selectedTransport === "link" && !linkKey && !hasLinkKey) {
@@ -53,6 +69,7 @@ export default function Wizard({
           mqtt_ca_path: caPath.trim(),
           username: username.trim(),
           link_url: linkUrl.trim(),
+          link_url_remote: linkUrlRemote.trim(),
           device_name: deviceName.trim() || config.device_name,
           configured: true,
         },
@@ -73,7 +90,7 @@ export default function Wizard({
         <p className="font-semibold tracking-[0.14em] text-[13px] mb-1">DESKMATE</p>
         <h1 className="text-lg font-semibold mb-1">Connect to Home Assistant</h1>
         <p className="text-[13px] text-muted mb-5 leading-relaxed">
-          Choose MQTT or the encrypted Deskmate Link integration. MQTT remains the default.
+          Deskmate Link is the recommended way in: one pairing code from Home Assistant, no broker. MQTT stays available.
         </p>
 
         <div className="space-y-3">
@@ -131,14 +148,18 @@ export default function Wizard({
           <Field label="Password" value={password} onChange={setPassword} type="password" placeholder="stored in Windows Credential Manager" />
           </>}
           {selectedTransport === "link" && <>
-            <Field label="Home Assistant WebSocket URL" value={linkUrl} onChange={setLinkUrl} placeholder="ws://homeassistant.local:8123" />
             <Field
-              label="Pairing key"
+              label="Pairing code"
               value={linkKey}
-              onChange={setLinkKey}
+              onChange={onPairingInput}
               type="password"
-              placeholder={hasLinkKey ? "unchanged (stored in Credential Manager)" : "base64 key from Home Assistant"}
+              placeholder={hasLinkKey ? "unchanged (stored in Credential Manager)" : "DMP1... from Home Assistant"}
+              hint="Home Assistant: Settings > Devices & services > Add integration > Deskmate Link. The code fills in the address too."
             />
+            <Field label="Home Assistant WebSocket URL" value={linkUrl} onChange={setLinkUrl} placeholder="ws://homeassistant.local:8123" />
+            {linkUrlRemote && (
+              <Field label="Fallback WebSocket URL" value={linkUrlRemote} onChange={setLinkUrlRemote} />
+            )}
           </>}
           <Field
             label="Device name"

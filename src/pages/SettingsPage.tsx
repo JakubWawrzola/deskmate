@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
 import { api } from "../api";
+import { parsePairingCode } from "../pairing";
 import { Button, Field, Panel, Toggle } from "../components";
 import type { AppConfig, ClipboardMode, MqttTransport, TransportKind } from "../types";
 
@@ -26,6 +27,16 @@ export default function SettingsPage({
   const [linkUrl, setLinkUrl] = useState(config.link_url);
   const [linkUrlRemote, setLinkUrlRemote] = useState(config.link_url_remote);
   const [linkKey, setLinkKey] = useState("");
+  const onPairingInput = (value: string) => {
+    const code = parsePairingCode(value);
+    if (!code) {
+      setLinkKey(value);
+      return;
+    }
+    setLinkKey(code.key);
+    if (code.url) setLinkUrl(code.url);
+    setLinkUrlRemote(code.urlRemote ?? "");
+  };
   const [fileRoots, setFileRoots] = useState(config.link_file_roots);
   const [fileRootDraft, setFileRootDraft] = useState("");
   const [deviceName, setDeviceName] = useState(config.device_name);
@@ -226,16 +237,18 @@ export default function SettingsPage({
             placeholder="wss://ha.example.com"
           />
           <Field
-            label="Pairing key"
+            label="Pairing code or key"
             value={linkKey}
-            onChange={setLinkKey}
+            onChange={onPairingInput}
             type="password"
-            placeholder={hasLinkKey ? "unchanged (stored in Credential Manager)" : "32-byte base64 key from Home Assistant"}
+            placeholder={hasLinkKey ? "unchanged (stored in Credential Manager)" : "DMP1... code from Home Assistant"}
+            hint="Pasting the pairing code fills in the addresses as well."
           />
           <p className="text-[12px] text-muted leading-relaxed">
             This computer identifies itself as <span className="mono text-ink">{config.node_id}</span>.
-            In Home Assistant just add the Deskmate Link integration, copy the generated key here and save -
-            the entry binds itself to this computer on the first successful connection.
+            In Home Assistant add the Deskmate Link integration, paste the pairing code here and save.
+            The entry binds itself to this computer on the first successful connection. Update the
+            integration in Home Assistant to 0.6.0 before this version of Deskmate.
           </p>
           <p className="text-[12px] text-muted leading-relaxed">
             Link encrypts application frames end to end. MQTT settings remain saved and can be selected again at any time.
