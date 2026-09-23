@@ -7,11 +7,11 @@ hardware sensors vanish and come back.
 
 ## Fastest setup (new install, about 5 minutes)
 
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=JakubWawrzola&repository=deskmate&category=integration)
-
-1. **Home Assistant:** click the button above (or add
-   `https://github.com/JakubWawrzola/deskmate` in HACS as a custom repository,
-   category *Integration*), download **Deskmate Link**, restart Home Assistant.
+1. **Home Assistant:** in HACS open the three-dot menu (top right) →
+   *Custom repositories*, paste `https://github.com/JakubWawrzola/deskmate`,
+   type *Integration*, *Add*. Search HACS for **Deskmate Link**, download it,
+   restart Home Assistant. (HACS does not add an unknown repository from a
+   link, so an "Open in HACS" button only works after this step.)
 2. **Home Assistant:** *Settings → Devices & services → Add integration →
    Deskmate Link*, confirm. Copy the pairing code that starts with `DMP1.`.
 3. **Windows:** install `Deskmate_0.6.0_x64-setup.exe` (normal PC) or

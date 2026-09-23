@@ -39,8 +39,9 @@ Tell them:
 > *Integration* as the category and add it. Then find **Deskmate Link** in HACS,
 > download it, and restart Home Assistant.
 
-The README also carries a one-click "Add to HACS" button. If the user prefers
-it, that button opens the same dialog pre-filled.
+The README also carries an "Open in HACS" button, but HACS does not add an
+unknown repository from a link: before the custom repository is added it shows
+"Repository not found". Use the button only to reopen the repository later.
 
 Without HACS, they copy `custom_components/deskmate_link` from the repository
 into their `config/custom_components/` directory and restart Home Assistant.

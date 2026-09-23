@@ -14,6 +14,10 @@ VRAM, per-volume disks, temperatures) and opt-in, read-only, allowlisted
 
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=JakubWawrzola&repository=deskmate&category=integration)
 
+The button opens Deskmate Link in HACS once the repository has been added to
+HACS as a custom repository (see [Install](#install)). HACS does not add an
+unknown repository from a link.
+
 Setting this up with an AI assistant? Point it at
 [docs/AI-DEPLOY.md](docs/AI-DEPLOY.md) — it contains the whole procedure,
 including what to tell you and what to avoid.
@@ -148,9 +152,11 @@ See [docs/MIGRATION.md](docs/MIGRATION.md) — entity ids do not change.
 
 ### 1. The Home Assistant integration
 
-Click the button at the top of this README, or add
-`https://github.com/JakubWawrzola/deskmate` in HACS as a custom repository of
-category *Integration*, download **Deskmate Link** and restart Home Assistant.
+In HACS open the three-dot menu (top right) → *Custom repositories*, paste
+`https://github.com/JakubWawrzola/deskmate`, choose type *Integration* and
+click *Add*. Then search HACS for **Deskmate Link**, download it and restart
+Home Assistant. HACS does not add an unknown repository from a link, so the
+button at the top of this README only works after this step.
 
 Without HACS, copy `custom_components/deskmate_link` from this repository into
 your Home Assistant `config/custom_components/` and restart.
