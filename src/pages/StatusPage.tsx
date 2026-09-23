@@ -58,8 +58,11 @@ export default function StatusPage({ snapshot, config }: { snapshot: Snapshot; c
         <p className="text-[13px] text-muted leading-relaxed">
           This computer is registered through {config.transport === "link" ? "the Deskmate Link integration" : "MQTT discovery"} as device{" "}
           <span className="mono text-ink">{config.device_name}</span>. Find it under
-          Settings &gt; Devices &amp; services &gt; {config.transport === "link" ? "Deskmate Link" : "MQTT"}. Entity ids follow the pattern{" "}
-          <span className="mono text-ink">sensor.{config.node_id}_cpu</span>.
+          Settings &gt; Devices &amp; services &gt; {config.transport === "link" ? "Deskmate Link" : "MQTT"}. Entity ids follow the
+          device name, for example{" "}
+          <span className="mono text-ink">
+            sensor.{config.device_name.toLowerCase().replace(/[^a-z0-9]+/g, "_")}_cpu_usage
+          </span>.
         </p>
       </Panel>
     </>

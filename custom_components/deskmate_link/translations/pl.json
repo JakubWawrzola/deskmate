@@ -1,0 +1,46 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Sparuj urzadzenie Deskmate",
+        "description": "Home Assistant wygeneruje klucz parowania. Wklej go w Deskmate (Ustawienia -> Deskmate Link) na komputerze, ktory chcesz sparowac. Wpis sam przypnie sie do pierwszego komputera, ktory uwierzytelni sie tym kluczem - nie ma nazwy do przepisywania recznie."
+      },
+      "show_key": {
+        "title": "Klucz parowania",
+        "description": "Skopiuj ten klucz do Deskmate teraz. Jest pokazywany tylko raz:\n\n`{key}`"
+      },
+      "new_key": {
+        "title": "Nowy klucz parowania",
+        "description": "Stary klucz przestaje dzialac w momencie potwierdzenia. Skopiuj nowy do Deskmate:\n\n`{key}`"
+      },
+      "unbind": {
+        "title": "Odepnij ten wpis",
+        "description": "Aktualnie przypiety do `{node_id}`. Po odpieciu wpis przyjmie nastepny komputer, ktory uwierzytelni sie jego kluczem parowania. Encje i ich historia zostaja."
+      },
+      "cascade_on": {
+        "title": "Wlacz szyfrowanie kaskadowe",
+        "description": "Dodaje druga, niezalezna warstwe szyfrowania: ChaCha20-Poly1305 owinieta wokol dotychczasowego AES-256-GCM, z osobnym kluczem. Zlamanie jednego szyfru przestaje wystarczac do odczytania ruchu.\n\nObie strony musza miec ja wlaczona. Wklej ten klucz w Deskmate w zakladce Geeky stuff, potem potwierdz tutaj - do czasu zgodnosci obu koncow polaczenie bedzie zerwane. Klucz jest pokazywany tylko raz:\n\n`{key}`"
+      },
+      "cascade_off": {
+        "title": "Wylacz szyfrowanie kaskadowe",
+        "description": "Ruch wraca do pojedynczej warstwy AES-256-GCM. Wylacz ja takze w Deskmate, inaczej ten komputer sie nie polaczy."
+      }
+    },
+    "menu_options": {
+      "new_key": "Wygeneruj nowy klucz parowania",
+      "unbind": "Odepnij od obecnego komputera",
+      "cascade_on": "Wlacz szyfrowanie kaskadowe (druga warstwa)",
+      "cascade_off": "Wylacz szyfrowanie kaskadowe"
+    },
+    "abort": {
+      "already_configured": "Ten node jest juz sparowany.",
+      "reconfigure_successful": "Gotowe."
+    }
+  },
+  "issues": {
+    "unknown_node": {
+      "title": "Deskmate: niesparowany komputer probuje sie polaczyc",
+      "description": "Komputer przedstawiajacy sie jako `{node}` ({ip}) nie przechodzi handshake'u Deskmate Link. Zaden sparowany wpis nie ma takiej nazwy albo klucz parowania jest inny.\n\nAlbo sparuj go (Dodaj integracje -> Deskmate Link, potem wklej klucz w Deskmate), albo - jesli ma korzystac z istniejacego wpisu - otworz ten wpis, wybierz Skonfiguruj ponownie -> Odepnij od obecnego komputera i pozwol mu sie przypiac."
+    }
+  }
+}

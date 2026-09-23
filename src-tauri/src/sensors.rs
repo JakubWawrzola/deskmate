@@ -163,6 +163,19 @@ pub const SENSOR_DEFS: &[SensorDef] = &[
         privacy: false,
         default_enabled: true,
     },
+    // Windows' own "should I stay quiet" signal: a full-screen app, a game, a
+    // presentation or Do Not Disturb. Useful as a condition for automations that
+    // would otherwise interrupt at the worst possible moment.
+    SensorDef {
+        id: "presenting",
+        name: "Presenting or full screen",
+        component: "binary_sensor",
+        unit: None,
+        device_class: None,
+        icon: Some("mdi:presentation"),
+        privacy: false,
+        default_enabled: true,
+    },
     // --- privacy-sensitive: OPT-IN ---
     SensorDef {
         id: "active_window",
@@ -402,6 +415,18 @@ impl Collector {
                     if win::is_locked() { "ON" } else { "OFF" }.into(),
                 );
             }
+            if is_enabled(cfg, "presenting") {
+                out.insert(
+                    "presenting".into(),
+                    if win::is_presenting() { "ON" } else { "OFF" }.into(),
+                );
+            }
+            // State of the mute switch. Published unconditionally so the switch
+            // follows mute changes made on the computer itself, not only ones
+            // Home Assistant asked for.
+            if let Some(muted) = crate::sys_commands::audio_muted() {
+                out.insert("audio_mute".into(), if muted { "ON" } else { "OFF" }.into());
+            }
             if is_enabled(cfg, "active_window") {
                 out.insert("active_window".into(), truncate(&win::active_window(), 250));
             }
@@ -606,6 +631,26 @@ pub mod win {
                     false
                 }
                 Err(_) => true,
+            }
+        }
+    }
+
+    /// Windows' own notification-state check: true while a full-screen app, a
+    /// game, a presentation or Do Not Disturb would suppress notifications.
+    /// This is the same signal the shell uses, so it stays correct for apps
+    /// that go full screen in ways a window-rectangle comparison would miss.
+    pub fn is_presenting() -> bool {
+        use windows::Win32::UI::Shell::{
+            SHQueryUserNotificationState, QUNS_BUSY, QUNS_PRESENTATION_MODE,
+            QUNS_RUNNING_D3D_FULL_SCREEN,
+        };
+        unsafe {
+            match SHQueryUserNotificationState() {
+                Ok(state) => matches!(
+                    state,
+                    QUNS_PRESENTATION_MODE | QUNS_RUNNING_D3D_FULL_SCREEN | QUNS_BUSY
+                ),
+                Err(_) => false,
             }
         }
     }

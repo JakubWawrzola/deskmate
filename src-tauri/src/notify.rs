@@ -112,10 +112,31 @@ pub fn ensure_aumid_registered() {
     use winreg::RegKey;
     let hkcu = RegKey::predef(HKEY_CURRENT_USER);
     let path = format!("Software\\Classes\\AppUserModelId\\{}", crate::consts::TOAST_AUMID);
+    let exe = std::env::current_exe().ok();
     if let Ok((key, _)) = hkcu.create_subkey(&path) {
         let _ = key.set_value("DisplayName", &crate::consts::TOAST_DISPLAY_NAME);
-        if let Ok(exe) = std::env::current_exe() {
+        if let Some(exe) = &exe {
             let _ = key.set_value("IconUri", &exe.to_string_lossy().to_string());
+        }
+        // Without CustomActivator Windows silently drops <actions> from the toast:
+        // the notification appears, the buttons never do.
+        let _ = key.set_value("CustomActivator", &crate::consts::TOAST_ACTIVATOR_CLSID);
+    }
+    // The CLSID has to resolve to a local server, otherwise the activator counts
+    // as unregistered. Clicks are handled over the deskmate: protocol, so this
+    // server is never actually driven - see TOAST_ACTIVATED_ARG.
+    if let Some(exe) = &exe {
+        let clsid_path = format!(
+            "Software\\Classes\\CLSID\\{}\\LocalServer32",
+            crate::consts::TOAST_ACTIVATOR_CLSID
+        );
+        if let Ok((key, _)) = hkcu.create_subkey(&clsid_path) {
+            let command = format!(
+                "\"{}\" {}",
+                exe.to_string_lossy(),
+                crate::consts::TOAST_ACTIVATED_ARG
+            );
+            let _ = key.set_value("", &command);
         }
     }
 }
@@ -160,17 +181,29 @@ fn ensure_start_menu_shortcut() -> Result<(), String> {
     let lnk = std::path::Path::new(&appdata)
         .join("Microsoft\\Windows\\Start Menu\\Programs")
         .join(format!("{}.lnk", crate::consts::TOAST_DISPLAY_NAME));
-    if lnk.exists() {
+
+    // The shortcut is rewritten whenever the identifiers it carries change.
+    // A plain "file exists" check used to make this a one-shot: a shortcut
+    // written by an older build kept pointing at a stale AUMID and no later
+    // version could ever repair it.
+    let stamp = format!(
+        "2|{}|{}|{}",
+        crate::consts::TOAST_AUMID,
+        crate::consts::TOAST_ACTIVATOR_CLSID,
+        exe.to_string_lossy()
+    );
+    if lnk.exists() && shortcut_stamp() == Some(stamp.clone()) {
         return Ok(());
     }
 
     let ps_quote = |s: &str| s.replace('\'', "''");
     let header = format!(
-        "$Exe='{}'; $Lnk='{}'; $Aumid='{}'; $Name='{}';\n",
+        "$Exe='{}'; $Lnk='{}'; $Aumid='{}'; $Name='{}'; $Clsid='{}';\n",
         ps_quote(&exe.to_string_lossy()),
         ps_quote(&lnk.to_string_lossy()),
         ps_quote(crate::consts::TOAST_AUMID),
         ps_quote(crate::consts::TOAST_DISPLAY_NAME),
+        ps_quote(crate::consts::TOAST_ACTIVATOR_CLSID),
     );
     let script = format!("{}{}", header, SHORTCUT_PS);
     let path = std::env::temp_dir().join("deskmate_brand.ps1");
@@ -183,6 +216,7 @@ fn ensure_start_menu_shortcut() -> Result<(), String> {
         .map_err(|e| e.to_string())?;
     let _ = std::fs::remove_file(&path);
     if output.status.success() && lnk.exists() {
+        set_shortcut_stamp(&stamp);
         Ok(())
     } else {
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -195,8 +229,36 @@ fn ensure_start_menu_shortcut() -> Result<(), String> {
     }
 }
 
-/// C# (IShellLink+IPropertyStore) that creates the shortcut with the AUMID. The
-/// $Exe/$Lnk/$Aumid/$Name variables come from the header prepended before this block.
+/// Identifiers baked into the Start Menu shortcut the last time it was written.
+#[cfg(windows)]
+fn shortcut_stamp() -> Option<String> {
+    use winreg::enums::HKEY_CURRENT_USER;
+    use winreg::RegKey;
+    RegKey::predef(HKEY_CURRENT_USER)
+        .open_subkey(format!(
+            "Software\\Classes\\AppUserModelId\\{}",
+            crate::consts::TOAST_AUMID
+        ))
+        .ok()?
+        .get_value("DeskmateShortcutStamp")
+        .ok()
+}
+
+#[cfg(windows)]
+fn set_shortcut_stamp(stamp: &str) {
+    use winreg::enums::HKEY_CURRENT_USER;
+    use winreg::RegKey;
+    if let Ok((key, _)) = RegKey::predef(HKEY_CURRENT_USER).create_subkey(format!(
+        "Software\\Classes\\AppUserModelId\\{}",
+        crate::consts::TOAST_AUMID
+    )) {
+        let _ = key.set_value("DeskmateShortcutStamp", &stamp.to_string());
+    }
+}
+
+/// C# (IShellLink+IPropertyStore) that creates the shortcut with the AUMID and the
+/// toast activator CLSID. The $Exe/$Lnk/$Aumid/$Name/$Clsid variables come from the
+/// header prepended before this block.
 #[cfg(windows)]
 const SHORTCUT_PS: &str = r#"
 $ErrorActionPreference='Stop'
@@ -253,7 +315,7 @@ namespace ShLnk {
     [DllImport("shlwapi.dll", CharSet=CharSet.Unicode)] public static extern int SHStrDupW(string psz, out IntPtr ppwsz);
   }
   public static class Creator {
-    public static void Create(string exe, string lnk, string aumid, string name) {
+    public static void Create(string exe, string lnk, string aumid, string name, string clsid) {
       IShellLinkW link = (IShellLinkW)new CShellLink();
       link.SetPath(exe);
       link.SetDescription(name);
@@ -261,8 +323,11 @@ namespace ShLnk {
       if (wd != null) link.SetWorkingDirectory(wd);
       link.SetIconLocation(exe, 0);
       IPropertyStore store = (IPropertyStore)link;
+      Guid fmtid = new Guid("9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3");
+
+      // System.AppUserModel.ID - ties the shortcut to the AUMID used for toasts.
       PROPERTYKEY key = new PROPERTYKEY();
-      key.fmtid = new Guid("9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3");
+      key.fmtid = fmtid;
       key.pid = 5;
       PROPVARIANT pv = new PROPVARIANT();
       IntPtr strPtr;
@@ -271,8 +336,22 @@ namespace ShLnk {
       pv.vt = 31; // VT_LPWSTR
       pv.p = strPtr;
       store.SetValue(ref key, ref pv);
-      store.Commit();
       Native.PropVariantClear(ref pv);
+
+      // System.AppUserModel.ToastActivatorCLSID - required before Windows will
+      // render action buttons for an unpackaged app. VT_CLSID points at a GUID.
+      PROPERTYKEY actKey = new PROPERTYKEY();
+      actKey.fmtid = fmtid;
+      actKey.pid = 26;
+      PROPVARIANT actPv = new PROPVARIANT();
+      IntPtr guidPtr = Marshal.AllocCoTaskMem(16);
+      Marshal.StructureToPtr(new Guid(clsid), guidPtr, false);
+      actPv.vt = 72; // VT_CLSID
+      actPv.p = guidPtr;
+      store.SetValue(ref actKey, ref actPv);
+      Native.PropVariantClear(ref actPv);
+
+      store.Commit();
       IPersistFile pf = (IPersistFile)link;
       pf.Save(lnk, true);
     }
@@ -282,7 +361,7 @@ namespace ShLnk {
 Add-Type -TypeDefinition $code -Language CSharp | Out-Null
 $dir = Split-Path $Lnk -Parent
 if (!(Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
-[ShLnk.Creator]::Create($Exe, $Lnk, $Aumid, $Name)
+[ShLnk.Creator]::Create($Exe, $Lnk, $Aumid, $Name, $Clsid)
 "#;
 
 #[cfg(windows)]
@@ -457,15 +536,20 @@ pub fn show_toast(p: &NotifyPayload, action_tx: Option<tokio::sync::mpsc::Unboun
     } else {
         Toast::POWERSHELL_APP_ID
     };
-    let mut toast = Toast::new(aumid).title(&p.title).text1(&p.message);
     let img = p.image.as_deref().and_then(fetch_image);
+
+    // tauri-winrt-notification 0.8 builds each <action> element, sets its
+    // attributes and then never appends it to <actions>, so a toast sent through
+    // the crate arrives with an empty actions list and Windows renders no
+    // buttons. Our own XML is correct and verified, so anything with buttons
+    // takes that path directly instead.
+    if !p.actions.is_empty() {
+        return show_toast_powershell(p, img.as_deref());
+    }
+
+    let mut toast = Toast::new(aumid).title(&p.title).text1(&p.message);
     if let Some(path) = &img {
         toast = toast.image(path, "");
-    }
-    for a in &p.actions {
-        if !a.title.is_empty() && !a.action.is_empty() {
-            toast = toast.add_button(&a.title, &a.action);
-        }
     }
     if let Some(tx) = action_tx {
         toast = toast.on_activated(move |arg| {

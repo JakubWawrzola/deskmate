@@ -140,6 +140,10 @@ pub struct AppConfig {
     pub link_url_remote: String,
     /// Absolute local directories exposed read-only through Link Files v1.
     pub link_file_roots: Vec<String>,
+    /// Opt-in second encryption layer for Link (ChaCha20-Poly1305 over
+    /// AES-256-GCM, keyed separately). Must be enabled on both ends.
+    #[serde(default)]
+    pub link_cascade: bool,
     /// friendly device name in HA (default: hostname)
     pub device_name: String,
     /// id used in topics/unique_id: [a-z0-9_], default: sanitized hostname
@@ -197,6 +201,7 @@ impl Default for AppConfig {
             link_url: String::new(),
             link_url_remote: String::new(),
             link_file_roots: Vec::new(),
+            link_cascade: false,
             device_name: host.clone(),
             node_id: sanitize_id(&host),
             publish_interval_secs: 15,
@@ -322,4 +327,23 @@ pub fn delete_link_key_for(node_id: &str) {
     if let Ok(entry) = link_keyring_entry(node_id) {
         let _ = entry.delete_credential();
     }
+}
+
+/// The cascade key lives in its own Credential Manager entry, never in
+/// config.json, and never next to the primary pairing key.
+fn cascade_keyring_entry(node_id: &str) -> Result<keyring::Entry, String> {
+    keyring::Entry::new(consts::CASCADE_KEYRING_SERVICE, node_id).map_err(|e| e.to_string())
+}
+
+pub fn set_link_cascade_key(node_id: &str, key: &str) -> Result<(), String> {
+    let entry = cascade_keyring_entry(node_id)?;
+    if key.is_empty() {
+        let _ = entry.delete_credential();
+        return Ok(());
+    }
+    entry.set_password(key).map_err(|e| e.to_string())
+}
+
+pub fn get_link_cascade_key(node_id: &str) -> Option<String> {
+    cascade_keyring_entry(node_id).ok()?.get_password().ok()
 }

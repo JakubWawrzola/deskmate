@@ -5,11 +5,18 @@ successor to HASS.Agent. Your PC shows up in Home Assistant as a device with
 sensors, buttons, switches and notifications, and your keyboard becomes a
 remote control for your home. Five-field setup instead of a config maze.
 
-Since 0.4.0 Deskmate speaks two transports: classic **MQTT** (default) and
-**Deskmate Link** — its own end-to-end encrypted WebSocket channel to a
-companion Home Assistant integration, with no broker to install. Link also
-adds hardware sensors (GPU, VRAM, per-volume disks, temperatures) and
-opt-in, read-only, allowlisted **remote file access** from Home Assistant.
+Deskmate connects through **Deskmate Link**: its own Home Assistant integration
+and an encrypted WebSocket, set up with a single pairing key and no broker to
+install. MQTT is still fully supported for setups that already run one, but Link
+is the recommended path since 0.5.0. Link also carries hardware sensors (GPU,
+VRAM, per-volume disks, temperatures) and opt-in, read-only, allowlisted
+**remote file access** from Home Assistant.
+
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=JakubWawrzola&repository=deskmate&category=integration)
+
+Setting this up with an AI assistant? Point it at
+[docs/AI-DEPLOY.md](docs/AI-DEPLOY.md) — it contains the whole procedure,
+including what to tell you and what to avoid.
 
 Runs natively on Windows 11, both **x64 and ARM64** (Snapdragon laptops
 included) — no emulation, no C toolchain, one ~2.5 MB installer per arch.
@@ -110,42 +117,82 @@ WebSocket. Works independently of the desktop app.
 
 ## Requirements
 
-- Windows 11 (x64 or ARM64)
-- An MQTT broker reachable from the PC, or Home Assistant with the optional
-  Deskmate Link integration. MQTT remains the default.
+- Windows 10 or 11 (x64 or ARM64)
+- Home Assistant 2024.11 or newer, reachable from the PC — or an MQTT broker if
+  you prefer that transport
 - Optional, for hotkeys/widgets/tray acting on HA entities: a **long-lived
-  access token** (HA profile → Security) entered in Deskmate Settings.
+  access token** (HA profile → Security) entered in Deskmate Settings
 
 ## Connection transports
 
-Deskmate supports two parallel transports. **MQTT is the default** and keeps
-the existing discovery, text entities and MQTT device-trigger hotkeys. TLS with
-a verified certificate is recommended; plain MQTT is an explicit
-trusted-LAN-only mode.
+**Deskmate Link** is the recommended transport. It connects to the companion
+Home Assistant integration over one WebSocket. A pairing key authenticates the
+handshake, then every application frame is encrypted with AES-256-GCM under
+session keys derived per connection, per direction, with a strictly increasing
+counter against replay. The key lives in Windows Credential Manager. Because the
+encryption sits above the transport, a plain `ws://` hop inside your own network
+is still confidential, and any reverse proxy that already serves Home Assistant
+carries it unchanged — field-tested through Cloudflare Tunnel, Nabu Casa remote
+UI and Tailscale.
 
-**Deskmate Link** connects directly to its Home Assistant custom integration
-over WebSocket. A pairing key authenticates the handshake, then every
-application frame is encrypted with independent session keys and replay
-protection. The key is stored in Windows Credential Manager. Field-tested over
-a local address as well as through a Cloudflare Tunnel, Nabu Casa remote UI
-and Tailscale — see [docs/LINK.md](docs/LINK.md) for setup, remote access URLs
-and current entity coverage.
+Users who want more can turn on **cascade encryption** under *Geeky stuff*: a
+second, independently keyed ChaCha20-Poly1305 layer wrapped around the first, so
+that breaking one cipher is not enough to read the traffic.
+
+**MQTT** remains supported with the same discovery, text entities and device
+trigger hotkeys as before. TLS with a verified certificate is recommended; plain
+MQTT is an explicit trusted-network-only mode. Already running Deskmate on MQTT?
+See [docs/MIGRATION.md](docs/MIGRATION.md) — entity ids do not change.
 
 ## Install
 
-Grab the installer from Releases (`Deskmate_x64-setup.exe` or
-`Deskmate_arm64-setup.exe`), run it, then:
+### 1. The Home Assistant integration
 
-1. Start Deskmate.
-2. Select TLS, enter the broker hostname from its certificate, port 8883 and a
-   dedicated MQTT username/password. A private CA can be selected as a PEM file.
-3. Save & connect. Done — check Settings → Devices & services → MQTT in HA.
-4. (Optional) Settings → Home Assistant API: HA URL + token — this unlocks
-   hotkeys/widgets/tray actions that talk to HA directly.
+Click the button at the top of this README, or add
+`https://github.com/JakubWawrzola/deskmate` in HACS as a custom repository of
+category *Integration*, download **Deskmate Link** and restart Home Assistant.
 
-Configuration lives in `%APPDATA%\Deskmate\config.json`. Secrets (MQTT
-password, Link pairing key, HA token) are stored in **Windows Credential
+Without HACS, copy `custom_components/deskmate_link` from this repository into
+your Home Assistant `config/custom_components/` and restart.
+
+Then go to *Settings → Devices & services → Add integration*, search for
+**Deskmate Link** and confirm. Home Assistant shows a pairing key **once** —
+copy it. There is no device name to type: the entry attaches itself to the first
+computer that authenticates with that key.
+
+### 2. The Windows app
+
+Grab the installer from Releases (`Deskmate_0.5.0_x64-setup.exe` or
+`Deskmate_0.5.0_arm64-setup.exe`) and run it. The installers are not signed, so
+SmartScreen shows an unknown-publisher warning.
+
+On first launch, choose **Deskmate Link**, enter the WebSocket address of your
+Home Assistant and paste the pairing key:
+
+| Situation | Address |
+|---|---|
+| Same network | `ws://homeassistant.local:8123` or `ws://192.168.1.50:8123` |
+| Reverse proxy or Nabu Casa | `wss://your-domain.example` |
+| VPN such as Tailscale | `ws://100.x.x.x:8123` |
+
+`http` becomes `ws`, `https` becomes `wss`, the port is the one your Home
+Assistant interface uses, and the path is appended for you. A second, fallback
+address can be added for use away from home.
+
+The Status page should read `Connected (Link)`, and the device appears under
+*Settings → Devices & services → Deskmate Link*.
+
+Optionally, *Settings → Home Assistant API*: URL plus a long-lived token unlocks
+hotkeys, widgets and tray actions that control Home Assistant entities.
+
+Configuration lives in `%APPDATA%\Deskmate\config.json`. Secrets (MQTT password,
+Link pairing key, cascade key, HA token) are stored in **Windows Credential
 Manager**, never on disk in plain text.
+
+Entity ids follow the **device name** in Deskmate's settings, not the node id: a
+device named `Workshop PC` produces `sensor.workshop_pc_cpu_usage`. Set it
+before the first connection if the naming matters to you — Home Assistant does
+not rename existing entities afterwards.
 
 Security migration note: configs created before these controls move to
 TLS/8883, clipboard Off and custom commands disabled/confirmation-required.
@@ -210,29 +257,33 @@ residual risks and deployment checklist in [docs/SECURITY.md](docs/SECURITY.md).
 
 ## Known issues
 
-- **Toast action buttons don't render on every machine.** The toast shows with
-  the correct title, message, image and "HomeOS" branding, but the action
-  buttons (from the `actions` field in the notify payload) sometimes don't
-  appear — even though the app builds and sends them correctly (protocol
-  activation, `deskmate:action?name=...`). Root cause not yet identified;
-  suspected causes include Windows requiring a COM background activator
-  (`ToastActivatorCLSID`) for interactive buttons rather than plain protocol
-  activation, or per-machine Focus Assist/notification settings. If you hit
-  this, please open an issue with your Windows build number — reports help
-  narrow it down.
 - In-process WinRT toast delivery (`.show()`) fails on some machines due to a
   COM apartment issue in the unpackaged process; Deskmate transparently falls
   back to spawning a short-lived `powershell.exe` to render the toast instead.
-  This is expected and handled, not a bug — mentioned here for transparency.
+  This is expected and handled, not a bug — mentioned here for transparency. It
+  does mean toasts depend on Windows PowerShell 5.1 being present, which it is
+  on a stock Windows install.
+- Action buttons on toasts did not render before 0.5.0, for two unrelated
+  reasons at once. Windows requires an unpackaged app to register a toast
+  activator CLSID before it shows interactive elements, which Deskmate now does
+  on startup; and `tauri-winrt-notification` 0.8 builds each `<action>` element
+  without ever appending it to `<actions>`, so toasts sent through the crate
+  carried an empty action list. Notifications with buttons now use Deskmate's
+  own notification XML. If you upgraded and buttons are still missing, delete
+  `%AppData%\Microsoft\Windows\Start Menu\Programs\HomeOS.lnk` and restart
+  Deskmate so the shortcut is rewritten.
+- The installers are unsigned, so SmartScreen reports an unknown publisher.
 
 ## Project docs
 
+- [docs/AI-DEPLOY.md](docs/AI-DEPLOY.md) — deployment procedure written for an AI assistant
+- [docs/MIGRATION.md](docs/MIGRATION.md) — moving an existing setup from MQTT to Link
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — how it is put together
 - [docs/HA-SETUP.md](docs/HA-SETUP.md) — Home Assistant side setup
-- [docs/LINK.md](docs/LINK.md) — encrypted direct transport setup
+- [docs/LINK.md](docs/LINK.md) — encrypted transport, pairing and remote access
 - [docs/ROADMAP.md](docs/ROADMAP.md) — where this is going
 - [docs/SECURITY.md](docs/SECURITY.md) — security threat model and hardening plan
-- [docs/RELEASE-0.4.0.md](docs/RELEASE-0.4.0.md) — GitHub release notes for Deskmate Link, Files and hardware sensors
+- [CHANGELOG.md](CHANGELOG.md) — release history
 - [streamdeck-plugin/README.md](streamdeck-plugin/README.md) — Stream Deck plugin
 - [HANDOFF.md](HANDOFF.md) — working state, for contributors and AI agents (Polish)
 

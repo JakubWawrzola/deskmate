@@ -1,5 +1,107 @@
 # STATUS — Deskmate
-Aktualizacja: 2026-07-19 (Deskmate Link, fala odbudowy HAOS 4)
+Aktualizacja: 2026-07-31 (wydanie 0.5.0 przygotowane, czeka na test Kuby)
+
+## Sesja 2026-07-31 — 0.5.0: toasty, HACS, kaskada, dokumentacja
+
+WSZYSTKO GOTOWE DO TESTU. Bez commita, bez pusha, bez wydania na GitHubie -
+Kuba testuje na laptopie i dopiero potem daje zgode.
+
+Naprawione:
+- [x] PRZYCISKI TOASTU. **DWIE niezalezne przyczyny naraz** - pierwsza naprawa
+  nie wystarczyla i Kuba zglosil brak przyciskow mimo 0.5.0:
+  1. Windows wycina `<actions>`, jesli AUMID nie wskazuje zarejestrowanego
+     activatora COM. `ensure_aumid_registered` zapisuje teraz `CustomActivator`
+     + `CLSID\LocalServer32`, skrot Start Menu dostaje `ToastActivatorCLSID`
+     (VT_CLSID, pid 26), a `-ToastActivated`/`-Embedding` konczy proces bez
+     otwierania okna.
+  2. `tauri-winrt-notification` 0.8 w `create_template` (src/lib.rs:682-690)
+     tworzy `<action>`, ustawia atrybuty i **nigdy nie robi
+     `xml_el_actions.AppendChild`** - kazdy toast przez crate mial pusta liste
+     akcji. Po naprawie punktu 1 in-process zaczal sie udawac, wiec toasty
+     poszly wlasnie ta zepsuta sciezka. Fix: toast z akcjami omija crate i idzie
+     wlasnym XML-em (`show_toast_powershell`), ktory zostal potwierdzony recznie
+     - wyslany tak toast pokazal przyciski u Kuby.
+- [x] Skrot Start Menu przestal byc jednorazowy: stempel w rejestrze wymusza
+  przepisanie po zmianie AUMID/CLSID/sciezki. Stary `HomeOS.lnk` mial AUMID
+  `HomeOS.Deskmate`, ktorego nie ma w rejestrze - branding dzialal wylacznie
+  dzieki `DisplayName`, nie dzieki skrotowi.
+
+Dodane:
+- [x] Kaskadowe szyfrowanie: ChaCha20-Poly1305 nad AES-256-GCM, osobny klucz,
+  osobne etykiety HKDF i AAD, osobny wpis w Credential Managerze. Negocjacja
+  przez pole `casc` w hello; niezgodnosc = odrzucenie, nigdy downgrade.
+- [x] Zakladka **Geeky stuff** (GeekyPage.tsx) z kaskada i opisem tego, co
+  faktycznie idzie po drucie.
+- [x] Encje: `presenting` (SHQueryUserNotificationState) i switch `audio_mute`
+  (IAudioEndpointVolume GetMute/SetMute), oba transporty.
+- [x] Kreator startuje od Deskmate Link (istniejaca konfiguracja bez zmian).
+- [x] `custom_components/deskmate_link/` + `hacs.json` w repo deskmate =
+  instalacja przez HACS, przycisk "Add to HACS" w README.
+- [x] Dokumentacja EN: AI-DEPLOY.md (instrukcje dla asystenta AI), MIGRATION.md
+  (MQTT -> Link), RELEASE-0.5.0.md, CHANGELOG 0.5.0, przepisany README,
+  sekcja Link w SECURITY.md, kaskada w LINK.md.
+- [x] CODEX-TASKS.md: C1 (prawdziwy COM activator, ODDANE Codexowi), C2
+  (wektory testowe kaskady), C3 (CI: buildy + hassfest/HACS).
+
+Stan wdrozenia i weryfikacji:
+- Integracja **0.5.0 WDROZONA na Pi**, Core zrestartowany (przerwa
+  potwierdzona obserwacja). Laptop: available, 37 encji. Pecet: WYLACZONY,
+  a mimo to **43 encje** - dowod, ze trwalosc `declare` dziala.
+- Instalatory 0.5.0 x64 (3 150 011 B) i ARM64 (2 738 781 B) + SHA256SUMS +
+  ZIP w `dist-installers/`, przebudowane po poprawce crate'a.
+  SHA-256: x64 `404BE9AA...FA767`, ARM64 `E4890C49...0FB3B`.
+- `cargo check`, `cargo tree` (bez ring/openssl/rustls), `npx tsc --noEmit`,
+  `py -m py_compile` - wszystko zielone.
+
+ZRODLO PRAWDY dla integracji to teraz `deskmate/custom_components/
+deskmate_link/`. Kopia w repo HomeAssistant jest robocza i zostala
+zsynchronizowana.
+
+## Sesja 2026-07-30 — diagnoza peceta i fala A+B Linka
+
+## Sesja 2026-07-30 — diagnoza peceta i fala A+B Linka
+
+PROBLEM: pecet nie laczyl sie od 28.07. Deskmate wysylal `node=kuba` (domyslny
+node_id = zsanityzowany hostname), a wpis w HA byl sparowany recznie wpisana
+nazwa `pckuba`. Serwer zamykal gniazdo bez odpowiedzi -> klient pokazywal tylko
+`connection closed before welcome`, 2683 warningi w logu HA, staly lockout.
+Siec byla sprawna (pecet dobijal sie i po LAN, i przez tunel).
+
+Strona HA (`deskmate_link` 0.2.0 -> 0.3.0, WDROZONE na Pi, Core zrestartowany):
+- [x] `reject` z powodem (`auth`/`locked`) zamiast cichego zamkniecia.
+- [x] Zgloszenie w Naprawach z nazwa node'a, ktory sie dobija, i instrukcja.
+- [x] Throttling logu 1/min na (node, IP) z licznikiem pominietych.
+- [x] Lockout per (node, IP) + osobna zapora 100/IP; slownik nie rosnie.
+- [x] Trwalosc `declare` w `.storage/deskmate_link.<entry_id>` - encje istnieja
+  zaraz po restarcie HA (odpowiednik retained discovery, warunek konieczny dla
+  Linka jako glownego transportu).
+- [x] Config flow nie pyta juz o node_id; wpis przypina sie do pierwszego
+  klienta z poprawnym kluczem. Rekonfiguracja: rotacja klucza / odpiecie.
+- [x] Handshake bez efektow ubocznych + odrzucanie powtorzonej `cn`
+  (odtworzone `hello` nie wywroci juz zywej sesji).
+
+Strona Deskmate (KOD, bez builda):
+- [x] Rozroznienie bledow: odrzucenie / lockout (HTTP 429) / transport.
+- [x] Osobny backoff po bledzie autoryzacji: 5/15/30/60 s zamiast co 2 s.
+- [x] Status pokazuje node_id przy odrzuceniu; Settings tlumaczy nowy przebieg
+  parowania; poprawiony blednie sugerowany wzor entity_id na Status.
+- [x] `cargo check` i `npx tsc --noEmit` EXIT=0.
+
+Wpis `pckuba` zostal ODPIETY (node_id="", klucz nietkniety, backup
+`.storage/core.config_entries.bak_20260730`) i pecet PRZYPIAL SIE SAM:
+node_id `kuba`, 43 encje, device `KubaPC` -> entity_id `*.kubapc_*`
+(NIE `kuba_*`: slug bierze sie z device_name, nie z node_id). Klucz zapisany
+na pececie byl wiec poprawny - jedynym problemem byla nazwa node'a.
+Log HA wyczyszczony. NIE budowano installerow, NIE commitowano.
+
+Poboczne obserwacje z prodowego HA (NIE ruszane, poza zakresem):
+- rejestracja 43 nowych encji wywolala `AlexaApiNeedsRelinkError` z Nabu Casa
+  (token Alexy do odnowienia),
+- `Failed to load services.yaml for integration: domos`,
+- 5 zgloszen w Naprawach sprzed tej sesji (google reauth, 3 automatyzacje
+  wolajace nieistniejace uslugi esphome/notify, hassio).
+
+## Sesja 2026-07-19 — Deskmate Link (fala odbudowy HAOS 4)
 
 ## Sesja 2026-07-19 — Deskmate Link
 
@@ -91,7 +193,53 @@ kontekst dla kolejnego agenta.
    (tabela z placeholderami, CZEKA na pliki od Kuby).
 
 ## Nastepny krok (DOKLADNY)
-Czeka na Kube:
+
+Po sesji 2026-07-31: Kuba instaluje `dist-installers/Deskmate_0.5.0_*-setup.exe`
+na laptopie i przechodzi checkliste "DO PRZETESTOWANIA - 0.5.0" nizej. Dopiero
+po jego zgodzie: commit, tag `v0.5.0`, push i GitHub Release z opisem z
+`docs/RELEASE-0.5.0.md`. Tozsamosc commitow: JakubWawrzola /
+kontakt@wawrzola.com, bez stopki co-author.
+
+### DO PRZETESTOWANIA - 0.5.0
+
+1. Zainstalowac 0.5.0 na laptopie (ARM64). Polaczenie ma wstac samo, bez
+   ponownego parowania - klucz zostaje w Credential Managerze.
+2. **Przyciski toastu** (najwazniejsze, dwie proby naprawy za nami):
+   Powiadomienia -> Send test toast. Maja byc dwa przyciski pod trescia,
+   etykieta "HomeOS". Klikniecie ma dac zdarzenie `deskmate_link_notify_action`
+   w HA (Narzedzia deweloperskie -> Zdarzenia). Przy pierwszym kliknieciu
+   Windows moze zapytac o skojarzenie protokolu `deskmate:` - potwierdzic.
+   Jesli przyciskow nadal nie ma: skasowac `%AppData%\Microsoft\Windows\
+   Start Menu\Programs\HomeOS.lnk` i uruchomic Deskmate ponownie.
+3. Nowe encje: `binary_sensor.*_presenting_or_full_screen` (wlaczyc pelny ekran
+   albo film) i `switch.*_mute_audio` (przelaczyc z HA i recznie na laptopie -
+   stan ma nadazac w obie strony).
+4. **Kaskada**: HA -> wpis Deskmate Link -> Skonfiguruj ponownie -> Wlacz
+   szyfrowanie kaskadowe, skopiowac klucz. W Deskmate: Geeky stuff -> wkleic
+   klucz, wlaczyc przelacznik, zapisac. Polaczenie ma wrocic. Potem sprawdzic
+   NIEZGODNOSC: wylaczyc kaskade tylko w HA - polaczenie ma padac z komunikatem
+   o odrzuceniu, nie wracac po cichu do jednej warstwy.
+5. **Komunikaty bledow**: wpisac zly klucz parowania w Deskmate. Status ma
+   pokazac `Link rejected ... (node "...")`, w HA ma sie pojawic zgloszenie w
+   Naprawach, a ponowne proby maja zwalniac (5/15/30/60 s), nie leciec co 2 s.
+6. Zakladka Geeky stuff: opis "What is actually on the wire" ma zmieniac linijke
+   Frames po wlaczeniu kaskady.
+7. Kreator na czystej instalacji (opcjonalnie, maszyna wirtualna): ma startowac
+   od "Deskmate Link (recommended)".
+
+Starsze pozycje: patrz nizej.
+
+Po sesji 2026-07-30 pierwsze w kolejce:
+1. Zbudowac i zainstalowac klienta z fali A (nowe komunikaty bledow + backoff)
+   - dopiero wtedy da sie zobaczyc `Link rejected`/`Link locked out`.
+   Do tego czasu pecet i laptop chodza na 0.4.0 i dzialaja (serwer 0.3.0 jest
+   wstecznie zgodny - potwierdzone na obu maszynach).
+2. Dashboard `HomeAssistant/dashboards/komputery.yaml` ma nadal zaslepke
+   onboardingu dla PC. Encje juz istnieja jako `*.kubapc_*` - do podmiany.
+3. Decyzja: czy `device_name` peceta ma zostac `KubaPC`. Zmiana teraz NIE
+   przemianuje istniejacych encji, trzeba by je usunac z rejestru.
+
+Starsze, wciaz czeka na Kube:
 - przetestowac lokalnie installery 0.4.0 x64 i ARM64 wedlug checklisty T41
 - po zaliczonym E2E osobno zdecydowac o merge i publikacji; opis jest gotowy
   w `docs/RELEASE-0.4.0.md`, ale bez jawnego `tak` nic nie publikowac

@@ -209,6 +209,43 @@ type and result such as `approved`, `denied`, `blocked_locked` or `completed`.
 It never contains clipboard data, URL values, MQTT payloads, command scripts or
 credentials. It rotates at 1 MiB to `security.log.1`.
 
+## Deskmate Link transport
+
+Link authenticates with HMAC-SHA256 over a client nonce, a server nonce and a
+timestamp, then derives fresh AES-256-GCM session keys per connection and per
+direction with HKDF-SHA256. Frames carry a strictly increasing counter; a
+repeated or out-of-order counter closes the session. The pairing key lives in
+Windows Credential Manager and never reaches `config.json`.
+
+Handshake nonces are single-use within the clock tolerance window. Before 0.5.0
+a captured `hello` replayed inside that window produced a valid welcome and
+tore down the live session — an eavesdropper on a plain `ws://` hop could
+disconnect a client at will without ever decrypting anything. Verifying a
+handshake no longer touches session state; the session codecs are built only
+once the connection is accepted.
+
+Home Assistant counts failed handshakes per computer and address, not per
+address alone. Behind a reverse proxy every client can share one apparent
+address, and the earlier per-address counter meant one misconfigured machine
+could lock out a working one. Rejections are answered with a coarse reason
+(`auth` or `locked`) so a client can distinguish a refused pairing from a
+network fault; the reason is deliberately vague, because the endpoint is
+unauthenticated and must not confirm whether a particular computer is paired.
+
+**Cascade encryption** is an opt-in second layer: ChaCha20-Poly1305 wrapped
+around the AES-256-GCM frame, keyed from a separate pairing key with its own
+HKDF labels and its own associated data. It defends against a future weakness in
+a single cipher, not against anything known to be broken today. A mismatch
+between the two ends is rejected rather than negotiated down. Its key is stored
+in its own Credential Manager entry and is redacted from Home Assistant
+diagnostics.
+
+Application-layer encryption is independent of the transport, so it holds on a
+plain `ws://` connection inside a trusted network as well as through a tunnel.
+It does not authenticate the Home Assistant instance beyond possession of the
+pairing key: an attacker who obtains that key can impersonate either side, which
+is why it is shown once and stored in the credential vault on both ends.
+
 ## REST channel
 
 The optional HA token is stored under the separate `Deskmate HA Token`

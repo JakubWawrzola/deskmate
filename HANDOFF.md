@@ -355,6 +355,60 @@ Post mial ~12k views, glowne komentarze (chronologicznie):
 - Jakub wyrazil swieza zgode na lokalny commit na `codex/work`; nadal brak
   zgody na push lub merge.
 
+## 2026-07-31 — 0.5.0 gotowe do testu (NIE commitowane)
+
+Pelny opis w STATUS.md. Dla kolejnego agenta liczy sie to:
+
+- **Brak przyciskow toastu mial DWIE niezalezne przyczyny naraz** - dlatego
+  opieral sie tak dlugo, i dlatego naprawa samego rejestru nie wystarczyla:
+  1. Windows wycina `<actions>`, gdy AUMID nie ma `CustomActivator`
+     wskazujacego na zarejestrowany CLSID (naprawione rejestracja przy starcie).
+  2. `tauri-winrt-notification` 0.8 w `create_template` tworzy element
+     `<action>`, ustawia atrybuty i **nigdy nie dodaje go do `<actions>`**
+     (brak `xml_el_actions.AppendChild`). Kazdy toast wyslany przez crate mial
+     pusta liste akcji. Naprawione: toast z przyciskami omija crate i idzie
+     wlasnym XML-em przez `show_toast_powershell`.
+  Hipotezy z README (Focus Assist, protokol zamiast COM) byly bledne. Wpis
+  0.2.2 "toast bez przyciskow = poszedl fallbackiem PS" tez byl bledny.
+  Gdyby ktos wracal do tematu: crate warto zglosic upstream.
+- **PowerShell 7 nie ma typow WinRT.** Kod wola `powershell.exe` (5.1) i tak ma
+  zostac. Testujac toast recznie z `pwsh` dostaniesz "Unable to find type" i
+  bedziesz scigal bledna diagnoze.
+- **entity_id bierze sie z `device_name`, nie z `node_id`.**
+- Integracja ma teraz dwa domy: **zrodlo prawdy = `deskmate/custom_components/
+  deskmate_link/`** (bo stamtad bierze ja HACS), kopia robocza w repo
+  HomeAssistant sluzy tylko deployowi na Pi. Zmieniajac jedno, synchronizuj
+  drugie.
+- Instalatory 0.5.0 sa zbudowane i sa w `dist-installers/` (od teraz w
+  .gitignore - ida jako release assets, nie do repo).
+- Codex dostal zadanie C1 z `docs/CODEX-TASKS.md` (prawdziwy COM activator jako
+  plan B). C2 i C3 czekaja niewydane.
+
+## 2026-07-30 — Link jako glowny transport (fala A+B)
+
+Kuba postanowil, ze wlasna integracja (`deskmate_link`) zastepuje MQTT jako
+glowny kanal. Pelny opis tej sesji jest w STATUS.md na gorze; tu tylko to, co
+kolejny agent musi wiedziec, zeby nie powtorzyc bledu:
+
+- **Node_id peceta to `kuba`** (domyslnie = zsanityzowany hostname), a wpis w HA
+  byl nazwany `pckuba`. Serwer odrzucal handshake W CISZY. Stad dwa dni bez
+  polaczenia i 2683 warningi. Wniosek na przyszlosc: kazde odrzucenie musi
+  wracac do klienta z powodem, a parowanie nie moze wymagac przepisywania tej
+  samej nazwy po dwoch stronach.
+- Integracja na Pi ma teraz **0.3.0** i rozni sie od kopii sprzed sesji.
+  Zrodlo prawdy: `HomeAssistant/domos/custom_components/deskmate_link/`.
+  Deploy: SMB przez Tailscale `\\100.106.86.21\config\custom_components\`
+  (LAN 192.168.18.9 nie odpowiada spoza domu), skasowac `__pycache__`,
+  NIE ruszac mtime (to regula tylko dla AppDaemona), potem pelny restart Core.
+- **Encje entity_id biora sie z `device_name`, nie z `node_id`** - to czesta
+  pomylka, byla nawet w tekscie na stronie Status. Zmiana `device_name` po
+  pierwszym udanym `declare` nie przemianuje juz istniejacych encji.
+- Wpis peceta zostal odpiety i pecet PRZYPIAL SIE SAM: `node_id=kuba`,
+  device `KubaPC`, 43 encje `*.kubapc_*`, stany leca. Backup starego
+  `.storage/core.config_entries` lezy obok jako `.bak_20260730`.
+- Klient ma zmiany w `link.rs` (klasyfikacja bledow + backoff), `StatusPage.tsx`
+  i `SettingsPage.tsx`. Zielone `cargo check` i `tsc`. BEZ builda, BEZ commita.
+
 ## Jak wznowic prace
 
 1. Przeczytaj `AGENTS.md`, `AGENT-LOG.md`, ten plik i `docs/PLAN.md`.

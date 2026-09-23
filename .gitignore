@@ -10,3 +10,7 @@ src-tauri/gen
 .app-dev.err.log
 .vite-dev.log
 .vite-dev.err.log
+
+# Build artifacts: installers are published as release assets, not committed
+dist-installers/*.exe
+dist-installers/*.zip

@@ -3,6 +3,7 @@
 use aes_gcm::aead::{Aead, KeyInit, Payload};
 use aes_gcm::{Aes256Gcm, Nonce};
 use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
+use chacha20poly1305::ChaCha20Poly1305;
 use futures_util::{SinkExt, StreamExt};
 use hkdf::Hkdf;
 use hmac::{Hmac, Mac};
@@ -21,6 +22,81 @@ use crate::state::AppState;
 type HmacSha256 = Hmac<Sha256>;
 const WS_PATH: &str = "/api/deskmate_link/ws";
 const MAX_SKEW_SECS: i64 = 90;
+
+/// Why a Link session ended. Drives both the status text and the retry delay:
+/// a rejected pairing is not worth retrying every two seconds, and repeating it
+/// only pushes the client into the server-side lockout.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum LinkFailure {
+    /// The pairing key or the node name is wrong. Retrying will not help.
+    Auth,
+    /// Home Assistant temporarily refused this node after repeated failures.
+    Locked,
+    /// Network, URL or a dropped connection.
+    Transport,
+}
+
+struct LinkError {
+    kind: LinkFailure,
+    message: String,
+}
+
+impl LinkError {
+    fn auth(message: impl Into<String>) -> Self {
+        Self {
+            kind: LinkFailure::Auth,
+            message: message.into(),
+        }
+    }
+
+    fn locked(message: impl Into<String>) -> Self {
+        Self {
+            kind: LinkFailure::Locked,
+            message: message.into(),
+        }
+    }
+}
+
+impl From<String> for LinkError {
+    fn from(message: String) -> Self {
+        Self {
+            kind: LinkFailure::Transport,
+            message,
+        }
+    }
+}
+
+impl From<&str> for LinkError {
+    fn from(message: &str) -> Self {
+        Self::from(message.to_string())
+    }
+}
+
+/// A 429 during the WebSocket upgrade is the server-side handshake lockout,
+/// not an ordinary network problem.
+fn classify_connect_error(error: tokio_tungstenite::tungstenite::Error) -> LinkError {
+    if let tokio_tungstenite::tungstenite::Error::Http(response) = &error {
+        if response.status().as_u16() == 429 {
+            return LinkError::locked(
+                "Home Assistant is temporarily refusing this node after repeated failed handshakes",
+            );
+        }
+    }
+    LinkError::from(error.to_string())
+}
+
+/// Retry delay after an authentication failure, in seconds.
+fn auth_retry_delay(kind: LinkFailure, attempts: u32) -> u64 {
+    if kind == LinkFailure::Locked {
+        return 60;
+    }
+    match attempts {
+        0 | 1 => 5,
+        2 => 15,
+        3 => 30,
+        _ => 60,
+    }
+}
 
 pub fn normalize_url(raw: &str) -> Result<String, String> {
     let raw = raw.trim();
@@ -83,28 +159,58 @@ fn derive_keys(
     cn: &[u8; 16],
     sn: &[u8; 16],
 ) -> Result<([u8; 32], [u8; 32]), String> {
+    expand_keys(psk, cn, sn, b"dml1 c2s", b"dml1 s2c")
+}
+
+/// Cascade keys come from a separate pairing key and separate HKDF labels, so
+/// the two layers never share key material.
+fn derive_cascade_keys(
+    psk: &[u8; 32],
+    cn: &[u8; 16],
+    sn: &[u8; 16],
+) -> Result<([u8; 32], [u8; 32]), String> {
+    expand_keys(psk, cn, sn, b"dml1 cascade c2s", b"dml1 cascade s2c")
+}
+
+fn expand_keys(
+    psk: &[u8; 32],
+    cn: &[u8; 16],
+    sn: &[u8; 16],
+    info_c2s: &[u8],
+    info_s2c: &[u8],
+) -> Result<([u8; 32], [u8; 32]), String> {
     let mut salt = [0u8; 32];
     salt[..16].copy_from_slice(cn);
     salt[16..].copy_from_slice(sn);
     let hkdf = Hkdf::<Sha256>::new(Some(&salt), psk);
     let mut c2s = [0u8; 32];
     let mut s2c = [0u8; 32];
-    hkdf.expand(b"dml1 c2s", &mut c2s)
+    hkdf.expand(info_c2s, &mut c2s)
         .map_err(|_| "HKDF c2s failed".to_string())?;
-    hkdf.expand(b"dml1 s2c", &mut s2c)
+    hkdf.expand(info_s2c, &mut s2c)
         .map_err(|_| "HKDF s2c failed".to_string())?;
     Ok((c2s, s2c))
 }
 
 struct FrameCodec {
     cipher: Aes256Gcm,
+    /// Optional second layer. When present every frame is encrypted twice, with
+    /// two different ciphers under two different keys, so breaking one of them
+    /// is not enough to read the traffic.
+    cascade: Option<ChaCha20Poly1305>,
     nonce_prefix: [u8; 4],
     aad: Vec<u8>,
+    cascade_aad: Vec<u8>,
     counter: u64,
 }
 
 impl FrameCodec {
-    fn new(key: &[u8; 32], node: &str, direction: &str) -> Self {
+    fn new(
+        key: &[u8; 32],
+        node: &str,
+        direction: &str,
+        cascade_key: Option<&[u8; 32]>,
+    ) -> Self {
         let prefix = if direction == "c2s" {
             [1, 0, 0, 0]
         } else {
@@ -112,8 +218,11 @@ impl FrameCodec {
         };
         Self {
             cipher: Aes256Gcm::new_from_slice(key).expect("AES-256 key"),
+            cascade: cascade_key
+                .map(|k| ChaCha20Poly1305::new_from_slice(k).expect("ChaCha20 key")),
             nonce_prefix: prefix,
             aad: format!("{node}|{direction}").into_bytes(),
+            cascade_aad: format!("{node}|{direction}|cascade").into_bytes(),
             counter: 0,
         }
     }
@@ -132,7 +241,7 @@ impl FrameCodec {
             .ok_or_else(|| "frame counter exhausted".to_string())?;
         let plaintext = serde_json::to_vec(value).map_err(|e| e.to_string())?;
         let nonce = self.nonce(self.counter);
-        let ciphertext = self
+        let mut ciphertext = self
             .cipher
             .encrypt(
                 Nonce::from_slice(&nonce),
@@ -142,6 +251,17 @@ impl FrameCodec {
                 },
             )
             .map_err(|_| "frame encryption failed".to_string())?;
+        if let Some(cascade) = &self.cascade {
+            ciphertext = cascade
+                .encrypt(
+                    chacha20poly1305::Nonce::from_slice(&nonce),
+                    Payload {
+                        msg: &ciphertext,
+                        aad: &self.cascade_aad,
+                    },
+                )
+                .map_err(|_| "cascade encryption failed".to_string())?;
+        }
         Ok(json!({"t": "e", "n": self.counter, "p": B64.encode(ciphertext)}).to_string())
     }
 
@@ -158,7 +278,7 @@ impl FrameCodec {
         if counter <= self.counter {
             return Err("replayed or out-of-order frame".into());
         }
-        let ciphertext = B64
+        let mut ciphertext = B64
             .decode(
                 frame
                     .get("p")
@@ -167,6 +287,17 @@ impl FrameCodec {
             )
             .map_err(|_| "invalid frame payload".to_string())?;
         let nonce = self.nonce(counter);
+        if let Some(cascade) = &self.cascade {
+            ciphertext = cascade
+                .decrypt(
+                    chacha20poly1305::Nonce::from_slice(&nonce),
+                    Payload {
+                        msg: &ciphertext,
+                        aad: &self.cascade_aad,
+                    },
+                )
+                .map_err(|_| "cascade authentication failed".to_string())?;
+        }
         let plaintext = self
             .cipher
             .decrypt(
@@ -210,6 +341,24 @@ pub async fn restart(app: AppHandle) {
             return;
         }
     };
+    // Cascade is opt-in and only takes effect when its own key is present.
+    let cascade = if cfg.link_cascade {
+        match crate::config::get_link_cascade_key(&cfg.node_id) {
+            Some(raw) => match validate_pairing_key(&raw) {
+                Ok(key) => Some(key),
+                Err(error) => {
+                    crate::mqtt::set_status(&app, false, &format!("Cascade key: {error}"));
+                    return;
+                }
+            },
+            None => {
+                crate::mqtt::set_status(&app, false, "Cascade enabled but its key is missing");
+                return;
+            }
+        }
+    } else {
+        None
+    };
     let (stop_tx, stop_rx) = watch::channel(false);
     *state.stop_tx.lock().await = Some(stop_tx);
     crate::mqtt::set_status(&app, false, "Connecting Link...");
@@ -226,6 +375,7 @@ pub async fn restart(app: AppHandle) {
         }
         let mut endpoint_index = 0usize;
         let mut failures = 0u32;
+        let mut auth_failures = 0u32;
         loop {
             if *stop_connection.borrow() {
                 break;
@@ -246,6 +396,7 @@ pub async fn restart(app: AppHandle) {
                 &app_connection,
                 &cfg_connection,
                 &psk,
+                cascade.as_ref(),
                 &endpoints[endpoint_index],
                 stop_connection.clone(),
             )
@@ -254,18 +405,37 @@ pub async fn restart(app: AppHandle) {
             let mut retry_delay = if endpoints.len() > 1 { 2 } else { 5 };
             match session_result {
                 Ok(()) if *stop_connection.borrow() => break,
-                Ok(()) => failures = 0,
+                Ok(()) => {
+                    failures = 0;
+                    auth_failures = 0;
+                }
                 Err(error) => {
                     failures += 1;
-                    crate::mqtt::set_status(
-                        &app_connection,
-                        false,
-                        &format!("Link error{label}: {error}"),
-                    );
+                    let status = match error.kind {
+                        LinkFailure::Auth => format!(
+                            "Link rejected{label}: {} (node \"{}\")",
+                            error.message, cfg_connection.node_id
+                        ),
+                        LinkFailure::Locked => {
+                            format!("Link locked out{label}: {}", error.message)
+                        }
+                        LinkFailure::Transport => {
+                            format!("Link error{label}: {}", error.message)
+                        }
+                    };
+                    crate::mqtt::set_status(&app_connection, false, &status);
+                    if error.kind == LinkFailure::Transport {
+                        auth_failures = 0;
+                    } else {
+                        // Nie dobijaj serwera co 2 s - to wpycha node w lockout
+                        // i zasypuje log Home Assistanta.
+                        retry_delay = auth_retry_delay(error.kind, auth_failures);
+                        auth_failures += 1;
+                    }
                     if endpoints.len() > 1 && failures >= 2 {
                         endpoint_index = (endpoint_index + 1) % endpoints.len();
                         failures = 0;
-                        retry_delay = 3;
+                        retry_delay = retry_delay.max(3);
                     }
                 }
             }
@@ -313,18 +483,29 @@ async fn run_session(
     app: &AppHandle,
     cfg: &AppConfig,
     psk: &[u8; 32],
+    cascade: Option<&[u8; 32]>,
     endpoint: &str,
     mut stop: watch::Receiver<bool>,
-) -> Result<(), String> {
+) -> Result<(), LinkError> {
     let (mut socket, _) = tokio_tungstenite::connect_async(endpoint)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(classify_connect_error)?;
     let mut cn = [0u8; 16];
     rand::thread_rng().fill_bytes(&mut cn);
     let cn_b64 = B64.encode(cn);
     let ts = now_unix();
     let hello_text = format!("hello|{}|{}|{}", cfg.node_id, cn_b64, ts);
-    let hello = json!({"t": "hello", "v": 1, "node": cfg.node_id, "cn": cn_b64, "ts": ts, "mac": B64.encode(mac(psk, &hello_text))});
+    let hello = json!({
+        "t": "hello",
+        "v": 1,
+        "node": cfg.node_id,
+        "cn": cn_b64,
+        "ts": ts,
+        "mac": B64.encode(mac(psk, &hello_text)),
+        // Cascade must match on both ends; Home Assistant rejects a mismatch
+        // rather than quietly falling back to the weaker single layer.
+        "casc": cascade.is_some(),
+    });
     socket
         .send(Message::Text(hello.to_string().into()))
         .await
@@ -339,8 +520,25 @@ async fn run_session(
         .map_err(|_| "welcome must be a text frame".to_string())?;
     let welcome: Value = serde_json::from_str(welcome_text.as_str())
         .map_err(|_| "invalid welcome JSON".to_string())?;
-    if welcome.get("t").and_then(Value::as_str) != Some("welcome") {
-        return Err("expected welcome".into());
+    match welcome.get("t").and_then(Value::as_str) {
+        Some("welcome") => {}
+        // Serwer mowi wprost, dlaczego nie wpuscil - bez tego jedynym sladem
+        // bylo zerwane polaczenie i zgadywanie po stronie uzytkownika.
+        Some("reject") => {
+            let reason = welcome
+                .get("reason")
+                .and_then(Value::as_str)
+                .unwrap_or("auth");
+            return Err(match reason {
+                "locked" => LinkError::locked(
+                    "Home Assistant is temporarily refusing this node after repeated failed handshakes",
+                ),
+                _ => LinkError::auth(
+                    "Home Assistant rejected the pairing - this node is not paired, or the pairing key does not match",
+                ),
+            });
+        }
+        _ => return Err("expected welcome".into()),
     }
     let sn_b64 = welcome
         .get("sn")
@@ -369,8 +567,22 @@ async fn run_session(
         welcome.get("mac").and_then(Value::as_str).unwrap_or(""),
     )?;
     let (c2s, s2c) = derive_keys(psk, &cn, &sn)?;
-    let mut encoder = FrameCodec::new(&c2s, &cfg.node_id, "c2s");
-    let mut decoder = FrameCodec::new(&s2c, &cfg.node_id, "s2c");
+    let cascade_keys = match cascade {
+        Some(key) => Some(derive_cascade_keys(key, &cn, &sn)?),
+        None => None,
+    };
+    let mut encoder = FrameCodec::new(
+        &c2s,
+        &cfg.node_id,
+        "c2s",
+        cascade_keys.as_ref().map(|(c, _)| c),
+    );
+    let mut decoder = FrameCodec::new(
+        &s2c,
+        &cfg.node_id,
+        "s2c",
+        cascade_keys.as_ref().map(|(_, s)| s),
+    );
     let (mut writer, mut reader) = socket.split();
     let (out_tx, mut out_rx) = mpsc::unbounded_channel::<Value>();
     *app.state::<AppState>().link_tx.lock().await = Some(out_tx.clone());

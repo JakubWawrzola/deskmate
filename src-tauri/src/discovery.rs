@@ -297,6 +297,22 @@ pub fn build_all(cfg: &AppConfig, hardware_defs: &[OwnedSensorDef]) -> Vec<Disco
         out.push((topic, p.to_string()));
     }
 
+    // Mute: switch over the default playback device
+    {
+        let topic = cfg_topic("switch", node, "audio_mute");
+        let p = json!({
+            "name": "Mute audio",
+            "unique_id": format!("deskmate_{}_audio_mute", node),
+            "command_topic": consts::cmd_topic(node, "audio_mute"),
+            "state_topic": consts::state_topic(node, "audio_mute"),
+            "payload_on": "ON", "payload_off": "OFF",
+            "icon": "mdi:volume-off",
+            "availability_topic": avail,
+            "device": device,
+        });
+        out.push((topic, p.to_string()));
+    }
+
     // Hotkeys of type mqtt -> device triggers (HA automations without an API token)
     for h in &cfg.hotkeys {
         let topic = cfg_topic("device_automation", node, &format!("hotkey_{}", h.id));
@@ -434,6 +450,9 @@ pub fn build_link_declare(cfg: &AppConfig, hardware_defs: &[OwnedSensorDef]) -> 
     }
     entities.push(
         json!({"key": "keep_awake", "kind": "switch", "name": "Keep awake", "icon": "mdi:coffee"}),
+    );
+    entities.push(
+        json!({"key": "audio_mute", "kind": "switch", "name": "Mute audio", "icon": "mdi:volume-off"}),
     );
     for hotkey in &cfg.hotkeys {
         let display_name = if hotkey.name.is_empty() {

@@ -219,6 +219,20 @@ pub async fn handle_command(
         return Ok(());
     }
 
+    if key == "audio_mute" {
+        let on = payload.trim().eq_ignore_ascii_case("ON");
+        crate::sys_commands::set_audio_muted(on)?;
+        // The sensor loop would pick this up on its next tick anyway; echoing it
+        // immediately keeps the switch from snapping back in the HA interface.
+        let mut values = HashMap::new();
+        values.insert(
+            "audio_mute".to_string(),
+            if on { "ON".into() } else { "OFF".to_string() },
+        );
+        publish_states(app, &values).await;
+        return Ok(());
+    }
+
     if key == "tts_say" {
         if !cfg.tts_enabled {
             return Err("TTS disabled".into());

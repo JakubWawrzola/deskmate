@@ -35,6 +35,7 @@ struct ConfigView {
     config: AppConfig,
     has_password: bool,
     has_link_key: bool,
+    has_cascade_key: bool,
 }
 
 #[derive(serde::Serialize)]
@@ -55,10 +56,12 @@ async fn get_config(state: State<'_, AppState>) -> Result<ConfigView, String> {
     let cfg = state.config.lock().await.clone();
     let has_password = config::get_password(&cfg).is_some();
     let has_link_key = config::get_link_key(&cfg.node_id).is_some();
+    let has_cascade_key = config::get_link_cascade_key(&cfg.node_id).is_some();
     Ok(ConfigView {
         config: cfg,
         has_password,
         has_link_key,
+        has_cascade_key,
     })
 }
 
@@ -69,6 +72,7 @@ async fn save_config(
     mut new_config: AppConfig,
     password: Option<String>,
     link_key: Option<String>,
+    cascade_key: Option<String>,
 ) -> Result<(), String> {
     new_config.node_id = config::sanitize_id(if new_config.node_id.is_empty() {
         &new_config.device_name
@@ -164,6 +168,18 @@ async fn save_config(
     if let Some(key) = link_key {
         link::validate_pairing_key(&key)?;
         config::set_link_key(&new_config.node_id, key.trim())?;
+    }
+    if let Some(key) = cascade_key {
+        let key = key.trim();
+        if !key.is_empty() {
+            link::validate_pairing_key(key)?;
+        }
+        config::set_link_cascade_key(&new_config.node_id, key)?;
+    }
+    if new_config.link_cascade
+        && config::get_link_cascade_key(&new_config.node_id).is_none()
+    {
+        return Err("Cascade encryption needs its own key from Home Assistant".into());
     }
     let branding = new_config.toast_branding;
     config::save(&new_config)?;
@@ -635,6 +651,16 @@ fn run_command_local(state: State<'_, AppState>, id: String) -> Result<(), Strin
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Windows starts the registered toast activator as a COM local server when a
+    // notification is activated. Deskmate handles button clicks over its URL
+    // protocol instead, so such a launch must not turn into a second app window.
+    if std::env::args().any(|arg| {
+        arg.eq_ignore_ascii_case(consts::TOAST_ACTIVATED_ARG) || arg.eq_ignore_ascii_case("-Embedding")
+    }) && !std::env::args().any(|arg| notify::parse_action_url(&arg).is_some())
+    {
+        return;
+    }
+
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
     let cfg = config::load();
     let launch_hidden = cfg.launch_hidden;

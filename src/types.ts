@@ -70,6 +70,7 @@ export interface AppConfig {
   link_url: string;
   link_url_remote: string;
   link_file_roots: string[];
+  link_cascade: boolean;
   device_name: string;
   node_id: string;
   publish_interval_secs: number;
@@ -93,6 +94,7 @@ export interface ConfigView {
   config: AppConfig;
   has_password: boolean;
   has_link_key: boolean;
+  has_cascade_key: boolean;
 }
 
 export interface StatusView {

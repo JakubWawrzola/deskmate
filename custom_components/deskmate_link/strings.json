@@ -1,0 +1,46 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Pair a Deskmate device",
+        "description": "Home Assistant will generate a pairing key. Paste it into Deskmate (Settings -> Deskmate Link) on the computer you want to pair. The entry binds itself to the first computer that authenticates with this key, so there is no device name to type twice."
+      },
+      "show_key": {
+        "title": "Pairing key",
+        "description": "Copy this key into Deskmate now. It is shown only once:\n\n`{key}`"
+      },
+      "new_key": {
+        "title": "New pairing key",
+        "description": "The old key stops working as soon as you confirm. Copy the new one into Deskmate:\n\n`{key}`"
+      },
+      "unbind": {
+        "title": "Unbind this entry",
+        "description": "Currently bound to `{node_id}`. After unbinding, the entry attaches to the next computer that authenticates with its pairing key. Entities and their history are kept."
+      },
+      "cascade_on": {
+        "title": "Enable cascade encryption",
+        "description": "Adds a second, independent encryption layer: ChaCha20-Poly1305 wrapped around the existing AES-256-GCM, keyed separately. Breaking one cipher is no longer enough to read the traffic.\n\nBoth sides must have it on. Paste this key into Deskmate under Geeky stuff, then confirm here — the connection drops until both ends match. It is shown only once:\n\n`{key}`"
+      },
+      "cascade_off": {
+        "title": "Disable cascade encryption",
+        "description": "Traffic goes back to a single AES-256-GCM layer. Turn it off in Deskmate as well, otherwise that computer will not reconnect."
+      }
+    },
+    "menu_options": {
+      "new_key": "Generate a new pairing key",
+      "unbind": "Unbind from the current computer",
+      "cascade_on": "Enable cascade encryption (second layer)",
+      "cascade_off": "Disable cascade encryption"
+    },
+    "abort": {
+      "already_configured": "This node is already paired.",
+      "reconfigure_successful": "Done."
+    }
+  },
+  "issues": {
+    "unknown_node": {
+      "title": "Deskmate: an unpaired computer keeps connecting",
+      "description": "A computer calling itself `{node}` ({ip}) keeps failing the Deskmate Link handshake. No paired entry matches that name, or its pairing key is different.\n\nEither pair it (Add integration -> Deskmate Link, then paste the key into Deskmate), or - if it should use an entry that already exists - open that entry, choose Reconfigure -> Unbind from the current computer, and let it re-attach."
+    }
+  }
+}

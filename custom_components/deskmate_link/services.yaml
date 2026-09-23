@@ -1,0 +1,34 @@
+notify:
+  name: Notify
+  description: Wysyla toast na sparowany komputer przez Deskmate Link.
+  fields:
+    node_id:
+      name: Node ID
+      description: Ktory komputer (puste = wszystkie sparowane).
+      required: false
+      example: laptopwawrzola
+      selector:
+        text:
+    title:
+      name: Tytul
+      required: true
+      example: Pranie skonczone
+      selector:
+        text:
+    message:
+      name: Tresc
+      required: true
+      example: Wyciagnij z pralki.
+      selector:
+        text:
+    image:
+      name: Obraz (URL)
+      required: false
+      selector:
+        text:
+    actions:
+      name: Przyciski akcji
+      description: 'Lista {id, title} - klik wraca eventem deskmate_link_notify_action.'
+      required: false
+      selector:
+        object:

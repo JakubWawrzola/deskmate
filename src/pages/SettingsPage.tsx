@@ -233,6 +233,11 @@ export default function SettingsPage({
             placeholder={hasLinkKey ? "unchanged (stored in Credential Manager)" : "32-byte base64 key from Home Assistant"}
           />
           <p className="text-[12px] text-muted leading-relaxed">
+            This computer identifies itself as <span className="mono text-ink">{config.node_id}</span>.
+            In Home Assistant just add the Deskmate Link integration, copy the generated key here and save -
+            the entry binds itself to this computer on the first successful connection.
+          </p>
+          <p className="text-[12px] text-muted leading-relaxed">
             Link encrypts application frames end to end. MQTT settings remain saved and can be selected again at any time.
           </p>
         </div>

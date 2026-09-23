@@ -14,11 +14,17 @@ import type {
 
 export const api = {
   getConfig: () => invoke<ConfigView>("get_config"),
-  saveConfig: (newConfig: AppConfig, password?: string, linkKey?: string) =>
+  saveConfig: (
+    newConfig: AppConfig,
+    password?: string,
+    linkKey?: string,
+    cascadeKey?: string,
+  ) =>
     invoke<void>("save_config", {
       newConfig,
       password: password ?? null,
       linkKey: linkKey ?? null,
+      cascadeKey: cascadeKey ?? null,
     }),
   getSnapshot: () => invoke<Snapshot>("get_snapshot"),
   setSensorEnabled: (id: string, enabled: boolean) =>

@@ -1,6 +1,6 @@
 [package]
 name = "deskmate"
-version = "0.4.0"
+version = "0.5.0"
 description = "Deskmate - a modern Windows companion for Home Assistant"
 authors = ["Jakub Wawrzola"]
 license = "MIT"
@@ -39,6 +39,9 @@ url = "2"
 log = "0.4"
 env_logger = "0.11"
 aes-gcm = "0.10"
+# Second cipher for the optional cascade layer. Pure Rust like the rest of the
+# crypto stack - no ring, no C toolchain, so ARM64 keeps building.
+chacha20poly1305 = "0.10"
 base64 = "0.22"
 futures-util = "0.3"
 hkdf = "0.12"

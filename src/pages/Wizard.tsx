@@ -16,7 +16,10 @@ export default function Wizard({
   onDone: () => Promise<void>;
 }) {
   const [host, setHost] = useState(config.broker_host);
-  const [selectedTransport, setSelectedTransport] = useState<TransportKind>(config.transport);
+  // New installs land on Link; an existing configuration keeps whatever it uses.
+  const [selectedTransport, setSelectedTransport] = useState<TransportKind>(
+    config.configured ? config.transport : "link",
+  );
   const [mqttTransport, setMqttTransport] = useState<MqttTransport>(config.mqtt_transport);
   const [port, setPort] = useState(String(config.broker_port || 8883));
   const [caPath, setCaPath] = useState(config.mqtt_ca_path);
@@ -81,9 +84,14 @@ export default function Wizard({
               onChange={(e) => setSelectedTransport(e.target.value as TransportKind)}
               className="mt-1 w-full h-9 px-2 bg-panel border border-hairline-strong rounded text-ink text-[13px] focus-visible:border-ink"
             >
-              <option value="mqtt">MQTT (default)</option>
-              <option value="link">Deskmate Link</option>
+              <option value="link">Deskmate Link (recommended)</option>
+              <option value="mqtt">MQTT</option>
             </select>
+            <span className="block mt-1 text-[12px] text-muted leading-relaxed">
+              Deskmate Link is one encrypted WebSocket to Home Assistant, set up with a
+              single pairing key and no broker to install. MQTT stays supported for setups
+              that already run one.
+            </span>
           </label>
           {selectedTransport === "mqtt" && <>
           <label className="block">

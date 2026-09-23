@@ -10,14 +10,16 @@ import HotkeysPage from "./pages/HotkeysPage";
 import WidgetsPage from "./pages/WidgetsPage";
 import NotificationsPage from "./pages/NotificationsPage";
 import SettingsPage from "./pages/SettingsPage";
+import GeekyPage from "./pages/GeekyPage";
 
-const PAGES = ["Status", "Sensors", "Commands", "Hotkeys", "Widgets", "Notifications", "Settings"] as const;
+const PAGES = ["Status", "Sensors", "Commands", "Hotkeys", "Widgets", "Notifications", "Settings", "Geeky stuff"] as const;
 export type Page = (typeof PAGES)[number];
 
 export default function App() {
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [hasPassword, setHasPassword] = useState(false);
   const [hasLinkKey, setHasLinkKey] = useState(false);
+  const [hasCascadeKey, setHasCascadeKey] = useState(false);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [page, setPage] = useState<Page>("Status");
 
@@ -26,6 +28,7 @@ export default function App() {
     setConfig(view.config);
     setHasPassword(view.has_password);
     setHasLinkKey(view.has_link_key);
+    setHasCascadeKey(view.has_cascade_key);
   }, []);
 
   const reloadSnapshot = useCallback(async () => {
@@ -123,6 +126,16 @@ export default function App() {
               config={config}
               hasPassword={hasPassword}
               hasLinkKey={hasLinkKey}
+              onSaved={async () => {
+                await reloadConfig();
+                await reloadSnapshot();
+              }}
+            />
+          )}
+          {page === "Geeky stuff" && (
+            <GeekyPage
+              config={config}
+              hasCascadeKey={hasCascadeKey}
               onSaved={async () => {
                 await reloadConfig();
                 await reloadSnapshot();

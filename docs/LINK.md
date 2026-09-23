@@ -12,14 +12,18 @@ selected again without losing its saved settings.
    least once after it appears.
 2. **Settings → Devices & services → Add integration**, search for
    **Deskmate Link**, select it.
-3. A dialog **"Sparuj urządzenie Deskmate" / "Pair Deskmate device"** asks for
-   a single field, **Node ID** (placeholder example: `laptopwawrzola`). Type
-   the exact same stable node ID Deskmate uses (shown on its Status page) and
-   confirm.
+3. Confirm the dialog. There is nothing to type: the integration no longer
+   asks for a node ID. The entry is created unbound and attaches itself to the
+   first computer that authenticates with its pairing key.
 4. The next screen shows the generated base64 **pairing key exactly once**.
    Copy it immediately into a password manager — closing the dialog without
    copying it means starting the pairing over.
 5. Do not put the pairing key in YAML, `config.json` or source control.
+
+To rotate a key or move an entry to a different computer, open the entry and
+choose **Reconfigure**: *Generate a new pairing key* invalidates the old key,
+*Unbind from the current computer* releases the entry so the next computer
+using that key takes it over. Entities and their history survive both.
 
 ## Set up Deskmate
 
@@ -36,9 +40,27 @@ selected again without losing its saved settings.
 5. Check Status for `Connected (Link)`, then find the device under Settings →
    Devices & services → Deskmate Link.
 
-Changing the node ID requires pairing that node again. Local and fallback
-connections perform a fresh authenticated handshake and derive fresh session
-keys on every reconnect.
+Local and fallback connections perform a fresh authenticated handshake and
+derive fresh session keys on every reconnect.
+
+## When the connection is refused
+
+Home Assistant answers a failed handshake with an explicit rejection instead of
+just dropping the socket, and Deskmate shows which of the two cases happened:
+
+- **`Link rejected ... (node "<name>")`** — no paired entry accepted this
+  computer. Either the entry is bound to a different computer, or the pairing
+  key does not match. Pair it again, or open the existing entry in Home
+  Assistant and choose Reconfigure → Unbind from the current computer.
+- **`Link locked out ...`** — Home Assistant is temporarily refusing this
+  computer after repeated failed handshakes. It clears itself within five
+  minutes once the cause is fixed.
+
+Both cases retry on a slower schedule (5, 15, 30, then 60 seconds) rather than
+every couple of seconds, because retrying a rejected pairing cannot succeed and
+only keeps the node locked out. Ordinary network failures keep the fast retry.
+Home Assistant also raises a repair issue naming the computer that keeps
+failing, so the problem is visible without reading logs.
 
 ## Remote access (Cloudflare Tunnel / Nabu Casa)
 
@@ -59,6 +81,24 @@ working setups:
 
 Pick whichever is already reachable from where Deskmate is running; switching
 between them later is just editing the URL field and reconnecting.
+
+## Cascade encryption
+
+Every Link frame is already encrypted with AES-256-GCM under a key derived per
+session and per direction. Cascade adds a second, independent layer around it:
+ChaCha20-Poly1305, keyed from a separate pairing key, derived with its own HKDF
+labels and authenticated over its own associated data. The two layers share no
+key material, so a future weakness in one cipher does not expose the traffic.
+
+Enable it in Home Assistant on the paired entry: **Reconfigure → Enable cascade
+encryption**. Copy the second key it shows into Deskmate under **Geeky stuff**
+and turn the toggle on there.
+
+Both ends must agree. A handshake where one side asks for cascade and the other
+does not is rejected rather than negotiated down to the weaker single layer, so
+expect the connection to stay down between enabling it on one side and the
+other. The cost is one extra encryption pass per frame, which is not measurable
+at Deskmate's message rate.
 
 ## Text controls, presentation and hotkeys
 

@@ -405,6 +405,26 @@ pub fn get_volume() -> Option<u8> {
 }
 
 #[cfg(windows)]
+pub fn audio_muted() -> Option<bool> {
+    with_endpoint(|v| unsafe { v.GetMute() })
+        .ok()
+        .map(|m| m.as_bool())
+}
+#[cfg(not(windows))]
+pub fn audio_muted() -> Option<bool> {
+    None
+}
+
+#[cfg(windows)]
+pub fn set_audio_muted(muted: bool) -> Result<(), String> {
+    with_endpoint(|v| unsafe { v.SetMute(muted, std::ptr::null()) })
+}
+#[cfg(not(windows))]
+pub fn set_audio_muted(_muted: bool) -> Result<(), String> {
+    Err("windows only".into())
+}
+
+#[cfg(windows)]
 fn set_volume(payload: &str) -> Result<(), String> {
     let pct: f32 = payload.trim().parse::<f32>().map_err(|_| "volume: not a number".to_string())?;
     let scalar = (pct / 100.0).clamp(0.0, 1.0);
