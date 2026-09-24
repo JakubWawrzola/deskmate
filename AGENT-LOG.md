@@ -230,3 +230,11 @@ Zrobione: docs/RELEASE-0.7.0.md, commit 0.7.0 bez Co-Authored-By, push main,
 tag v0.7.0, GitHub Release Latest z instalatorami x64/ARM64 i SHA256SUMS.
 Repo HomeAssistant bez commita.
 Nastepny krok: test Kuby, post na Reddicie.
+
+## [2026-09-24] Claude — PR #1 (type_text) scalony na polecenie Kuby
+Zrobione: PR #1 od @anupamme (filtr znakow sterujacych w type_text) sprawdzony
+lokalnie (cargo check, 20/20 testow) i scalony squashem na GitHubie (0a1354e,
+autor: Anupam Mediratta). Dopisano notke w README, SECURITY.md i CHANGELOG
+(Unreleased). Bez nowego release'u.
+Nastepny krok: zmiana trafi do kolejnego wydania.
+

@@ -175,6 +175,15 @@ otherwise escape the approved origin.
 This closes the unrestricted SSRF/probing path while preserving explicitly
 approved local HA image URLs and external sites.
 
+## Typing text
+
+`type_text` (opt-in through *Allow input*) types into whichever window has
+focus. It sends characters through the SendInput Unicode path, which cannot
+press Ctrl, Alt or Win, so it cannot trigger shortcuts. Control characters are
+removed before typing: most applications treat a typed CR, LF, Tab or Esc as
+the real key, and text such as `command` followed by CR would otherwise run in
+a focused terminal. Reported and fixed by @anupamme in #1.
+
 ## Custom PowerShell commands
 
 Custom commands remain intentionally powerful, but MQTT payloads are not

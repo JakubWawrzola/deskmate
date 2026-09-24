@@ -100,7 +100,9 @@ fork already does what you want, there's no reason to switch.
 - **Remote interaction (opt-in)** — HA can type text into the focused window,
   drive a presentation, open an allowlisted HTTP(S) origin, put text on the
   clipboard, or make the PC **speak**. Clipboard read and write each support
-  Off / Confirm / Automatic modes.
+  Off / Confirm / Automatic modes. Typed text is printable characters only:
+  Enter, Tab, Esc and other control characters are dropped, so text typed by
+  HA cannot submit itself.
 
 ### Your home on the PC
 - **Global hotkeys** — system-wide shortcuts that work while Deskmate sits in

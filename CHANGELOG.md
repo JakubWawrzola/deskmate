@@ -3,6 +3,15 @@
 All notable changes to Deskmate are documented here. Release-specific upgrade
 notes and asset names are available in `docs/RELEASE-*.md`.
 
+## Unreleased
+
+### Security
+
+- Text typed by `type_text` is filtered to printable characters. Enter, Tab,
+  Esc and other control characters were delivered as real key presses, so typed
+  text could submit itself, for example as a command in a focused terminal.
+  Thanks @anupamme (#1).
+
 ## 0.7.0 - 2026-09-24
 
 Files between your phone or laptop and the PC, through Home Assistant. How to turn
