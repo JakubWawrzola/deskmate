@@ -295,8 +295,12 @@ fn type_text(text: &str) -> Result<(), String> {
         SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP, KEYEVENTF_UNICODE,
         VIRTUAL_KEY,
     };
+    // Strip control characters (CR/LF/TAB/ESC/etc.): SendInput's Unicode path can have
+    // these interpreted as real key presses (e.g. Enter/Escape) by the focused window,
+    // letting injected text trigger actions instead of merely typing printable content.
+    let safe_text: String = text.chars().filter(|c| !c.is_control()).collect();
     let mut inputs: Vec<INPUT> = Vec::new();
-    for unit in text.encode_utf16().take(2000) {
+    for unit in safe_text.encode_utf16().take(2000) {
         for up in [false, true] {
             let mut flags = KEYEVENTF_UNICODE;
             if up {
