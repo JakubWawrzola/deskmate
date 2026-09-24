@@ -70,6 +70,9 @@ export interface AppConfig {
   link_url: string;
   link_url_remote: string;
   link_file_roots: string[];
+  link_inbox_mode: ClipboardMode;
+  link_inbox_dir: string;
+  link_files_max_mb: number;
   link_cascade: boolean;
   device_name: string;
   node_id: string;

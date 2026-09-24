@@ -260,6 +260,25 @@ It does not authenticate the Home Assistant instance beyond possession of the
 pairing key: an attacker who obtains that key can impersonate either side, which
 is why it is shown once and stored in the credential vault on both ends.
 
+## Link Files
+
+Reading and receiving are separate settings and both start off. Home Assistant
+can read only inside the folders listed under File access, and can write only
+new files into the inbox folder: no overwrite, rename or delete, file names
+reduced to a plain name, data verified by SHA-256 before it becomes visible, and
+the Mark-of-the-Web applied so Windows treats received files like downloads.
+In *Ask on this computer* mode a person accepts each file; the dialog is not
+shown while Windows is locked.
+
+The Home Assistant side (the Deskmate Files page, its HTTP API and the
+`send_file` / `fetch_file` services) is limited to administrators. Services
+called from automations have no user and are allowed; they can only touch Home
+Assistant paths in `allowlist_external_dirs`. A compromised Home Assistant
+administrator account can therefore place files in the inbox (in automatic
+mode without anyone noticing) and read the shared folders. Keep the inbox in
+*Ask* mode if other people administer your Home Assistant, and do not share
+folders that contain secrets.
+
 ## REST channel
 
 The optional HA token is stored under the separate `Deskmate HA Token`

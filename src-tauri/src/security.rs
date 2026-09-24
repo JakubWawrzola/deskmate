@@ -9,6 +9,11 @@ static AUDIT_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 const MAX_AUDIT_BYTES: u64 = 1024 * 1024;
 
 pub fn audit(event: &str, result: &str) {
+    // Unit tests exercise audited code paths; they must not write into the
+    // real security log of the developer's machine.
+    if cfg!(test) {
+        return;
+    }
     let _guard = AUDIT_LOCK.get_or_init(|| Mutex::new(())).lock().ok();
     let Some(dir) = crate::config::config_path().parent().map(ToOwned::to_owned) else {
         return;

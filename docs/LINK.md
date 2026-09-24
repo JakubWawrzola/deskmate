@@ -188,18 +188,66 @@ WMI plus the existing lightweight disk collector. Unsupported readings are not
 declared and never receive synthetic values. The same detected set is used for
 MQTT discovery and Link `declare`.
 
-## Link Files v1 (read-only)
+## Link Files: sending and fetching files
 
-Settings → File access (Link) contains the directory allowlist. It is empty by
-default, which disables every `fs` request. Each root must be an existing
-absolute local-drive directory. UNC/device paths, `.`/`..`, alternate data
-streams, symlinks and reparse points are rejected before access.
+Two independent capabilities, both off by default:
 
-The encrypted Link session accepts `list`, `stat` and chunked `read` only.
-Reads are limited to 256 KiB per chunk and 16 MiB per file, with a global 4
-MiB/s rate gate. Every allowed or rejected operation writes its operation,
-path and result to `%APPDATA%\Deskmate\security.log`; file contents are never
-logged. Link Files v1 has no write, rename or delete operation.
+- **Receive files** (Settings → Receive files): Home Assistant can put new
+  files into one folder on the computer, `Downloads\Deskmate` unless you pick
+  another. Mode *Ask on this computer* shows a dialog for every file (refused
+  while Windows is locked); *Accept automatically* does not ask.
+- **File access** (Settings → File access): Home Assistant can list and read
+  files in the folders you add. Nothing else on the disk is reachable.
+
+### The Deskmate Files page
+
+The integration adds **Deskmate Files** to the Home Assistant sidebar, visible
+to administrators only. From a phone (the Home Assistant app works) or a laptop:
+
+1. pick the computer at the top if you have more than one;
+2. **Send**: choose files or drop them on the page. Each file shows progress and
+   the name it was saved under;
+3. **Browse**: open a shared folder and download a file to the device you are
+   on.
+
+Uploads go to Home Assistant in 8 MiB requests, so they also pass a Cloudflare
+tunnel (which rejects request bodies over 100 MB), and from there to the
+computer in 256 KiB encrypted Link frames. With *Ask on this computer*, the
+first request waits for someone to click Accept; through a Cloudflare tunnel
+that wait must stay under about 100 seconds.
+
+### Services for automations
+
+- `deskmate_link.send_file`: copy a file from Home Assistant to the computer's
+  inbox, e.g. a camera snapshot from `/media`. The path must be listed in
+  `allowlist_external_dirs` (`/media` is by default).
+- `deskmate_link.fetch_file`: copy a file from a shared folder on the computer
+  into Home Assistant, under `allowlist_external_dirs` as well.
+
+Both return the resulting name and location, and refuse non-admin users when
+called from the UI.
+
+### What the computer enforces
+
+- Received files: the name is reduced to a plain file name (no folders, no
+  `..`, no reserved device names or characters, at most 150 characters). An
+  existing file is never overwritten; the new one becomes `name (1).ext`. Data
+  is written to a hidden `.part` file first, checked against the SHA-256 Home
+  Assistant computed, and only then renamed. Every received file gets the same
+  "downloaded from another computer" mark a browser adds, so SmartScreen and
+  Office Protected View treat it like a download. Half-finished uploads are
+  deleted when they stall for two minutes or the Link session ends. At most four
+  transfers run at once.
+- Shared folders: absolute local paths only; UNC and device paths, `.`/`..`,
+  alternate data streams, symlinks and junctions are rejected. Reads go in
+  256 KiB chunks through a 4 MiB/s rate gate.
+- One size limit (Settings → Receive files → Max size, 256 MB by default) applies
+  to both directions.
+- Every transfer is recorded in `%APPDATA%\Deskmate\security.log` with its
+  operation, name and result, never its content.
+
+Link Files has no rename, delete or overwrite operation, and the inbox cannot be
+read back through Home Assistant unless you also add it as a shared folder.
 
 ## MQTT and Link parity
 
@@ -213,7 +261,7 @@ logged. Link Files v1 has no write, rename or delete operation.
 | Hotkeys | MQTT device trigger for the event action | Event entity plus `deskmate_link_trigger`; every configured hotkey emits `press` |
 | Toasts and action buttons | Notify/action topics | Encrypted notify/ack and `deskmate_link_notify_action` |
 | Hardware sensors | Dynamic MQTT discovery | Same detected set in `declare` |
-| Read-only files | Not available | `fs` / `fs_res`, empty allowlist by default |
+| Files | Not available | `fs` / `fs_res`: read from shared folders, write to the inbox; both off by default |
 | Native MQTT device-trigger representation and raw topics | Supported | MQTT-only; Link uses its event entity and event-bus equivalent |
 | Hotkeys/widgets/tray using the direct HA API | Independent of transport | Independent of transport |
 

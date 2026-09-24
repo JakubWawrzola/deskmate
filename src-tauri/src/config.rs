@@ -25,6 +25,9 @@ fn default_transport() -> String {
 fn default_clipboard_mode() -> String {
     "off".into()
 }
+fn default_files_max_mb() -> u64 {
+    256
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
@@ -138,8 +141,16 @@ pub struct AppConfig {
     pub link_url: String,
     /// Optional fallback Deskmate Link endpoint.
     pub link_url_remote: String,
-    /// Absolute local directories exposed read-only through Link Files v1.
+    /// Absolute local directories exposed read-only through Link Files.
     pub link_file_roots: Vec<String>,
+    /// off | confirm | automatic. Files sent from Home Assistant to this PC.
+    #[serde(default = "default_clipboard_mode")]
+    pub link_inbox_mode: String,
+    /// Folder for received files. Empty = %USERPROFILE%\Downloads\Deskmate.
+    pub link_inbox_dir: String,
+    /// Largest file received or served over Link Files, in MiB.
+    #[serde(default = "default_files_max_mb")]
+    pub link_files_max_mb: u64,
     /// Opt-in second encryption layer for Link (ChaCha20-Poly1305 over
     /// AES-256-GCM, keyed separately). Must be enabled on both ends.
     #[serde(default)]
@@ -201,6 +212,9 @@ impl Default for AppConfig {
             link_url: String::new(),
             link_url_remote: String::new(),
             link_file_roots: Vec::new(),
+            link_inbox_mode: default_clipboard_mode(),
+            link_inbox_dir: String::new(),
+            link_files_max_mb: default_files_max_mb(),
             link_cascade: false,
             device_name: host.clone(),
             node_id: sanitize_id(&host),

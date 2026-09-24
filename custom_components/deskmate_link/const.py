@@ -60,6 +60,18 @@ EVENT_TRIGGER = f"{DOMAIN}_trigger"
 SIGNAL_TRIGGER = f"{DOMAIN}_trigger_sig"  # + entry_id + key
 
 SERVICE_NOTIFY = "notify"
+SERVICE_SEND_FILE = "send_file"
+SERVICE_FETCH_FILE = "fetch_file"
+
+# Deskmate Files (strona w pasku bocznym + API HTTP)
+FILES_PANEL_URL = "deskmate-files"
+FILES_PANEL_TITLE = "Deskmate Files"
+FILES_PANEL_ICON = "mdi:folder-swap"
+FILES_PANEL_VERSION = "0.7.0"
+FILES_STATIC_URL = "/deskmate_link_static"
+FILES_LINK_CHUNK = 256 * 1024  # jedna ramka Link (limit po stronie komputera)
+FILES_HTTP_CHUNK = 8 * 1024 * 1024  # jedno zadanie HTTP z przegladarki
+FILES_UPLOAD_IDLE_S = 600
 
 PLATFORMS = ["sensor", "binary_sensor", "switch", "number", "button", "text", "event"]
 

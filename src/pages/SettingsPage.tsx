@@ -38,6 +38,9 @@ export default function SettingsPage({
     setLinkUrlRemote(code.urlRemote ?? "");
   };
   const [fileRoots, setFileRoots] = useState(config.link_file_roots);
+  const [inboxMode, setInboxMode] = useState<ClipboardMode>(config.link_inbox_mode ?? "off");
+  const [inboxDir, setInboxDir] = useState(config.link_inbox_dir ?? "");
+  const [filesMaxMb, setFilesMaxMb] = useState(String(config.link_files_max_mb ?? 256));
   const [fileRootDraft, setFileRootDraft] = useState("");
   const [deviceName, setDeviceName] = useState(config.device_name);
   const [interval, setIntervalS] = useState(String(config.publish_interval_secs));
@@ -108,6 +111,9 @@ export default function SettingsPage({
           link_url: linkUrl.trim(),
           link_url_remote: linkUrlRemote.trim(),
           link_file_roots: fileRoots,
+          link_inbox_mode: inboxMode,
+          link_inbox_dir: inboxDir.trim(),
+          link_files_max_mb: Math.min(4096, Math.max(1, parseInt(filesMaxMb, 10) || 256)),
           device_name: deviceName.trim() || config.device_name,
           publish_interval_secs: Math.max(2, parseInt(interval, 10) || 15),
           launch_hidden: launchHidden,
@@ -256,9 +262,53 @@ export default function SettingsPage({
         </div>
       </Panel>}
 
+      <Panel title="Receive files (Link)">
+        <p className="text-[12px] text-muted mb-3 leading-relaxed">
+          Send files from your phone or laptop to this computer through the Deskmate Files page in Home Assistant.
+          Files only ever land in the folder below. Home Assistant cannot overwrite, rename, delete or read anything
+          through it; a name that already exists gets a number. Received files are marked as downloaded from another
+          computer, so Windows treats them like browser downloads.
+        </p>
+        <div className="grid grid-cols-[1fr_120px] gap-3">
+          <label className="block">
+            <span className="microlabel">Files from Home Assistant</span>
+            <select
+              value={inboxMode}
+              onChange={(e) => setInboxMode(e.target.value as ClipboardMode)}
+              className="mt-1 w-full h-9 px-2 bg-panel border border-hairline-strong rounded text-ink text-[13px] focus-visible:border-ink"
+            >
+              <option value="off">Off</option>
+              <option value="confirm">Ask on this computer for every file</option>
+              <option value="automatic">Accept automatically</option>
+            </select>
+          </label>
+          <Field label="Max size (MB)" value={filesMaxMb} onChange={setFilesMaxMb} placeholder="256" />
+        </div>
+        <div className="mt-3">
+          <Field
+            label="Save to folder"
+            value={inboxDir}
+            onChange={setInboxDir}
+            placeholder="Downloads\Deskmate (default)"
+            hint="Leave empty for Downloads\Deskmate. Local folder only; it is created if missing."
+          />
+        </div>
+        {inboxMode === "confirm" && (
+          <p className="mt-2 text-[12px] text-muted">
+            While Windows is locked nobody can accept, so transfers are refused.
+          </p>
+        )}
+        {inboxMode === "automatic" && (
+          <p className="mt-2 text-[12px] border border-hairline-strong rounded p-2">
+            Anyone with an admin account in Home Assistant can put files on this computer without asking.
+          </p>
+        )}
+        <p className="mt-2 text-[12px] text-muted">The size limit also applies to files Home Assistant reads from the folders below.</p>
+      </Panel>
+
       <Panel title="File access (Link)">
         <p className="text-[12px] border border-hairline-strong rounded p-2 mb-3 leading-relaxed">
-          Read-only remote access. Home Assistant can list, inspect and read files inside the folders below.
+          Read-only remote access. Home Assistant can list, inspect and download files inside the folders below.
           Leave this list empty to keep file access disabled. Never add a folder containing secrets you do not want exposed to HA.
         </p>
         <div className="flex items-end gap-2">

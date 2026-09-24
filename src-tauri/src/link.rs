@@ -513,6 +513,9 @@ pub async fn restart(app: AppHandle) {
             )
             .await;
             *app_connection.state::<AppState>().link_tx.lock().await = None;
+            // Half-written files from Home Assistant cannot be resumed on a
+            // new session; remove them now.
+            crate::link_files::abort_all();
             let mut retry_delay = if endpoints.len() > 1 { 2 } else { 5 };
             match session_result {
                 Ok(()) if *stop_connection.borrow() => break,
@@ -754,20 +757,32 @@ async fn run_session(
 
 async fn handle_incoming(app: &AppHandle, tx: &mpsc::UnboundedSender<Value>, payload: Value) {
     match payload.get("t").and_then(Value::as_str) {
+        // Commands and file requests run as their own tasks. A confirmation
+        // dialog waiting for the user used to stall this loop, the pings went
+        // unanswered and Home Assistant dropped the connection.
         Some("cmd") => {
-            let id = payload.get("id").cloned().unwrap_or(Value::Null);
-            let key = payload.get("key").and_then(Value::as_str).unwrap_or("");
-            let action = payload
-                .get("action")
-                .and_then(Value::as_str)
-                .unwrap_or("set");
-            let result =
-                crate::transport::handle_command(app, key, action, payload.get("value")).await;
-            let mut ack = json!({"t": "ack", "id": id, "ok": result.is_ok()});
-            if let Err(error) = result {
-                ack["error"] = json!(error);
-            }
-            let _ = tx.send(ack);
+            let app = app.clone();
+            let tx = tx.clone();
+            tauri::async_runtime::spawn(async move {
+                let id = payload.get("id").cloned().unwrap_or(Value::Null);
+                let key = payload.get("key").and_then(Value::as_str).unwrap_or("");
+                let action = payload
+                    .get("action")
+                    .and_then(Value::as_str)
+                    .unwrap_or("set");
+                let result =
+                    crate::transport::handle_command(&app, key, action, payload.get("value")).await;
+                let mut ack = json!({"t": "ack", "id": id, "ok": result.is_ok()});
+                if let Err(error) = result {
+                    ack["error"] = json!(error);
+                }
+                let _ = tx.send(ack);
+            });
+        }
+        Some("fs") => {
+            let app = app.clone();
+            let tx = tx.clone();
+            tauri::async_runtime::spawn(handle_file_request(app, tx, payload));
         }
         Some("notify") => {
             let id = payload.get("id").cloned().unwrap_or(Value::Null);
@@ -791,29 +806,43 @@ async fn handle_incoming(app: &AppHandle, tx: &mpsc::UnboundedSender<Value>, pay
             crate::transport::handle_notify(app, &notification.to_string()).await;
             let _ = tx.send(json!({"t": "ack", "id": id, "ok": true}));
         }
-        Some("fs") => {
-            let id = payload.get("id").cloned().unwrap_or(Value::Null);
-            let op = payload.get("op").and_then(Value::as_str).unwrap_or("").to_string();
-            let path = payload.get("path").and_then(Value::as_str).unwrap_or("").to_string();
-            let cfg = app.state::<AppState>().config.lock().await.clone();
-            let response = match tokio::task::spawn_blocking(move || {
-                crate::link_files::handle_request(&cfg, &payload)
-            })
-            .await
-            {
-                Ok(response) => response,
-                Err(_) => {
-                    crate::security::audit_file(&op, &path, "error: file worker failed");
-                    json!({"t": "fs_res", "id": id, "ok": false, "error": "file worker failed"})
-                }
-            };
-            let _ = tx.send(response);
-        }
         Some("ping") => {
             let _ = tx.send(json!({"t": "pong"}));
         }
         Some("pong") => {}
         _ => log::warn!("unknown Deskmate Link payload type"),
+    }
+}
+
+async fn handle_file_request(app: AppHandle, tx: mpsc::UnboundedSender<Value>, payload: Value) {
+    let id = payload.get("id").cloned().unwrap_or(Value::Null);
+    let op = payload.get("op").and_then(Value::as_str).unwrap_or("").to_string();
+    let path = payload.get("path").and_then(Value::as_str).unwrap_or("").to_string();
+    let cfg = app.state::<AppState>().config.lock().await.clone();
+    let response = match tokio::task::spawn_blocking(move || {
+        crate::link_files::handle_request(&cfg, &payload)
+    })
+    .await
+    {
+        Ok(response) => response,
+        Err(_) => {
+            crate::security::audit_file(&op, &path, "error: file worker failed");
+            json!({"t": "fs_res", "id": id, "ok": false, "error": "file worker failed"})
+        }
+    };
+    let received = op == "put_end" && response.get("ok") == Some(&Value::Bool(true));
+    let notice = received.then(|| {
+        let name = response.get("name").and_then(Value::as_str).unwrap_or("file");
+        let dir = response.get("dir").and_then(Value::as_str).unwrap_or("");
+        let size = response.get("size").and_then(Value::as_u64).unwrap_or(0);
+        json!({
+            "title": "File received from Home Assistant",
+            "message": format!("{name} ({:.1} MB) saved to {dir}", size as f64 / 1_048_576.0),
+        })
+    });
+    let _ = tx.send(response);
+    if let Some(notice) = notice {
+        crate::transport::handle_notify(&app, &notice.to_string()).await;
     }
 }
 

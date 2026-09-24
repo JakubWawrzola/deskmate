@@ -3,6 +3,38 @@
 All notable changes to Deskmate are documented here. Release-specific upgrade
 notes and asset names are available in `docs/RELEASE-*.md`.
 
+## 0.7.0 - 2026-09-24
+
+Files between your phone or laptop and the PC, through Home Assistant. How to turn
+it on: `docs/RELEASE-0.7.0.md`.
+
+### Added
+
+- **Deskmate Files** page in the Home Assistant sidebar (administrators only):
+  send files from a phone or laptop to a paired computer with progress per
+  file, browse the folders the computer shares and download from them. Works in
+  the Home Assistant mobile app.
+- Receive files on the computer: Settings → Receive files, off by default, with
+  *Ask on this computer* or *Accept automatically*, a target folder
+  (`Downloads\Deskmate` by default) and a size limit (256 MB by default, shared
+  with reads). A toast confirms each received file.
+- `deskmate_link.send_file` and `deskmate_link.fetch_file` services for
+  automations, limited to `allowlist_external_dirs`.
+
+### Fixed
+
+- A confirmation dialog on the computer (custom command, clipboard write)
+  stalled the whole Link session until someone answered, and Home Assistant
+  dropped the connection after missed pings. Commands and file requests now run
+  alongside the session.
+- Unit tests no longer write into the real security log.
+
+### Security
+
+- Received files: plain file names only, no overwrite, `.part` then rename
+  after a SHA-256 check, Mark-of-the-Web applied, stalled uploads removed after
+  two minutes and when the session ends, at most four at a time.
+
 ## 0.6.0 - 2026-09-23
 
 Protocol v2 for Deskmate Link, a fix for duplicated entities after re-pairing,

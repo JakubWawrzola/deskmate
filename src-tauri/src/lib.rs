@@ -85,6 +85,11 @@ async fn save_config(
     new_config.link_url = link::normalize_url(&new_config.link_url)?;
     new_config.link_url_remote = link::normalize_url(&new_config.link_url_remote)?;
     new_config.link_file_roots = link_files::normalize_roots(&new_config.link_file_roots)?;
+    if !matches!(new_config.link_inbox_mode.as_str(), "off" | "confirm" | "automatic") {
+        return Err("receiving files must be off, confirm or automatic".into());
+    }
+    new_config.link_inbox_dir = link_files::normalize_inbox_dir(&new_config.link_inbox_dir)?;
+    new_config.link_files_max_mb = new_config.link_files_max_mb.clamp(1, 4096);
     new_config.configured = if new_config.transport == "link" {
         !new_config.link_url.is_empty()
     } else {

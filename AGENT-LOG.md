@@ -212,3 +212,21 @@ z docs/RELEASE-0.6.0.md. Bez stopki Co-Authored-By. Push main, tag v0.6.0,
 release Latest z assets. Repo HomeAssistant bez commita.
 Nastepny krok: instalacja x64 na PC.
 
+## [2026-09-24] Claude — 0.7.0 Link Files v2 (pliki telefon/laptop -> PC przez HA)
+Zrobione: skrzynka odbiorcza na PC (off/confirm/automatic, put_begin/chunk/
+end/abort, sanityzacja nazw, bez nadpisywania, .part + SHA-256, MotW, toast),
+op `roots`, wspolny limit rozmiaru; w HA panel "Deskmate Files" (admin),
+API HTTP z uploadem po 8 MiB i pobieraniem przez podpisany URL, uslugi
+send_file/fetch_file. Fix: cmd/fs w Linku jako osobne zadania. 20/20 testow.
+Wdrozone na Pi (restart Core) i na laptopie. Bez commita i pusha.
+Dotkniete pliki: src-tauri/src/{link_files,link,lib,config,security}.rs,
+src/{types.ts,pages/SettingsPage.tsx}, custom_components/deskmate_link/
+{files.py,hub.py,const.py,__init__.py,manifest.json,services.yaml,frontend/},
+docs (LINK, SECURITY), README, CHANGELOG, STATUS, wersje 0.7.0.
+Nastepny krok: test Kuby z telefonu, zgoda na commit/release.
+
+## [2026-09-24] Claude — release v0.7.0 (polecenie Kuby)
+Zrobione: docs/RELEASE-0.7.0.md, commit 0.7.0 bez Co-Authored-By, push main,
+tag v0.7.0, GitHub Release Latest z instalatorami x64/ARM64 i SHA256SUMS.
+Repo HomeAssistant bez commita.
+Nastepny krok: test Kuby, post na Reddicie.

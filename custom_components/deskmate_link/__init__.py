@@ -12,6 +12,7 @@ import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.storage import Store
 
 from .const import CONF_NODE_ID, DOMAIN, PLATFORMS, SERVICE_NOTIFY, STORAGE_VERSION
+from .files import async_setup_files, async_unload_files
 from .hub import DeskmateHub
 from .ws_view import DeskmateLinkWsView
 
@@ -75,6 +76,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             DOMAIN, SERVICE_NOTIFY, _notify, schema=NOTIFY_SCHEMA
         )
 
+    await async_setup_files(hass)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     _LOGGER.info(
         "deskmate_link[%s]: skonfigurowano",
@@ -89,6 +91,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hub: DeskmateHub | None = _domain_data(hass)["hubs"].pop(entry.entry_id, None)
         if hub is not None:
             await hub.async_shutdown()
+        async_unload_files(hass)
     return ok
 
 

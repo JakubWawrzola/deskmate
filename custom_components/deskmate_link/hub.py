@@ -60,6 +60,8 @@ _LOGGER = logging.getLogger(__name__)
 
 CMD_ACK_TIMEOUT = 10.0
 FS_RESPONSE_TIMEOUT = 15.0
+# Czas na klikniecie "Akceptuj" na komputerze przy odbiorze pliku.
+FS_CONFIRM_TIMEOUT = 180.0
 
 # Wynik udanego handshake'u: (welcome, kodek c2s, kodek s2c, node, wersja)
 HandshakeResult = tuple[dict, FrameCodec, FrameCodec, str, int]
@@ -480,7 +482,9 @@ class DeskmateHub:
             payload["actions"] = actions
         await self._send_with_ack(payload)
 
-    async def _send_fs_request(self, payload: dict[str, Any]) -> dict[str, Any]:
+    async def _send_fs_request(
+        self, payload: dict[str, Any], timeout: float = FS_RESPONSE_TIMEOUT
+    ) -> dict[str, Any]:
         """Wysyla zadanie Files i czeka na odpowiadajace fs_res."""
         self._cmd_id += 1
         request_id = self._cmd_id
@@ -489,11 +493,11 @@ class DeskmateHub:
         self._pending[request_id] = fut
         try:
             await self._send(payload)
-            async with asyncio.timeout(FS_RESPONSE_TIMEOUT):
+            async with asyncio.timeout(timeout):
                 response = await fut
         except TimeoutError as err:
             raise HomeAssistantError(
-                "Deskmate Files: klient nie odpowiedzial w ciagu 15 sekund"
+                f"Deskmate Files: komputer nie odpowiedzial w ciagu {int(timeout)} s"
             ) from err
         except ConnectionError as err:
             raise HomeAssistantError(
@@ -530,6 +534,50 @@ class DeskmateHub:
         if not isinstance(stat, dict):
             raise HomeAssistantError("Deskmate Files: brak poprawnych metadanych")
         return stat
+
+    async def async_fs_roots(self) -> dict[str, Any]:
+        """Foldery do odczytu i stan skrzynki odbiorczej na komputerze."""
+        response = await self._send_fs_request({"t": "fs", "op": "roots"})
+        return {
+            "roots": response.get("roots") or [],
+            "inbox": response.get("inbox") or {},
+            "max_bytes": response.get("max_bytes") or 0,
+        }
+
+    async def async_put_begin(self, name: str, size: int, by: str) -> dict[str, Any]:
+        """Otwiera zapis pliku w skrzynce odbiorczej komputera.
+
+        Przy trybie "confirm" komputer czeka na klikniecie uzytkownika, stad
+        dluzszy limit czasu.
+        """
+        return await self._send_fs_request(
+            {"t": "fs", "op": "put_begin", "name": name, "size": size, "by": by},
+            timeout=FS_CONFIRM_TIMEOUT,
+        )
+
+    async def async_put_chunk(self, upload: str, offset: int, data: bytes) -> None:
+        await self._send_fs_request(
+            {
+                "t": "fs",
+                "op": "put_chunk",
+                "upload": upload,
+                "offset": offset,
+                "data": base64.b64encode(data).decode(),
+            }
+        )
+
+    async def async_put_end(self, upload: str, sha256: str) -> dict[str, Any]:
+        return await self._send_fs_request(
+            {"t": "fs", "op": "put_end", "upload": upload, "sha256": sha256},
+            timeout=60.0,
+        )
+
+    async def async_put_abort(self, upload: str) -> None:
+        """Przerywa zapis; komputer kasuje niedokonczony plik. Best effort."""
+        try:
+            await self._send_fs_request({"t": "fs", "op": "put_abort", "upload": upload})
+        except HomeAssistantError:
+            pass
 
     async def async_fs_read(
         self, path: str, offset: int, len: int

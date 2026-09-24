@@ -88,10 +88,12 @@ fork already does what you want, there's no reason to switch.
   disk free/usage, disk read/write speed, CPU temperature where cheaply
   available. Sensors that cannot be read on a given machine are simply not
   declared — no fake entities.
-- **Remote file access over Link (0.4.0, opt-in)** — read-only browsing and
-  reading of explicitly allowlisted folders from Home Assistant (e.g. via a
-  voice assistant tool), with path normalization, size caps, rate limiting
-  and a local security log. Disabled by default with an empty allowlist.
+- **Files between your phone and the PC (0.7.0, opt-in)** — a *Deskmate Files*
+  page in the Home Assistant sidebar: send photos or documents from your phone
+  or laptop straight to the PC, and download files from folders the PC shares.
+  Received files land in one inbox folder, are never overwritten, and are
+  marked as downloaded; shared folders are read only. Plus `send_file` and
+  `fetch_file` services for automations. Everything is off by default.
 - **Notifications** — publish JSON to one MQTT topic, get a native Windows
   toast with title, message, an image, and **action buttons**; the clicked
   button is published back to HA, so an automation can react to it.
@@ -174,8 +176,8 @@ table are in [docs/RELEASE-0.6.0.md](docs/RELEASE-0.6.0.md).
 
 ### 2. The Windows app
 
-Grab the installer from Releases (`Deskmate_0.6.0_x64-setup.exe` or
-`Deskmate_0.6.0_arm64-setup.exe`) and run it. The installers are not signed, so
+Grab the installer from Releases (`Deskmate_0.7.0_x64-setup.exe` or
+`Deskmate_0.7.0_arm64-setup.exe`) and run it. The installers are not signed, so
 SmartScreen shows an unknown-publisher warning.
 
 On first launch paste the pairing code. The addresses are filled in from it.
@@ -290,6 +292,7 @@ residual risks and deployment checklist in [docs/SECURITY.md](docs/SECURITY.md).
 
 ## Project docs
 
+- [docs/RELEASE-0.7.0.md](docs/RELEASE-0.7.0.md) — sending files from your phone to the PC
 - [docs/RELEASE-0.6.0.md](docs/RELEASE-0.6.0.md) — fastest setup and the upgrade order for 0.6.0
 - [docs/AI-DEPLOY.md](docs/AI-DEPLOY.md) — deployment procedure written for an AI assistant
 - [docs/MIGRATION.md](docs/MIGRATION.md) — moving an existing setup from MQTT to Link

@@ -1,5 +1,50 @@
 # STATUS — Deskmate
-Aktualizacja: 2026-09-23 (0.6.0 wydane: commity, tag v0.6.0, release; PC czeka na instalacje)
+Aktualizacja: 2026-09-24 (0.7.0 wydane: commit, tag v0.7.0, release; PC czeka na instalacje)
+
+## Sesja 2026-09-24 — 0.7.0: Link Files v2 (PLAN, odhaczane na biezaco)
+
+Cel Kuby: szybkie kopiowanie plikow z laptopa/telefonu na PC przez Home
+Assistant, Deskmate jako bezpieczny most. Dotad: tylko odczyt (fs list/stat/
+read) po stronie Deskmate, w HA brak jakiegokolwiek UI/uslug.
+
+Projekt:
+- Deskmate: skrzynka odbiorcza (inbox) tylko do zapisu, osobna od folderow
+  do odczytu. Tryb off/confirm/automatic (domyslnie off), folder domyslnie
+  %USERPROFILE%\Downloads\Deskmate, limit rozmiaru (wspolny z odczytem,
+  domyslnie 256 MiB). Operacje fs: roots, put_begin/put_chunk/put_end/
+  put_abort. Nazwa pliku sanityzowana, bez nadpisywania ("x (1).pdf"),
+  zapis do .part i rename, SHA-256 weryfikowane na koncu, Mark-of-the-Web
+  (Zone.Identifier) na odebranych plikach, toast po odebraniu, audyt.
+- HA: panel w pasku bocznym "Deskmate Files" (tylko admin): wybor komputera,
+  wysylanie plikow (drag&drop / wybor z telefonu, postep), przegladanie
+  folderow z allowlisty i pobieranie. API HTTP z autoryzacja HA, upload w
+  kawalkach po 8 MiB (limit Cloudflare 100 MB), pobieranie strumieniowe przez
+  podpisany URL. Uslugi deskmate_link.send_file i deskmate_link.fetch_file
+  do automatyzacji (tylko sciezki z allowlist_external_dirs).
+
+Kroki:
+- [x] 1. Rust: config + link_files (inbox, put*, roots) + link.rs + save_config
+- [x] 2. UI Deskmate: ustawienia skrzynki w Settings
+- [x] 3. HA: hub (put*/roots), files.py (API + sesje uploadu + uslugi), panel JS, manifest
+- [x] 4. Testy jednostkowe Rust, py_compile, tsc
+- [x] 5. Dokumentacja (LINK, SECURITY, CHANGELOG, README), wersja 0.7.0
+- [x] 6. Build, deploy na Pi i laptop, raport
+
+Wynik: cargo check czysto, cargo test 20/20, tsc, py_compile, node --check.
+Pi: backup `/config/deskmate_link_bak_20260924_v060`, integracja 0.7.0 (22 pliki,
+hashe zgodne), restart Core (przerwa 5 s -> 37 s). API /api/deskmate_link/files
+odpowiada, panel JS serwowany. Laptop 0.7.0 zainstalowany, odpowiada na `roots`
+(skrzynka off, root C:\dev\web). PC nie ruszany (poza Tailscale).
+Instalatory 0.7.0: ARM64 92EB2AEB...57BA, x64 FBC7991E...8838.
+Poprawka przy okazji: cmd i fs w Linku ida jako osobne zadania - okno
+potwierdzenia nie blokuje juz sesji (wczesniej brak pongow -> zerwanie).
+UWAGA: laptop udostepnia do odczytu caly C:\dev\web (w tym HomeAssistant/_prywatne
+z tokenem HA) - do zawezenia przez Kube.
+PUBLIKACJA (polecenie Kuby): commit 0.7.0 na main, tag v0.7.0, GitHub Release
+0.7.0 jako Latest z instalatorami. Opis: docs/RELEASE-0.7.0.md.
+Nastepny krok: Kuba wlacza Receive files i testuje panel z telefonu; nowy post
+na r/homeassistant.
+
 
 ## Sesja 2026-09-23 — 0.6.0: Link v2, duplikaty, PC, bezpieczenstwo
 
