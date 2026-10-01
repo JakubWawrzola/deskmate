@@ -45,8 +45,8 @@ Doing it the other way round (new app, old integration) fails with
 | 0.5.0 | works | rejected |
 | 0.6.0 | works until that computer connects with 0.6 | works |
 
-Coming from MQTT: [docs/MIGRATION.md](MIGRATION.md). Setting up with an AI
-assistant: [docs/AI-DEPLOY.md](AI-DEPLOY.md).
+Coming from MQTT: [docs/MIGRATION.md](../MIGRATION.md). Setting up with an AI
+assistant: [docs/AI-DEPLOY.md](../AI-DEPLOY.md).
 
 ## If it does not connect
 
@@ -102,8 +102,8 @@ like a wrong key.
   the node keeps the pairing key, cascade key and Home Assistant token.
 - Downloaded toast images are deleted ten minutes after display.
 
-Full list in [CHANGELOG.md](../CHANGELOG.md), protocol details in
-[docs/LINK.md](LINK.md), threat model in [docs/SECURITY.md](SECURITY.md).
+Full list in [CHANGELOG.md](../../CHANGELOG.md), protocol details in
+[docs/LINK.md](../LINK.md), threat model in [docs/SECURITY.md](../SECURITY.md).
 
 ## Assets
 

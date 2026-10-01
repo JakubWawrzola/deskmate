@@ -1,6 +1,6 @@
 # HANDOFF — stan pracy i jak kontynuowac (dla KAZDEGO agenta: Claude/Codex/Antigravity)
 
-> CZYTAJ TEN PLIK NAJPIERW. Potem `docs/PLAN.md` (taski + statusy [x]/[ ]).
+> CZYTAJ TEN PLIK NAJPIERW. Potem `docs/dev/PLAN.md` (taski + statusy [x]/[ ]).
 > Nie czytaj calego codebase — ponizej jest mapa.
 
 ## Co to jest
@@ -411,7 +411,7 @@ kolejny agent musi wiedziec, zeby nie powtorzyc bledu:
 
 ## Jak wznowic prace
 
-1. Przeczytaj `AGENTS.md`, `AGENT-LOG.md`, ten plik i `docs/PLAN.md`.
+1. Przeczytaj `AGENTS.md`, `AGENT-LOG.md`, ten plik i `docs/dev/PLAN.md`.
 2. Pracuj tylko w worktree przypisanym agentowi i sprawdz w nim
    `git log --oneline -10`.
 3. Kontynuuj pierwszy task `[ ]` w ship order. Po KAZDYM tasku:
@@ -427,10 +427,11 @@ kolejny agent musi wiedziec, zeby nie powtorzyc bledu:
 deskmate/
 ├── HANDOFF.md            <- TEN PLIK
 ├── docs/
-│   ├── PLAN.md           <- taski + statusy + testy manualne
-│   ├── ARCHITECTURE.md   <- decyzje techniczne (T12)
-│   ├── HA-SETUP.md       <- konfiguracja po stronie HA (T12)
-│   └── STREAMDECK-PLAN.md<- plan + stan integracji Elgato (MVP zrobione 2026-07-14)
+│   ├── GUIDE.md          <- jedyny przewodnik dla uzytkownika (od 2026-10-01)
+│   ├── LINK.md, SECURITY.md, HA-SETUP.md, MIGRATION.md, AI-DEPLOY.md
+│   ├── releases/         <- RELEASE-x.y.z.md (opisy wydan na GitHub)
+│   └── dev/              <- PLAN.md (taski + testy manualne), ARCHITECTURE.md,
+│                            PLAN-DESKMATE-V2/V3, CODEX-TASKS, STREAMDECK-PLAN, ROADMAP
 ├── streamdeck-plugin/    <- SAMODZIELNY plugin Stream Deck (Node 20 + TS, REST/WS
 │                            bezposrednio do HA, bez Deskmate). START: jego README.md
 ├── src/                  <- React UI (monochrom bialo-czarny)
@@ -447,7 +448,9 @@ deskmate/
         ├── discovery.rs  <- HA MQTT discovery (device + encje, retained)
         ├── sensors.rs    <- sysinfo + WinAPI, petla publikacji, opt-in privacy
         ├── sys_commands.rs <- lock/shutdown/sleep/volume/custom PS (NIGDY eval payloadu!)
-        ├── notify.rs     <- topic notify -> toast WinRT z obrazem
+        ├── notify.rs     <- toast WinRT z wlasnego XML (bez PowerShella), skrot Start przez COM
+        ├── seat.rs       <- kilka kont Windows = jedno urzadzenie; mutex Global\Deskmate.Seat.<node>
+        ├── updates.rs    <- raz dziennie GitHub releases/latest -> tray + Status + toast
         └── media.rs      <- SMTC: sensory utworu + play/pause/next/prev
 ```
 

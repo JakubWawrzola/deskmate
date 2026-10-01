@@ -366,6 +366,10 @@ class DeskmateHub:
             except Exception:  # noqa: BLE001 - zamkniecie best-effort
                 pass
 
+    @property
+    def cascade_enabled(self) -> bool:
+        return bool(self._cascade_key)
+
     def _set_available(self, value: bool) -> None:
         self.available = value
         async_dispatcher_send(self.hass, f"{SIGNAL_AVAILABLE}_{self.entry.entry_id}")

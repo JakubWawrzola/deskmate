@@ -89,7 +89,7 @@ export default function GeekyPage({
                 ? "unchanged (stored in Credential Manager)"
                 : "32-byte base64 key from Home Assistant"
             }
-            hint="Home Assistant generates it: open the Deskmate Link entry, choose Reconfigure, then Enable cascade encryption."
+            hint="Home Assistant generates it: open the Deskmate integration entry, choose Reconfigure, then Enable cascade encryption."
           />
 
           <p className="text-[12px] text-muted leading-relaxed">

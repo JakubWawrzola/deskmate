@@ -1,6 +1,6 @@
 [package]
 name = "deskmate"
-version = "0.7.0"
+version = "0.7.1"
 description = "Deskmate - a modern Windows companion for Home Assistant"
 authors = ["Jakub Wawrzola"]
 license = "MIT"
@@ -28,7 +28,6 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync"
 rumqttc = { version = "0.24", default-features = false, features = ["use-native-tls"] }
 sysinfo = "0.33"
 keyring = { version = "3", features = ["windows-native"] }
-tauri-winrt-notification = "0.8"
 winreg = "0.55"
 # arboard bez default (image-data ciagnie ciezki crate image); na Windows = clipboard-win (pure rust)
 arboard = { version = "3", default-features = false }
@@ -77,7 +76,14 @@ features = [
   "Win32_Media_Audio_Endpoints",
   "Win32_Media_Speech",
   "Win32_UI_Shell",
+  "Win32_UI_Shell_PropertiesSystem",
+  "Win32_System_Com_StructuredStorage",
+  "Win32_System_RemoteDesktop",
+  "Win32_Security",
   "Win32_Graphics_Dxgi",
+  # toasts from our own XML (buttons need it, see notify.rs)
+  "UI_Notifications",
+  "Data_Xml_Dom",
 ]
 
 [profile.release]

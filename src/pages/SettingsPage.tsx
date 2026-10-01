@@ -29,6 +29,8 @@ export default function SettingsPage({
   const [linkKey, setLinkKey] = useState("");
   const onPairingInput = (value: string) => {
     const code = parsePairingCode(value);
+    setPairedNode(code?.node ?? null);
+    setPairedCascade(code?.cascadeKey ?? null);
     if (!code) {
       setLinkKey(value);
       return;
@@ -37,6 +39,8 @@ export default function SettingsPage({
     if (code.url) setLinkUrl(code.url);
     setLinkUrlRemote(code.urlRemote ?? "");
   };
+  const [pairedNode, setPairedNode] = useState<string | null>(null);
+  const [pairedCascade, setPairedCascade] = useState<string | null>(null);
   const [fileRoots, setFileRoots] = useState(config.link_file_roots);
   const [inboxMode, setInboxMode] = useState<ClipboardMode>(config.link_inbox_mode ?? "off");
   const [inboxDir, setInboxDir] = useState(config.link_inbox_dir ?? "");
@@ -51,6 +55,17 @@ export default function SettingsPage({
   const [clipboardWriteMode, setClipboardWriteMode] = useState<ClipboardMode>(config.clipboard_write_mode);
   const [allowedOrigins, setAllowedOrigins] = useState(config.allowed_url_origins.join("\n"));
   const [branding, setBranding] = useState(config.toast_branding);
+  const [updateCheck, setUpdateCheck] = useState(config.update_check ?? true);
+  const [updateMsg, setUpdateMsg] = useState<string | null>(null);
+  const checkUpdates = async () => {
+    setUpdateMsg("Checking...");
+    try {
+      const found = await api.checkUpdatesNow();
+      setUpdateMsg(found ? `Deskmate ${found.version} is available.` : "You have the latest version.");
+    } catch (e) {
+      setUpdateMsg(`Could not check: ${String(e)}`);
+    }
+  };
   const [autostart, setAutostart] = useState(false);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -82,7 +97,7 @@ export default function SettingsPage({
 
   // opt-ins apply immediately (like sensors) - entities appear without Save
   const toggleFeature = async (
-    flag: "allow_input" | "tts_enabled" | "toast_branding",
+    flag: "allow_input" | "tts_enabled" | "toast_branding" | "update_check",
     v: boolean,
     setter: (b: boolean) => void,
   ) => {
@@ -110,6 +125,9 @@ export default function SettingsPage({
           username: username.trim(),
           link_url: linkUrl.trim(),
           link_url_remote: linkUrlRemote.trim(),
+          // A code for another Windows account joins the computer it was made for.
+          node_id: pairedNode ?? config.node_id,
+          link_cascade: pairedCascade ? true : config.link_cascade,
           link_file_roots: fileRoots,
           link_inbox_mode: inboxMode,
           link_inbox_dir: inboxDir.trim(),
@@ -126,12 +144,16 @@ export default function SettingsPage({
             .map((origin) => origin.trim())
             .filter(Boolean),
           toast_branding: branding,
+          update_check: updateCheck,
         },
         password || undefined,
         linkKey || undefined,
+        pairedCascade ?? undefined,
       );
       setPassword("");
       setLinkKey("");
+      setPairedNode(null);
+      setPairedCascade(null);
       setMsg("Saved. Reconnecting...");
       await onSaved();
     } catch (e) {
@@ -169,7 +191,7 @@ export default function SettingsPage({
             className="mt-1 w-full h-9 px-2 bg-panel border border-hairline-strong rounded text-ink text-[13px] focus-visible:border-ink"
           >
             <option value="mqtt">MQTT (default)</option>
-            <option value="link">Deskmate Link</option>
+            <option value="link">Deskmate integration</option>
           </select>
         </label>
       </Panel>
@@ -227,7 +249,7 @@ export default function SettingsPage({
         </div>
       </Panel>}
 
-      {transport === "link" && <Panel title="Deskmate Link">
+      {transport === "link" && <Panel title="Deskmate integration">
         <div className="space-y-3">
           <Field
             label="Home Assistant WebSocket URL (local)"
@@ -250,19 +272,26 @@ export default function SettingsPage({
             placeholder={hasLinkKey ? "unchanged (stored in Credential Manager)" : "DMP1... code from Home Assistant"}
             hint="Pasting the pairing code fills in the addresses as well."
           />
+          {pairedNode && pairedNode !== config.node_id && (
+            <p className="text-[12px] text-muted leading-relaxed">
+              This code is for a computer that is already paired. After saving, this Windows
+              account joins it as <span className="mono text-ink">{pairedNode}</span>.
+            </p>
+          )}
           <p className="text-[12px] text-muted leading-relaxed">
             This computer identifies itself as <span className="mono text-ink">{config.node_id}</span>.
-            In Home Assistant add the Deskmate Link integration, paste the pairing code here and save.
-            The entry binds itself to this computer on the first successful connection. Update the
-            integration in Home Assistant to 0.6.0 before this version of Deskmate.
+            In Home Assistant add the Deskmate integration, paste the pairing code here and save.
+            The entry binds itself to this computer on the first successful connection. Another
+            Windows account on this computer: in Home Assistant open the Deskmate entry, choose
+            Reconfigure, then Pair another Windows user.
           </p>
           <p className="text-[12px] text-muted leading-relaxed">
-            Link encrypts application frames end to end. MQTT settings remain saved and can be selected again at any time.
+            The connection is encrypted end to end (Deskmate Link protocol). MQTT settings remain saved and can be selected again at any time.
           </p>
         </div>
       </Panel>}
 
-      <Panel title="Receive files (Link)">
+      <Panel title="Receive files">
         <p className="text-[12px] text-muted mb-3 leading-relaxed">
           Send files from your phone or laptop to this computer through the Deskmate Files page in Home Assistant.
           Files only ever land in the folder below. Home Assistant cannot overwrite, rename, delete or read anything
@@ -306,7 +335,7 @@ export default function SettingsPage({
         <p className="mt-2 text-[12px] text-muted">The size limit also applies to files Home Assistant reads from the folders below.</p>
       </Panel>
 
-      <Panel title="File access (Link)">
+      <Panel title="File access">
         <p className="text-[12px] border border-hairline-strong rounded p-2 mb-3 leading-relaxed">
           Read-only remote access. Home Assistant can list, inspect and download files inside the folders below.
           Leave this list empty to keep file access disabled. Never add a folder containing secrets you do not want exposed to HA.
@@ -465,13 +494,30 @@ export default function SettingsPage({
       <Panel title="Notifications">
         <div className="flex items-center justify-between h-9">
           <div>
-            <span className="text-[13px]">Branded toasts (show as “HomeOS”)</span>
+            <span className="text-[13px]">Branded toasts (show as “Deskmate”)</span>
             <p className="text-[12px] text-muted">
-              Off = toasts show as “Windows PowerShell” but always render. On = a Start
-              Menu shortcut lets them show as “HomeOS”. If toasts stop appearing, turn this off.
+              On = notifications show as “Deskmate”. Off = they show as “Windows PowerShell”.
+              No PowerShell is started either way. If toasts stop appearing, turn this off.
             </p>
           </div>
           <Toggle on={branding} onChange={(v) => void toggleFeature("toast_branding", v, setBranding)} />
+        </div>
+      </Panel>
+
+      <Panel title="Updates">
+        <div className="flex items-center justify-between h-9">
+          <div>
+            <span className="text-[13px]">Check for updates once a day</span>
+            <p className="text-[12px] text-muted">
+              Asks GitHub for the latest release. Nothing is downloaded or installed: a new
+              version shows up in the tray menu and on the Status page.
+            </p>
+          </div>
+          <Toggle on={updateCheck} onChange={(v) => void toggleFeature("update_check", v, setUpdateCheck)} />
+        </div>
+        <div className="mt-3 flex items-center gap-3">
+          <Button onClick={() => void checkUpdates()}>Check now</Button>
+          {updateMsg && <span className="text-[13px] text-muted">{updateMsg}</span>}
         </div>
       </Panel>
 

@@ -434,7 +434,7 @@ pub async fn restart(app: AppHandle) {
         return;
     }
     let Some(raw_key) = crate::config::get_link_key(&cfg.node_id).map(Zeroizing::new) else {
-        crate::mqtt::set_status(&app, false, "Link pairing key missing");
+        crate::mqtt::set_status(&app, false, "Pairing code missing - paste it in Settings");
         return;
     };
     let psk = match validate_pairing_key(&raw_key) {
@@ -472,7 +472,7 @@ pub async fn restart(app: AppHandle) {
     };
     let (stop_tx, stop_rx) = watch::channel(false);
     *state.stop_tx.lock().await = Some(stop_tx);
-    crate::mqtt::set_status(&app, false, "Connecting Link...");
+    crate::mqtt::set_status(&app, false, "Connecting to Home Assistant...");
 
     let app_connection = app.clone();
     let cfg_connection = cfg.clone();
@@ -491,6 +491,17 @@ pub async fn restart(app: AppHandle) {
             if *stop_connection.borrow() {
                 break;
             }
+            // Another Windows account on this computer may be paired as the
+            // same node; only one of them connects at a time.
+            if !crate::seat::wait_for_turn(
+                &app_connection,
+                &cfg_connection.node_id,
+                &mut stop_connection,
+            )
+            .await
+            {
+                break;
+            }
             let label = if endpoints.len() == 1 {
                 ""
             } else if endpoint_index == 0 {
@@ -501,7 +512,7 @@ pub async fn restart(app: AppHandle) {
             crate::mqtt::set_status(
                 &app_connection,
                 false,
-                &format!("Connecting Link{label}..."),
+                &format!("Connecting to Home Assistant{label}..."),
             );
             let session_result = run_session(
                 &app_connection,
@@ -527,17 +538,17 @@ pub async fn restart(app: AppHandle) {
                     failures += 1;
                     let status = match error.kind {
                         LinkFailure::Auth => format!(
-                            "Link rejected{label}: {} (node \"{}\")",
+                            "Home Assistant rejected the pairing{label}: {} (node \"{}\")",
                             error.message, cfg_connection.node_id
                         ),
                         LinkFailure::Locked => {
-                            format!("Link locked out{label}: {}", error.message)
+                            format!("Home Assistant locked this computer out{label}: {}", error.message)
                         }
                         LinkFailure::Clock => {
-                            format!("Link clock mismatch{label}: {}", error.message)
+                            format!("Clock mismatch with Home Assistant{label}: {}", error.message)
                         }
                         LinkFailure::Transport => {
-                            format!("Link error{label}: {}", error.message)
+                            format!("Connection error{label}: {}", error.message)
                         }
                     };
                     crate::mqtt::set_status(&app_connection, false, &status);
@@ -719,13 +730,21 @@ async fn run_session(
             .send(json!({"t": "state", "s": typed_states(&cached)}))
             .map_err(|e| e.to_string())?;
     }
-    crate::mqtt::set_status(app, true, "Connected (Link)");
+    crate::mqtt::set_status(app, true, "Connected to Home Assistant");
     log::info!("Deskmate Link connected");
     let mut ping = tokio::time::interval(Duration::from_secs(30));
+    let mut seat_check = tokio::time::interval(crate::seat::CHECK_EVERY);
+    let mut handed_over = false;
     loop {
         tokio::select! {
             _ = stop.changed() => break,
             _ = ping.tick() => { let _ = out_tx.send(json!({"t": "ping"})); }
+            _ = seat_check.tick() => {
+                if !crate::seat::turn(&cfg.node_id) {
+                    handed_over = true;
+                    break;
+                }
+            }
             outbound = out_rx.recv() => {
                 let Some(payload) = outbound else { break };
                 let frame = encoder.encrypt(&payload)?;
@@ -748,7 +767,7 @@ async fn run_session(
     let stopped = *stop.borrow();
     *app.state::<AppState>().link_tx.lock().await = None;
     let _ = writer.close().await;
-    if stopped {
+    if stopped || handed_over {
         Ok(())
     } else {
         Err("Link websocket closed".into())

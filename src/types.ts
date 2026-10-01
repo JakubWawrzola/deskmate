@@ -86,6 +86,8 @@ export interface AppConfig {
   clipboard_write_mode: ClipboardMode;
   allowed_url_origins: string[];
   toast_branding: boolean;
+  update_check: boolean;
+  update_notified: string;
   ha_url: string;
   ha_url_remote: string;
   hotkeys: Hotkey[];
@@ -138,4 +140,10 @@ export interface Snapshot {
   command_defs: CommandDef[];
   hostname: string;
   ha_configured: boolean;
+  update: UpdateInfo | null;
+}
+
+export interface UpdateInfo {
+  version: string;
+  url: string;
 }

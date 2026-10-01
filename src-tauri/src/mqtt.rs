@@ -92,6 +92,11 @@ pub async fn restart(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
         let mut idx = 0usize;
         'hosts: loop {
+            // Another Windows account on this computer may use the same node
+            // (and MQTT client id); only one of them connects at a time.
+            if !crate::seat::wait_for_turn(&app_ev, &node_ev, &mut stop_ev).await {
+                break 'hosts;
+            }
             let (host, port) = hosts[idx].clone();
             let label = if !multi {
                 String::new()
@@ -120,9 +125,16 @@ pub async fn restart(app: AppHandle) {
             set_status(&app_ev, false, &format!("Connecting{label}..."));
 
             let mut fail_count = 0u32;
+            let mut seat_check = tokio::time::interval(crate::seat::CHECK_EVERY);
             loop {
                 tokio::select! {
                     _ = stop_ev.changed() => break 'hosts,
+                    _ = seat_check.tick() => {
+                        if !crate::seat::turn(&node_ev) {
+                            let _ = client.try_disconnect();
+                            continue 'hosts;
+                        }
+                    }
                     ev = eventloop.poll() => match ev {
                         Ok(Event::Incoming(Packet::ConnAck(_))) => {
                             fail_count = 0;
@@ -335,9 +347,8 @@ pub(crate) async fn legacy_handle_notify(app: &AppHandle, payload: &str) {
         hist.truncate(50);
     }
     let _ = app.emit("deskmate://notify", record);
-    let action_tx = { app.state::<AppState>().action_tx.clone() };
     let _ = tokio::task::spawn_blocking(move || {
-        if let Err(e) = crate::notify::show_toast(&parsed, Some(action_tx)) {
+        if let Err(e) = crate::notify::show_toast(&parsed) {
             log::warn!("toast failed: {e}");
         }
     })

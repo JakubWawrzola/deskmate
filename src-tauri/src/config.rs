@@ -177,10 +177,16 @@ pub struct AppConfig {
     /// Exact allowed URL origins, e.g. https://example.com or http://ha.local:8123.
     /// Configured HA API origins are allowed automatically.
     pub allowed_url_origins: Vec<String>,
-    /// brand toasts as "HomeOS" (Start Menu shortcut with AUMID). When false
-    /// or when branding fails -> toast via PowerShell AUMID (always works).
+    /// brand toasts as "Deskmate" (AUMID + Start Menu shortcut). When false or
+    /// when branding fails -> toasts carry the PowerShell AUMID (always works).
     #[serde(default = "default_true")]
     pub toast_branding: bool,
+    /// Daily check for a newer release on GitHub (nothing is downloaded).
+    #[serde(default = "default_true")]
+    pub update_check: bool,
+    /// Last version announced with a notification, so each is announced once.
+    #[serde(default)]
+    pub update_notified: String,
     /// Home Assistant URL (local), e.g. http://192.168.18.9:8123. Empty = API channel disabled.
     pub ha_url: String,
     /// fallback URL (Tailscale/public) - failover like the MQTT broker
@@ -228,6 +234,8 @@ impl Default for AppConfig {
             clipboard_write_mode: default_clipboard_mode(),
             allowed_url_origins: Vec::new(),
             toast_branding: true,
+            update_check: true,
+            update_notified: String::new(),
             ha_url: String::new(),
             ha_url_remote: String::new(),
             hotkeys: Vec::new(),

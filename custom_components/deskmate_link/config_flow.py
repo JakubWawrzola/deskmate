@@ -6,7 +6,8 @@ przepisywana nazwa node'a byla zrodlem cichej awarii: nazwa inna niz ta, ktorej
 uzywa Deskmate, konczyla sie zamknietym polaczeniem bez zadnego komunikatu.
 
 Rekonfiguracja pozwala wygenerowac nowy klucz albo odpiac wpis od node'a
-(np. po zmianie nazwy komputera) bez kasowania urzadzenia i jego encji.
+(np. po zmianie nazwy komputera) bez kasowania urzadzenia i jego encji, a takze
+pokazac kod dla kolejnego konta Windows na tym samym komputerze.
 """
 from __future__ import annotations
 
@@ -41,13 +42,21 @@ def _ws_url(url: str) -> str:
     return ""
 
 
-def build_pairing_code(hass: HomeAssistant, key: str) -> str:
+def build_pairing_code(
+    hass: HomeAssistant, key: str, node: str = "", cascade: str = ""
+) -> str:
     """Klucz i adresy HA w jednym ciagu - Deskmate wypelnia z niego wszystkie pola.
 
     Wczesniej trzeba bylo osobno przepisac adres WebSocket i klucz, a pomylka
-    w adresie wygladala dokladnie tak samo jak zly klucz.
+    w adresie wygladala dokladnie tak samo jak zly klucz. Kod dla kolejnego
+    konta Windows niesie tez node ("n") i klucz kaskady ("c"), zeby to konto
+    dolaczylo do tego samego urzadzenia zamiast tworzyc nowe.
     """
     payload: dict[str, str] = {"k": key}
+    if node:
+        payload["n"] = node
+    if cascade:
+        payload["c"] = cascade
     for field, kwargs in (
         ("u", {"allow_external": False, "allow_ip": True}),
         ("r", {"allow_internal": False, "require_ssl": True}),
@@ -128,6 +137,8 @@ class DeskmateLinkConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         entry = self._reconfigure_entry()
         options = ["new_key", "unbind"]
+        if entry.data.get(CONF_NODE_ID):
+            options.insert(0, "add_user")
         options.append(
             "cascade_off" if entry.data.get(CONF_CASCADE_KEY) else "cascade_on"
         )
@@ -165,6 +176,34 @@ class DeskmateLinkConfigFlow(ConfigFlow, domain=DOMAIN):
                 entry.unique_id,
             )
         return self.async_show_form(step_id="cascade_off", data_schema=vol.Schema({}))
+
+    async def async_step_add_user(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Kod tego samego komputera dla kolejnego konta Windows.
+
+        Kazde konto uruchamia wlasny Deskmate, z wlasnym Menedzerem poswiadczen.
+        Ten sam klucz i ten sam node sprawiaja, ze wszystkie konta raportuja jako
+        jedno urzadzenie; Deskmate pilnuje, zeby polaczone bylo tylko jedno.
+        Nic w samym wpisie sie nie zmienia.
+        """
+        entry = self._reconfigure_entry()
+        if user_input is not None:
+            return self.async_abort(reason="add_user_done")
+        node = entry.data.get(CONF_NODE_ID) or ""
+        return self.async_show_form(
+            step_id="add_user",
+            data_schema=vol.Schema({}),
+            description_placeholders={
+                "code": build_pairing_code(
+                    self.hass,
+                    entry.data[CONF_KEY],
+                    node=node,
+                    cascade=entry.data.get(CONF_CASCADE_KEY) or "",
+                ),
+                "node_id": node,
+            },
+        )
 
     async def async_step_new_key(
         self, user_input: dict[str, Any] | None = None

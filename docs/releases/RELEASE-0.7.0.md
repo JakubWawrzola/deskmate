@@ -64,8 +64,8 @@ no replies to its pings and disconnected. Both now run alongside the session.
 - Stalled uploads are deleted after two minutes and when the connection drops.
 - Every transfer is logged locally (name and result, never content).
 
-Details: [docs/LINK.md](LINK.md#link-files-sending-and-fetching-files) and
-[docs/SECURITY.md](SECURITY.md#link-files).
+Details: [docs/LINK.md](../LINK.md#link-files-sending-and-fetching-files) and
+[docs/SECURITY.md](../SECURITY.md#link-files).
 
 ## Assets
 

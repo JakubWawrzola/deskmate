@@ -56,7 +56,7 @@ export function Toggle({ on, onChange, disabled }: { on: boolean; onChange: (v: 
         ${disabled ? "opacity-40" : "cursor-pointer"}`}
     >
       <span
-        className={`absolute top-[3px] w-3 h-3 rounded-full transition-transform duration-150
+        className={`absolute left-0 top-[3px] w-3 h-3 rounded-full transition-transform duration-150
           ${on ? "bg-panel translate-x-[19px]" : "bg-ink translate-x-[3px]"}`}
       />
     </button>

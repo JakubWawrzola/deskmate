@@ -21,6 +21,17 @@ export default function StatusPage({ snapshot, config }: { snapshot: Snapshot; c
 
   return (
     <>
+      {snapshot.update && (
+        <div className="mb-3 flex items-center justify-between gap-3 border border-hairline-strong rounded-md px-4 py-3 bg-panel">
+          <p className="text-[13px]">
+            Deskmate <span className="mono">{snapshot.update.version}</span> is available. Install it
+            over this version; settings and pairing are kept.
+          </p>
+          <Button kind="primary" onClick={() => void api.openUpdatePage()}>
+            Download
+          </Button>
+        </div>
+      )}
       <div className="grid grid-cols-3 gap-3">
         <Readout label="CPU" value={num("cpu")} unit="%" />
         <Readout label="Memory" value={num("memory")} unit="%" />
@@ -40,7 +51,7 @@ export default function StatusPage({ snapshot, config }: { snapshot: Snapshot; c
             {snapshot.status.detail}
           </dd>
           <dt className="text-muted">Transport</dt>
-          <dd>{config.transport === "link" ? "Deskmate Link" : "MQTT"}</dd>
+          <dd>{config.transport === "link" ? "Deskmate integration" : "MQTT"}</dd>
           <dt className="text-muted">Endpoint</dt>
           <dd className="mono">{config.transport === "link" ? config.link_url : `${config.broker_host}:${config.broker_port}`}</dd>
           <dt className="text-muted">Device</dt>
@@ -56,9 +67,9 @@ export default function StatusPage({ snapshot, config }: { snapshot: Snapshot; c
 
       <Panel title="In Home Assistant">
         <p className="text-[13px] text-muted leading-relaxed">
-          This computer is registered through {config.transport === "link" ? "the Deskmate Link integration" : "MQTT discovery"} as device{" "}
+          This computer is registered through {config.transport === "link" ? "the Deskmate integration" : "MQTT discovery"} as device{" "}
           <span className="mono text-ink">{config.device_name}</span>. Find it under
-          Settings &gt; Devices &amp; services &gt; {config.transport === "link" ? "Deskmate Link" : "MQTT"}. Entity ids follow the
+          Settings &gt; Devices &amp; services &gt; {config.transport === "link" ? "Deskmate" : "MQTT"}. Entity ids follow the
           device name, for example{" "}
           <span className="mono text-ink">
             sensor.{config.device_name.toLowerCase().replace(/[^a-z0-9]+/g, "_")}_cpu_usage

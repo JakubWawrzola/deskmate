@@ -56,7 +56,7 @@ export default function WidgetPanel() {
         className="h-8 shrink-0 flex items-center justify-between px-3 bg-panel border-b border-hairline cursor-move"
       >
         <span data-tauri-drag-region className="microlabel pointer-events-none">
-          HOMEOS
+          Deskmate
         </span>
         <button
           aria-label="Hide widgets"

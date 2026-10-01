@@ -1,9 +1,16 @@
-// Deskmate Files - Home Assistant sidebar page.
-// Send files from this phone or laptop to a paired computer, and download
-// files from the folders that computer shares. Every name coming from the
-// computer is inserted with textContent, never as HTML.
+// Deskmate - Home Assistant sidebar page.
+// Files: send files from this phone or laptop to a paired computer, and
+// download files from the folders that computer shares. Computers: what is
+// paired, whether it is online, and shortcuts to its device page and settings.
+// Every name coming from the computer is inserted with textContent, never as HTML.
 
 const API = "deskmate_link/files";
+const TAB_KEY = "deskmate-panel-tab";
+
+function navigate(path) {
+  history.pushState(null, "", path);
+  window.dispatchEvent(new CustomEvent("location-changed", { detail: { replace: false } }));
+}
 
 function el(tag, props = {}, children = []) {
   const node = document.createElement(tag);
@@ -82,6 +89,21 @@ const STYLE = `
   .row .meta { color: var(--secondary-text-color); font-size: 12px; }
   .row .label { overflow-wrap: anywhere; }
   ha-icon { --mdc-icon-size: 20px; color: var(--secondary-text-color); }
+  .tabs { display: flex; gap: 4px; padding: 0 12px; border-bottom: 1px solid var(--divider-color);
+    background: var(--app-header-background-color, var(--primary-color)); }
+  .tabs button { background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0;
+    color: var(--app-header-text-color, #fff); opacity: 0.75; padding: 10px 12px; }
+  .tabs button[aria-selected="true"] { opacity: 1; border-bottom-color: var(--app-header-text-color, #fff); }
+  .computer { display: grid; gap: 10px; }
+  .computer .head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .chip { font-size: 12px; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--divider-color);
+    color: var(--secondary-text-color); }
+  .chip.online { border-color: var(--success-color, #43a047); color: var(--success-color, #43a047); }
+  dl.facts { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 0; font-size: 14px; }
+  dl.facts dt { color: var(--secondary-text-color); }
+  dl.facts dd { margin: 0; overflow-wrap: anywhere; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  ol.steps { margin: 8px 0 0; padding-left: 20px; font-size: 14px; line-height: 1.6; }
   :host([narrow]) main { padding: 8px; }
   :host([narrow]) .row { grid-template-columns: 24px 1fr; }
   :host([narrow]) .row button { grid-column: 2; justify-self: start; }
@@ -120,7 +142,12 @@ class DeskmateFilesPanel extends HTMLElement {
     this._menu.hass = this._hass;
     this._menu.narrow = this._narrow;
     this._select = el("select", { "aria-label": "Computer", onchange: () => this._pick(this._select.value) });
-    root.append(el("div", { class: "toolbar" }, [this._menu, el("div", { class: "title", text: "Deskmate Files" }), this._select]));
+    root.append(el("div", { class: "toolbar" }, [this._menu, el("div", { class: "title", text: "Deskmate" }), this._select]));
+    this._tabButtons = {
+      files: el("button", { role: "tab", text: "Files", onclick: () => this._showTab("files") }),
+      computers: el("button", { role: "tab", text: "Computers", onclick: () => this._showTab("computers") }),
+    };
+    root.append(el("nav", { class: "tabs", role: "tablist" }, Object.values(this._tabButtons)));
 
     this._fileInput = el("input", { type: "file", multiple: "", hidden: "", onchange: () => this._queue(this._fileInput.files) });
     this._chooseButton = el("button", { text: "Choose files", onclick: () => this._fileInput.click() });
@@ -155,7 +182,83 @@ class DeskmateFilesPanel extends HTMLElement {
       el("section", {}, [this._browseTitle, this._browseText, this._browseNotice, this._crumbs, this._list]),
     ]);
     root.append(this._main);
+    this._computers = el("main", { hidden: "" });
+    root.append(this._computers);
+    let tab = "files";
+    try {
+      tab = localStorage.getItem(TAB_KEY) === "computers" ? "computers" : "files";
+    } catch (_err) {
+      tab = "files";
+    }
+    this._showTab(tab);
     this._loadDevices();
+  }
+
+  _showTab(tab) {
+    this._tab = tab;
+    for (const [name, button] of Object.entries(this._tabButtons)) {
+      button.setAttribute("aria-selected", String(name === tab));
+    }
+    this._main.hidden = tab !== "files";
+    this._computers.hidden = tab !== "computers";
+    this._select.hidden = tab !== "files" || this._devices.length < 2;
+    try {
+      localStorage.setItem(TAB_KEY, tab);
+    } catch (_err) {
+      // private mode: the tab just is not remembered
+    }
+  }
+
+  _renderComputers() {
+    const sections = this._devices.map((device) => {
+      const facts = el("dl", { class: "facts" }, [
+        el("dt", { text: "Node" }),
+        el("dd", { text: device.node_id }),
+        el("dt", { text: "Deskmate app" }),
+        el("dd", { text: device.sw_version ? `version ${device.sw_version}` : "not reported yet" }),
+        el("dt", { text: "Encryption" }),
+        el("dd", {
+          text: `${device.protocol >= 2 ? "Protocol v2, fresh keys per session" : "Protocol v1"}${device.cascade ? ", cascade on" : ""}`,
+        }),
+      ]);
+      const actions = el("div", { class: "actions" }, [
+        device.device_id
+          ? el("button", { class: "quiet", text: "Device page", onclick: () => navigate(`/config/devices/device/${device.device_id}`) })
+          : null,
+        el("button", {
+          class: "quiet",
+          text: "Send files",
+          onclick: () => {
+            this._select.value = device.entry_id;
+            this._pick(device.entry_id);
+            this._showTab("files");
+          },
+        }),
+      ]);
+      return el("section", { class: "computer" }, [
+        el("div", { class: "head" }, [
+          el("h2", { text: device.name }),
+          el("span", { class: device.connected ? "chip online" : "chip", text: device.connected ? "Connected" : "Offline" }),
+        ]),
+        facts,
+        actions,
+      ]);
+    });
+    const add = el("section", {}, [
+      el("h2", { text: "Add a computer or a Windows user" }),
+      el("ol", { class: "steps" }, [
+        el("li", { text: "New computer: Settings > Devices & services > Add integration > Deskmate, then paste the pairing code into Deskmate on that computer." }),
+        el("li", { text: "Another Windows account on a paired computer: open the Deskmate integration, choose that computer > Reconfigure > Pair another Windows user." }),
+        el("li", { text: "Notifications, commands and sensors of each computer are on its device page." }),
+      ]),
+      el("div", { class: "actions", style: "margin-top: 12px" }, [
+        el("button", { text: "Open Deskmate integration", onclick: () => navigate("/config/integrations/integration/deskmate_link") }),
+      ]),
+    ]);
+    this._computers.replaceChildren(
+      ...(sections.length ? sections : [el("section", {}, [el("p", { class: "muted", text: "No computer is paired yet." })])]),
+      add,
+    );
   }
 
   _notice(target, message, isError = false) {
@@ -168,7 +271,9 @@ class DeskmateFilesPanel extends HTMLElement {
     try {
       this._devices = await this._hass.callApi("GET", API);
     } catch (err) {
-      this._notice(this._sendNotice, `Could not load computers: ${errorText(err)}`, true);
+      const message = `Could not load computers: ${errorText(err)}`;
+      this._notice(this._sendNotice, message, true);
+      this._computers.replaceChildren(el("section", {}, [el("div", { class: "notice error", text: message })]));
       return;
     }
     this._select.replaceChildren(
@@ -176,9 +281,10 @@ class DeskmateFilesPanel extends HTMLElement {
         el("option", { value: device.entry_id, text: device.connected ? device.name : `${device.name} (offline)` }),
       ),
     );
-    this._select.hidden = this._devices.length < 2;
+    this._select.hidden = this._tab !== "files" || this._devices.length < 2;
+    this._renderComputers();
     if (!this._devices.length) {
-      this._notice(this._sendNotice, "No computer is paired yet. Add the Deskmate Link integration first.", true);
+      this._notice(this._sendNotice, "No computer is paired yet. Add the Deskmate integration first.", true);
       this._drop.hidden = true;
       return;
     }

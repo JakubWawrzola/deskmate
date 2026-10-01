@@ -6,8 +6,9 @@ to do and what to tell them. Follow it in order.
 
 Deskmate is a Windows desktop application that exposes a computer to Home
 Assistant: sensors, remote commands, notifications, media keys, global hotkeys.
-It connects over **Deskmate Link**, a custom Home Assistant integration with
-application-layer encryption. MQTT is still supported but is no longer the
+It connects over **Deskmate Link**, the protocol of a custom Home Assistant
+integration (named **Deskmate** in Home Assistant and HACS) with
+application-layer encryption. The user-facing guide is GUIDE.md. MQTT is still supported but is no longer the
 recommended path.
 
 ## Before you say anything
@@ -36,7 +37,7 @@ Tell them:
 
 > Open HACS in Home Assistant, use the three-dot menu, choose *Custom
 > repositories*, paste `https://github.com/JakubWawrzola/deskmate`, pick
-> *Integration* as the category and add it. Then find **Deskmate Link** in HACS,
+> *Integration* as the category and add it. Then find **Deskmate** in HACS,
 > download it, and restart Home Assistant.
 
 The README also carries an "Open in HACS" button, but HACS does not add an
@@ -51,8 +52,8 @@ Restarting is not optional: a new integration is only picked up at startup.
 
 Tell them:
 
-> Go to *Settings → Devices & services → Add integration*, search for **Deskmate
-> Link** and confirm. Home Assistant shows a pairing code starting with
+> Go to *Settings → Devices & services → Add integration*, search for
+> **Deskmate** and confirm. Home Assistant shows a pairing code starting with
 > `DMP1.`. Copy it now.
 
 If the user closed the dialog too early, they add the integration again: an
@@ -93,8 +94,8 @@ filled in for use away from home; Deskmate alternates between them.
 ## Confirm it worked
 
 Ask the user to check the Status page in Deskmate. It should read
-`Connected (Link)`. In Home Assistant, the device appears under *Settings →
-Devices & services → Deskmate Link*, and the entry's title changes from
+`Connected to Home Assistant`. In Home Assistant, the device appears under
+*Settings → Devices & services → Deskmate*, and the entry's title changes from
 "Deskmate (waiting for pairing)" to the computer's node name.
 
 Entity ids follow the **device name** shown in Deskmate's settings, not the node

@@ -76,6 +76,20 @@ pub async fn execute(app: &AppHandle, spec: &ActionSpec, source_id: &str) {
     }
 }
 
+/// Brings the main window to the front. Windows does not let a background
+/// process take focus (right after the installer starts the app, for one), so
+/// the window used to open behind everything else. A brief always-on-top puts
+/// it on top without keeping it there.
+pub fn show_main_window(app: &AppHandle) {
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.unminimize();
+        let _ = w.show();
+        let _ = w.set_always_on_top(true);
+        let _ = w.set_focus();
+        let _ = w.set_always_on_top(false);
+    }
+}
+
 /// Pokaz/schowaj panel widgetow (okno "widget").
 pub fn toggle_widget_window(app: &AppHandle) {
     if let Some(w) = app.get_webview_window("widget") {

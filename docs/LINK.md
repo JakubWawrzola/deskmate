@@ -1,5 +1,10 @@
 # Deskmate Link
 
+Deskmate Link is the connection between the Windows app and the Home
+Assistant integration (named **Deskmate** in Home Assistant and HACS). For
+everyday setup and use, read [GUIDE.md](GUIDE.md); this document covers the
+connection itself.
+
 Deskmate Link is the recommended transport between the Windows app and the
 `deskmate_link` Home Assistant integration: one encrypted WebSocket, no broker.
 MQTT stays available and can be selected again without losing its settings.
@@ -11,11 +16,11 @@ and an integration older than 0.6.0 refuses it as a wrong key.
 
 1. Install the `deskmate_link` integration. With HACS: *HACS → three dots →
    Custom repositories*, add `https://github.com/JakubWawrzola/deskmate` as an
-   **Integration**, then download **Deskmate Link**. Without HACS: copy
+   **Integration**, then download **Deskmate**. Without HACS: copy
    `custom_components/deskmate_link` from this repository into
    `config/custom_components/`. Restart Home Assistant once either way.
 2. **Settings → Devices & services → Add integration**, search for
-   **Deskmate Link**, select it and confirm. There is nothing to type.
+   **Deskmate**, select it and confirm. There is nothing to type.
 3. The next screen shows a **pairing code** starting with `DMP1.`. It carries
    the pairing key and this Home Assistant's local and remote addresses, as far
    as Home Assistant knows them (*Settings → System → Network*). The bare key is
@@ -30,6 +35,14 @@ choose **Reconfigure**: *Generate a new pairing key* invalidates the old key,
 *Unbind from the current computer* releases the entry so the next computer
 using that key takes it over. Entities and their history survive both.
 
+*Pair another Windows user on this computer* shows a code for a second Windows
+account on the same PC. It carries the same key plus the computer's node id
+(and the cascade key when cascade is on), so that account reports as the same
+device. The accounts coordinate through a named object in the Windows Global
+namespace: only one holds the connection, and an account whose session is not
+the one in use hands it over to an account that is. Nothing changes in the
+entry itself, and a new pairing key cuts off all accounts at once.
+
 If a computer ends up paired to a second entry (for example after pairing again
 because the first attempt failed), the entry it actually connects with takes
 over the entities of the old one, keeps their entity IDs and history, and the
@@ -37,18 +50,18 @@ old entry is removed. Entities no longer get duplicated with a `_2` suffix.
 
 ## Set up Deskmate
 
-1. On first run the wizard starts on Deskmate Link. Paste the pairing code: the
-   key, the local address and the remote address are filled in from it.
-   Later changes are under **Settings → Home Assistant transport → Deskmate
-   Link**, where the key field accepts a pairing code as well.
+1. On first run the wizard starts on the Deskmate integration. Paste the
+   pairing code: the key, the local address and the remote address are filled
+   in from it. Later changes are under **Settings → Deskmate integration**,
+   where the key field accepts a pairing code as well.
 2. Check the addresses. Deskmate appends `/api/deskmate_link/ws` itself. Plain
    `ws://` is accepted only for LAN addresses, `.local`, `.lan`, single-label
    hostnames and Tailscale (`100.64.0.0/10`, `*.ts.net`). Anything reachable
    from the internet needs `wss://`.
 3. Choose **Save & connect**. The key is stored in Windows Credential Manager,
    never in `config.json`.
-4. Check Status for `Connected (Link)`, then find the device under Settings →
-   Devices & services → Deskmate Link.
+4. Check Status for `Connected to Home Assistant`, then find the device under
+   Settings → Devices & services → Deskmate.
 
 Local and fallback connections perform a fresh authenticated handshake and
 derive fresh session keys on every reconnect.
@@ -199,10 +212,11 @@ Two independent capabilities, both off by default:
 - **File access** (Settings → File access): Home Assistant can list and read
   files in the folders you add. Nothing else on the disk is reachable.
 
-### The Deskmate Files page
+### The Deskmate page
 
-The integration adds **Deskmate Files** to the Home Assistant sidebar, visible
-to administrators only. From a phone (the Home Assistant app works) or a laptop:
+The integration adds **Deskmate** to the Home Assistant sidebar, visible to
+administrators only, with a **Files** and a **Computers** tab. On the Files tab,
+from a phone (the Home Assistant app works) or a laptop:
 
 1. pick the computer at the top if you have more than one;
 2. **Send**: choose files or drop them on the page. Each file shows progress and

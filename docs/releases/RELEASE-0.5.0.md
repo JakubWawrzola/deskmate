@@ -19,9 +19,9 @@ have nothing to do with the notification payload.
 3. Install the app, pick **Deskmate Link**, enter the WebSocket address of your
    Home Assistant and paste the key.
 
-Upgrading from MQTT: see [docs/MIGRATION.md](MIGRATION.md). Entity ids do not
+Upgrading from MQTT: see [docs/MIGRATION.md](../MIGRATION.md). Entity ids do not
 change. Setting up with an AI assistant: point it at
-[docs/AI-DEPLOY.md](AI-DEPLOY.md).
+[docs/AI-DEPLOY.md](../AI-DEPLOY.md).
 
 ## Highlights
 
@@ -72,8 +72,8 @@ switch that also follows mute changes made on the computer itself.
 - Cascade keys live in their own Credential Manager entry and are redacted from
   Home Assistant diagnostics.
 
-Full detail in [CHANGELOG.md](../CHANGELOG.md) and
-[docs/SECURITY.md](SECURITY.md).
+Full detail in [CHANGELOG.md](../../CHANGELOG.md) and
+[docs/SECURITY.md](../SECURITY.md).
 
 ## Assets
 

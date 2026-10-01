@@ -8,6 +8,7 @@ import type {
   Snapshot,
   StatusView,
   TrayAction,
+  UpdateInfo,
   WidgetItem,
   WidgetState,
 } from "./types";
@@ -31,6 +32,8 @@ export const api = {
     invoke<void>("set_sensor_enabled", { id, enabled }),
   setFeatureFlag: (flag: string, enabled: boolean) =>
     invoke<void>("set_feature_flag", { flag, enabled }),
+  checkUpdatesNow: () => invoke<UpdateInfo | null>("check_updates_now"),
+  openUpdatePage: () => invoke<void>("open_update_page"),
   addCustomCommand: (
     id: string,
     name: string,

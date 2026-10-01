@@ -14,12 +14,14 @@ mod link_files;
 mod media;
 mod mqtt;
 mod notify;
+mod seat;
 mod security;
 mod sensors;
 mod state;
 mod sys_commands;
 mod transport;
 mod tts;
+mod updates;
 
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
@@ -49,6 +51,8 @@ struct Snapshot {
     hostname: String,
     /// whether the HA API channel (URL + token) is configured
     ha_configured: bool,
+    /// a newer release found by the update check
+    update: Option<updates::UpdateInfo>,
 }
 
 #[tauri::command]
@@ -233,7 +237,29 @@ async fn get_snapshot(state: State<'_, AppState>) -> Result<Snapshot, String> {
         command_defs: sys_commands::COMMAND_DEFS.to_vec(),
         hostname: config::hostname(),
         ha_configured: ha_api::is_configured(&cfg),
+        update: updates::available(),
     })
+}
+
+/// "Check now" in Settings. Returns the newer release, if there is one.
+#[tauri::command]
+async fn check_updates_now(app: AppHandle) -> Result<Option<updates::UpdateInfo>, String> {
+    let found = tauri::async_runtime::spawn_blocking(updates::check_now)
+        .await
+        .map_err(|e| e.to_string())??;
+    match &found {
+        Some(info) => updates::announce(&app, info).await,
+        None => {
+            let cfg = app.state::<AppState>().config.lock().await.clone();
+            let _ = rebuild_tray_menu(&app, &cfg);
+        }
+    }
+    Ok(found)
+}
+
+#[tauri::command]
+fn open_update_page() -> Result<(), String> {
+    updates::open_release_page()
 }
 
 // ---------- Home Assistant API (F1) ----------
@@ -469,7 +495,7 @@ async fn update_tray_actions(
 }
 
 /// Builds the tray menu: quick actions + Widgets + Open/Quit.
-fn rebuild_tray_menu(app: &AppHandle, cfg: &AppConfig) -> Result<(), String> {
+pub(crate) fn rebuild_tray_menu(app: &AppHandle, cfg: &AppConfig) -> Result<(), String> {
     use tauri::menu::PredefinedMenuItem;
     let mk = |id: &str, label: &str| MenuItem::with_id(app, id, label, true, None::<&str>);
     let mut items: Vec<tauri::menu::MenuItem<tauri::Wry>> = Vec::new();
@@ -480,7 +506,16 @@ fn rebuild_tray_menu(app: &AppHandle, cfg: &AppConfig) -> Result<(), String> {
     let open = mk("open", "Open Deskmate").map_err(|e| e.to_string())?;
     let quit = mk("quit", "Quit").map_err(|e| e.to_string())?;
     let sep = PredefinedMenuItem::separator(app).map_err(|e| e.to_string())?;
+    let update = updates::available()
+        .map(|info| mk("update", &format!("Update available: Deskmate {}", info.version)))
+        .transpose()
+        .map_err(|e| e.to_string())?;
+    let update_sep = PredefinedMenuItem::separator(app).map_err(|e| e.to_string())?;
     let mut refs: Vec<&dyn tauri::menu::IsMenuItem<tauri::Wry>> = Vec::new();
+    if let Some(update) = &update {
+        refs.push(update);
+        refs.push(&update_sep);
+    }
     for it in &items {
         refs.push(it);
     }
@@ -531,6 +566,7 @@ async fn set_feature_flag(
             "allow_input" => cfg.allow_input = enabled,
             "tts_enabled" => cfg.tts_enabled = enabled,
             "toast_branding" => cfg.toast_branding = enabled,
+            "update_check" => cfg.update_check = enabled,
             _ => return Err(format!("unknown flag: {flag}")),
         }
         cfg.clone()
@@ -538,6 +574,8 @@ async fn set_feature_flag(
     config::save(&cfg)?;
     if flag == "toast_branding" {
         std::thread::spawn(move || notify::apply_branding(enabled));
+    } else if flag == "update_check" {
+        // picked up by the next daily check
     } else {
         // republish discovery without a restart (text TTS/type_text + presentation entities)
         transport::refresh_entities(&app).await;
@@ -645,7 +683,7 @@ async fn restart_connection(app: AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn test_toast(state: State<'_, AppState>) -> Result<(), String> {
+fn test_toast() -> Result<(), String> {
     // example with buttons: a click publishes to deskmate/<node>/notify/action
     notify::show_toast(
         &notify::NotifyPayload {
@@ -663,7 +701,6 @@ fn test_toast(state: State<'_, AppState>) -> Result<(), String> {
                 },
             ],
         },
-        Some(state.action_tx.clone()),
     )
 }
 
@@ -699,10 +736,19 @@ pub fn run() {
         // single-instance MUST be first: when a toast button click launches
         // deskmate:action?name=..., this process forwards the URL to the running app
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            let mut toast_click = false;
             for arg in &argv {
+                if notify::is_action_url(arg) {
+                    toast_click = true;
+                }
                 if let Some(action) = notify::redeem_action_url(arg) {
                     let _ = app.state::<AppState>().action_tx.send(action);
                 }
+            }
+            // Started again from Start or the desktop while already running in
+            // the tray: show the window instead of doing nothing.
+            if !toast_click {
+                actions::show_main_window(app);
             }
         }))
         .plugin(tauri_plugin_autostart::init(
@@ -721,8 +767,8 @@ pub fn run() {
         )
         .manage(AppState::new(cfg))
         .setup(move |app| {
-            // Toast branding (Start Menu shortcut with AUMID) in the background - doesn't block startup.
-            // If it fails or is disabled, show_toast falls back to PowerShell AUMID.
+            // Toast branding (AUMID + Start Menu shortcut) in the background - doesn't block startup.
+            // If it fails or is disabled, toasts carry the PowerShell AUMID instead.
             std::thread::spawn(move || notify::apply_branding(toast_branding));
 
             // deskmate scheme: for toast buttons (click -> deskmate:action?name=...)
@@ -771,10 +817,10 @@ pub fn run() {
                 .on_menu_event(|app, event| {
                     let id = event.id.as_ref().to_string();
                     match id.as_str() {
-                        "open" => {
-                            if let Some(w) = app.get_webview_window("main") {
-                                let _ = w.show();
-                                let _ = w.set_focus();
+                        "open" => actions::show_main_window(app),
+                        "update" => {
+                            if let Err(e) = updates::open_release_page() {
+                                log::warn!("cannot open the release page: {e}");
                             }
                         }
                         "widgets" => actions::toggle_widget_window(app),
@@ -816,7 +862,11 @@ pub fn run() {
                 if let Some(w) = app.get_webview_window("main") {
                     let _ = w.hide();
                 }
+            } else {
+                actions::show_main_window(app.handle());
             }
+
+            updates::spawn(app.handle().clone());
 
             // start the selected transport if configured
             let handle = app.handle().clone();
@@ -849,7 +899,9 @@ pub fn run() {
             widget_states,
             widget_toggle,
             toggle_widget_window,
-            update_tray_actions
+            update_tray_actions,
+            check_updates_now,
+            open_update_page
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

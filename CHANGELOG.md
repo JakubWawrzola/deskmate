@@ -1,9 +1,57 @@
 # Changelog
 
 All notable changes to Deskmate are documented here. Release-specific upgrade
-notes and asset names are available in `docs/RELEASE-*.md`.
+notes and asset names are available in `docs/releases/RELEASE-*.md`.
 
-## Unreleased
+## 0.7.1 - 2026-10-01
+
+Fixes from the first GitHub issues, several Windows users on one PC, an update
+check. Upgrade notes: `docs/releases/RELEASE-0.7.1.md`.
+
+### Added
+
+- **Several Windows users on one computer** (#3). In Home Assistant,
+  *Reconfigure → Pair another Windows user* shows a code that lets another
+  Windows account join the same device. Only one account holds the connection
+  at a time, the one in use; switching users hands it over within seconds.
+  Each account installs Deskmate for itself, as before, without administrator
+  rights.
+- **Update check**: once a day the app asks GitHub for the latest release and
+  shows a newer one in the tray menu, on the Status page and once as a
+  notification. Nothing is downloaded. Settings → Updates turns it off or checks
+  right away.
+- The sidebar page is now called **Deskmate**, with a **Computers** tab next to
+  Files: which computers are paired, online, app version, encryption, and
+  links to each device page and the integration.
+- The integration shows the Deskmate icon in Home Assistant 2026.3 and newer.
+- One user guide, `docs/GUIDE.md`, from installation to automations and
+  troubleshooting. Release notes moved to `docs/releases/`, planning notes to
+  `docs/dev/`.
+
+### Changed
+
+- The Home Assistant integration and the HACS entry are named **Deskmate**
+  (the domain stays `deskmate_link`, nothing needs reconfiguring). The app
+  calls the transport "Deskmate integration"; *Deskmate Link* remains the name
+  of the protocol.
+- Notifications are labelled "Deskmate" instead of "HomeOS". The old
+  `HomeOS.lnk` Start Menu shortcut is removed; the installer's `Deskmate`
+  shortcut carries the notification identity instead.
+
+### Fixed
+
+- Bitdefender quarantined `deskmate.exe` when notifications were used (#2).
+  The notification shortcut was written by PowerShell compiling C# and
+  notifications with buttons went through PowerShell as well, a pattern
+  antivirus heuristics treat as malware. Both now run inside the app; no
+  PowerShell is started except for custom commands.
+- The widget panel could not be moved or closed: its window had no permission
+  to start dragging or hide itself (#2).
+- On toggles were drawn as a solid black pill in some WebView2 versions,
+  because the knob had no horizontal anchor (#2).
+- The main window opened behind other windows after installation, and starting
+  Deskmate again while it ran in the tray did nothing. Both now bring the
+  window to the front (#2).
 
 ### Security
 
@@ -15,7 +63,7 @@ notes and asset names are available in `docs/RELEASE-*.md`.
 ## 0.7.0 - 2026-09-24
 
 Files between your phone or laptop and the PC, through Home Assistant. How to turn
-it on: `docs/RELEASE-0.7.0.md`.
+it on: `docs/releases/RELEASE-0.7.0.md`.
 
 ### Added
 
@@ -51,7 +99,7 @@ and one pairing code instead of a key plus an address.
 
 Update the Home Assistant integration first. Deskmate 0.6 speaks only protocol
 v2, which integrations older than 0.6.0 reject. Setup and upgrade steps:
-`docs/RELEASE-0.6.0.md`.
+`docs/releases/RELEASE-0.6.0.md`.
 
 ### Added
 
@@ -204,4 +252,4 @@ and a failed connection finally says why.
 
 - Security hardening release: MQTT TLS defaults, split clipboard policies,
   URL allowlists, command confirmation and stricter rate/size limits.
-- Full notes: `docs/RELEASE-0.3.1.md`.
+- Full notes: `docs/releases/RELEASE-0.3.1.md`.

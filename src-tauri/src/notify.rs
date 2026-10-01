@@ -11,7 +11,7 @@ use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 /// Whether the branded AUMID (Start Menu shortcut) was set up successfully. If not,
-/// we use the PowerShell AUMID, which ALWAYS renders the toast (at the cost of the label).
+/// toasts carry the PowerShell AUMID, which always renders (only the label differs).
 static BRANDED: AtomicBool = AtomicBool::new(false);
 static TEMP_IMAGE_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
@@ -211,13 +211,17 @@ pub fn ensure_aumid_registered() {
 pub fn ensure_aumid_registered() {}
 
 /// Turns toast branding on/off. enabled=true: registers the AUMID in HKCU and
-/// creates a Start Menu shortcut with AppUserModelID (Windows requires a shortcut
-/// before an UNpackaged app can send toasts under its own AUMID) -> the toast
-/// shows "HomeOS". If the shortcut creation fails, or enabled=false -> BRANDED=false,
-/// show_toast falls back to the PowerShell AUMID (always visible). A branding
-/// failure never breaks the toast itself, it just loses the custom label.
+/// makes sure a Start Menu shortcut carries it (an unpackaged app needs one
+/// before Windows shows toasts under its own name) -> toasts show "Deskmate".
+/// If that fails, or enabled=false -> BRANDED=false and toasts go out under the
+/// PowerShell AUMID, which is always visible and only changes the label.
+///
+/// Nothing here starts another process. Up to 0.7.0 the shortcut was written
+/// by PowerShell compiling C# through Add-Type, launched with -EncodedCommand,
+/// and Bitdefender quarantined deskmate.exe for it (GitHub issue #2).
 #[cfg(windows)]
 pub fn apply_branding(enabled: bool) {
+    remove_legacy_shortcut();
     if !enabled {
         BRANDED.store(false, Ordering::Relaxed);
         return;
@@ -226,7 +230,7 @@ pub fn apply_branding(enabled: bool) {
     match ensure_start_menu_shortcut() {
         Ok(()) => BRANDED.store(true, Ordering::Relaxed),
         Err(e) => {
-            log::warn!("branding shortcut failed ({e}); fallback to PowerShell AUMID");
+            log::warn!("branding shortcut failed ({e}); toasts use the PowerShell AUMID");
             BRANDED.store(false, Ordering::Relaxed);
         }
     }
@@ -234,69 +238,77 @@ pub fn apply_branding(enabled: bool) {
 #[cfg(not(windows))]
 pub fn apply_branding(_enabled: bool) {}
 
-/// Creates `%AppData%\...\Start Menu\Programs\HomeOS.lnk` with System.AppUserModel.ID =
-/// TOAST_AUMID, via PowerShell with embedded C# (IShellLink + IPropertyStore) - the
-/// windows crate 0.61 didn't expose these COM interfaces. If the shortcut already
-/// exists, returns Ok immediately (no PowerShell spawn on every startup).
+#[cfg(windows)]
+fn start_menu_programs(base_var: &str) -> Option<std::path::PathBuf> {
+    std::env::var_os(base_var).map(|base| {
+        std::path::PathBuf::from(base).join("Microsoft\\Windows\\Start Menu\\Programs")
+    })
+}
+
+/// Makes sure `Deskmate.lnk` in the user's Start Menu carries the AUMID and the
+/// toast activator CLSID. With a per-user install this is the installer's own
+/// shortcut, updated in place (same target), so Start keeps a single entry.
 #[cfg(windows)]
 fn ensure_start_menu_shortcut() -> Result<(), String> {
-    use std::os::windows::process::CommandExt;
-    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
-    let appdata = std::env::var("APPDATA").map_err(|e| e.to_string())?;
-    let lnk = std::path::Path::new(&appdata)
-        .join("Microsoft\\Windows\\Start Menu\\Programs")
-        .join(format!("{}.lnk", crate::consts::TOAST_DISPLAY_NAME));
+    let file_name = format!("{}.lnk", crate::consts::TOAST_DISPLAY_NAME);
+    // Installed for all users: the installer already put a shortcut with this
+    // AUMID into the common Start Menu. A per-user copy would only make
+    // Deskmate show up twice in Start; the registry part covers the activator.
+    if start_menu_programs("ProgramData").is_some_and(|dir| dir.join(&file_name).exists()) {
+        return Ok(());
+    }
+    let lnk = start_menu_programs("APPDATA")
+        .ok_or_else(|| "APPDATA is not set".to_string())?
+        .join(&file_name);
 
-    // The shortcut is rewritten whenever the identifiers it carries change.
-    // A plain "file exists" check used to make this a one-shot: a shortcut
-    // written by an older build kept pointing at a stale AUMID and no later
-    // version could ever repair it.
+    // Rewritten whenever the identifiers it carries change, so a shortcut from
+    // an older build cannot keep pointing at a stale AUMID or executable.
     let stamp = format!(
-        "2|{}|{}|{}",
+        "3|{}|{}|{}",
         crate::consts::TOAST_AUMID,
         crate::consts::TOAST_ACTIVATOR_CLSID,
         exe.to_string_lossy()
     );
-    if lnk.exists() && shortcut_stamp() == Some(stamp.clone()) {
+    if lnk.exists() && shortcut_stamp().as_deref() == Some(stamp.as_str()) {
         return Ok(());
     }
-
-    let ps_quote = |s: &str| s.replace('\'', "''");
-    let header = format!(
-        "$Exe='{}'; $Lnk='{}'; $Aumid='{}'; $Name='{}'; $Clsid='{}';\n",
-        ps_quote(&exe.to_string_lossy()),
-        ps_quote(&lnk.to_string_lossy()),
-        ps_quote(crate::consts::TOAST_AUMID),
-        ps_quote(crate::consts::TOAST_DISPLAY_NAME),
-        ps_quote(crate::consts::TOAST_ACTIVATOR_CLSID),
-    );
-    let script = format!("{}{}", header, SHORTCUT_PS);
-    // Passed inline as -EncodedCommand (UTF-16LE base64). A script file with a
-    // fixed name in %TEMP% could be swapped by another process between the
-    // write and the launch.
-    let utf16: Vec<u8> = script.encode_utf16().flat_map(u16::to_le_bytes).collect();
-    use base64::Engine as _;
-    let encoded = base64::engine::general_purpose::STANDARD.encode(utf16);
-    let output = std::process::Command::new("powershell")
-        .args(["-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-EncodedCommand"])
-        .arg(&encoded)
-        .creation_flags(CREATE_NO_WINDOW)
-        .output()
-        .map_err(|e| e.to_string())?;
-    if output.status.success() && lnk.exists() {
-        set_shortcut_stamp(&stamp);
-        Ok(())
-    } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        let stderr = stderr.trim().chars().take(500).collect::<String>();
-        Err(format!(
-            "powershell exit {}, lnk exists {}: {stderr}",
-            output.status,
-            lnk.exists()
-        ))
+    // A debug build must not repoint the installed app's shortcut at target\debug.
+    if cfg!(debug_assertions) && lnk.exists() {
+        return Ok(());
     }
+    if let Some(dir) = lnk.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    }
+    shell::write_shortcut(
+        &lnk,
+        &exe,
+        crate::consts::TOAST_AUMID,
+        crate::consts::TOAST_ACTIVATOR_CLSID,
+        crate::consts::TOAST_DISPLAY_NAME,
+    )?;
+    set_shortcut_stamp(&stamp);
+    Ok(())
+}
+
+/// Versions up to 0.7.0 created a second Start Menu entry, `HomeOS.lnk`, and
+/// recorded that with a "2|..." stamp. Removed only when that stamp proves
+/// Deskmate wrote it.
+#[cfg(windows)]
+fn remove_legacy_shortcut() {
+    if !shortcut_stamp().is_some_and(|stamp| stamp.starts_with("2|")) {
+        return;
+    }
+    if let Some(dir) = start_menu_programs("APPDATA") {
+        let legacy = dir.join("HomeOS.lnk");
+        if legacy.exists() {
+            match std::fs::remove_file(&legacy) {
+                Ok(()) => log::info!("removed the old HomeOS Start Menu shortcut"),
+                Err(e) => log::warn!("cannot remove the old HomeOS shortcut: {e}"),
+            }
+        }
+    }
+    set_shortcut_stamp("");
 }
 
 /// Identifiers baked into the Start Menu shortcut the last time it was written.
@@ -326,113 +338,81 @@ fn set_shortcut_stamp(stamp: &str) {
     }
 }
 
-/// C# (IShellLink+IPropertyStore) that creates the shortcut with the AUMID and the
-/// toast activator CLSID. The $Exe/$Lnk/$Aumid/$Name/$Clsid variables come from the
-/// header prepended before this block.
+/// Shell link through COM, in process (IShellLinkW + IPropertyStore).
 #[cfg(windows)]
-const SHORTCUT_PS: &str = r#"
-$ErrorActionPreference='Stop'
-$code=@"
-using System;
-using System.Runtime.InteropServices;
-namespace ShLnk {
-  [ComImport, Guid("00021401-0000-0000-C000-000000000046")] internal class CShellLink {}
-  [ComImport, InterfaceType(ComInterfaceType.InterfaceIsIUnknown), Guid("000214F9-0000-0000-C000-000000000046")]
-  internal interface IShellLinkW {
-    void GetPath([MarshalAs(UnmanagedType.LPWStr)] System.Text.StringBuilder f, int c, IntPtr d, uint fl);
-    void GetIDList(out IntPtr ppidl);
-    void SetIDList(IntPtr pidl);
-    void GetDescription([MarshalAs(UnmanagedType.LPWStr)] System.Text.StringBuilder n, int c);
-    void SetDescription([MarshalAs(UnmanagedType.LPWStr)] string n);
-    void GetWorkingDirectory([MarshalAs(UnmanagedType.LPWStr)] System.Text.StringBuilder d, int c);
-    void SetWorkingDirectory([MarshalAs(UnmanagedType.LPWStr)] string d);
-    void GetArguments([MarshalAs(UnmanagedType.LPWStr)] System.Text.StringBuilder a, int c);
-    void SetArguments([MarshalAs(UnmanagedType.LPWStr)] string a);
-    void GetHotkey(out short w);
-    void SetHotkey(short w);
-    void GetShowCmd(out int i);
-    void SetShowCmd(int i);
-    void GetIconLocation([MarshalAs(UnmanagedType.LPWStr)] System.Text.StringBuilder p, int c, out int i);
-    void SetIconLocation([MarshalAs(UnmanagedType.LPWStr)] string p, int i);
-    void SetRelativePath([MarshalAs(UnmanagedType.LPWStr)] string p, uint r);
-    void Resolve(IntPtr h, uint fl);
-    void SetPath([MarshalAs(UnmanagedType.LPWStr)] string f);
-  }
-  [StructLayout(LayoutKind.Sequential)] internal struct PROPERTYKEY { public Guid fmtid; public uint pid; }
-  [StructLayout(LayoutKind.Explicit)] internal struct PROPVARIANT {
-    [FieldOffset(0)] public ushort vt;
-    [FieldOffset(8)] public IntPtr p;
-  }
-  [ComImport, InterfaceType(ComInterfaceType.InterfaceIsIUnknown), Guid("886d8eeb-8cf2-4446-8d02-cdba1dbdcf99")]
-  internal interface IPropertyStore {
-    void GetCount(out uint c);
-    void GetAt(uint i, out PROPERTYKEY k);
-    void GetValue(ref PROPERTYKEY k, out PROPVARIANT pv);
-    void SetValue(ref PROPERTYKEY k, ref PROPVARIANT pv);
-    void Commit();
-  }
-  [ComImport, InterfaceType(ComInterfaceType.InterfaceIsIUnknown), Guid("0000010b-0000-0000-C000-000000000046")]
-  internal interface IPersistFile {
-    void GetClassID(out Guid c);
-    [PreserveSig] int IsDirty();
-    void Load([MarshalAs(UnmanagedType.LPWStr)] string f, int m);
-    void Save([MarshalAs(UnmanagedType.LPWStr)] string f, [MarshalAs(UnmanagedType.Bool)] bool remember);
-    void SaveCompleted([MarshalAs(UnmanagedType.LPWStr)] string f);
-    void GetCurFile([MarshalAs(UnmanagedType.LPWStr)] out string f);
-  }
-  internal static class Native {
-    [DllImport("ole32.dll")] public static extern int PropVariantClear(ref PROPVARIANT pv);
-    [DllImport("shlwapi.dll", CharSet=CharSet.Unicode)] public static extern int SHStrDupW(string psz, out IntPtr ppwsz);
-  }
-  public static class Creator {
-    public static void Create(string exe, string lnk, string aumid, string name, string clsid) {
-      IShellLinkW link = (IShellLinkW)new CShellLink();
-      link.SetPath(exe);
-      link.SetDescription(name);
-      string wd = System.IO.Path.GetDirectoryName(exe);
-      if (wd != null) link.SetWorkingDirectory(wd);
-      link.SetIconLocation(exe, 0);
-      IPropertyStore store = (IPropertyStore)link;
-      Guid fmtid = new Guid("9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3");
+mod shell {
+    use std::path::Path;
+    use windows::core::{Interface, GUID, HSTRING};
+    use windows::Win32::Foundation::PROPERTYKEY;
+    use windows::Win32::System::Com::StructuredStorage::{
+        InitPropVariantFromCLSID, PropVariantClear, PROPVARIANT,
+    };
+    use windows::Win32::System::Com::{
+        CoCreateInstance, CoInitializeEx, CoUninitialize, IPersistFile, CLSCTX_INPROC_SERVER,
+        COINIT_APARTMENTTHREADED,
+    };
+    use windows::Win32::System::Variant::VT_LPWSTR;
+    use windows::Win32::UI::Shell::PropertiesSystem::IPropertyStore;
+    use windows::Win32::UI::Shell::{IShellLinkW, SHStrDupW, ShellLink};
 
-      // System.AppUserModel.ID - ties the shortcut to the AUMID used for toasts.
-      PROPERTYKEY key = new PROPERTYKEY();
-      key.fmtid = fmtid;
-      key.pid = 5;
-      PROPVARIANT pv = new PROPVARIANT();
-      IntPtr strPtr;
-      int hr = Native.SHStrDupW(aumid, out strPtr);
-      if (hr != 0) { throw new System.Runtime.InteropServices.COMException("SHStrDupW failed", hr); }
-      pv.vt = 31; // VT_LPWSTR
-      pv.p = strPtr;
-      store.SetValue(ref key, ref pv);
-      Native.PropVariantClear(ref pv);
+    const APP_MODEL: GUID = GUID::from_u128(0x9f4c2855_9f79_4b39_a8d0_e1d42de1d5f3);
+    /// System.AppUserModel.ID - ties the shortcut to the AUMID used for toasts.
+    const PKEY_APP_USER_MODEL_ID: PROPERTYKEY = PROPERTYKEY { fmtid: APP_MODEL, pid: 5 };
+    /// System.AppUserModel.ToastActivatorCLSID - without it Windows drops the
+    /// action buttons of an unpackaged app's toast.
+    const PKEY_TOAST_ACTIVATOR: PROPERTYKEY = PROPERTYKEY { fmtid: APP_MODEL, pid: 26 };
 
-      // System.AppUserModel.ToastActivatorCLSID - required before Windows will
-      // render action buttons for an unpackaged app. VT_CLSID points at a GUID.
-      PROPERTYKEY actKey = new PROPERTYKEY();
-      actKey.fmtid = fmtid;
-      actKey.pid = 26;
-      PROPVARIANT actPv = new PROPVARIANT();
-      IntPtr guidPtr = Marshal.AllocCoTaskMem(16);
-      Marshal.StructureToPtr(new Guid(clsid), guidPtr, false);
-      actPv.vt = 72; // VT_CLSID
-      actPv.p = guidPtr;
-      store.SetValue(ref actKey, ref actPv);
-      Native.PropVariantClear(ref actPv);
+    pub fn write_shortcut(
+        lnk: &Path,
+        exe: &Path,
+        aumid: &str,
+        activator: &str,
+        description: &str,
+    ) -> Result<(), String> {
+        let clsid = GUID::try_from(activator.trim_matches(|c| c == '{' || c == '}'))
+            .map_err(|e| e.to_string())?;
+        let lnk = HSTRING::from(lnk.as_os_str());
+        let target = HSTRING::from(exe.as_os_str());
+        let work_dir = exe.parent().map(|dir| HSTRING::from(dir.as_os_str()));
+        let aumid = HSTRING::from(aumid);
+        let description = HSTRING::from(description);
+        // Own thread and apartment: the caller may be a Tokio worker or the
+        // UI thread, and neither should have its COM state changed.
+        std::thread::spawn(move || unsafe {
+            let init = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
+            let result = (|| -> windows::core::Result<()> {
+                let link: IShellLinkW = CoCreateInstance(&ShellLink, None, CLSCTX_INPROC_SERVER)?;
+                link.SetPath(&target)?;
+                if let Some(dir) = &work_dir {
+                    link.SetWorkingDirectory(dir)?;
+                }
+                link.SetIconLocation(&target, 0)?;
+                link.SetDescription(&description)?;
 
-      store.Commit();
-      IPersistFile pf = (IPersistFile)link;
-      pf.Save(lnk, true);
+                let store: IPropertyStore = link.cast()?;
+                let mut id = PROPVARIANT::default();
+                (*id.Anonymous.Anonymous).vt = VT_LPWSTR;
+                (*id.Anonymous.Anonymous).Anonymous.pwszVal = SHStrDupW(&aumid)?;
+                let set_id = store.SetValue(&PKEY_APP_USER_MODEL_ID, &id);
+                let _ = PropVariantClear(&mut id);
+                set_id?;
+                let mut activator = InitPropVariantFromCLSID(&clsid)?;
+                let set_activator = store.SetValue(&PKEY_TOAST_ACTIVATOR, &activator);
+                let _ = PropVariantClear(&mut activator);
+                set_activator?;
+                store.Commit()?;
+
+                link.cast::<IPersistFile>()?.Save(&lnk, true)
+            })();
+            if init.is_ok() {
+                CoUninitialize();
+            }
+            result.map_err(|e| e.to_string())
+        })
+        .join()
+        .map_err(|_| "shortcut thread panicked".to_string())?
     }
-  }
 }
-"@
-Add-Type -TypeDefinition $code -Language CSharp | Out-Null
-$dir = Split-Path $Lnk -Parent
-if (!(Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
-[ShLnk.Creator]::Create($Exe, $Lnk, $Aumid, $Name, $Clsid)
-"#;
 
 #[cfg(windows)]
 fn xml_escape(s: &str) -> String {
@@ -546,20 +526,11 @@ pub fn register_protocol() {
 #[cfg(not(windows))]
 pub fn register_protocol() {}
 
-/// Fallback: show the toast through a FRESH PowerShell process (a clean WinRT
-/// environment). Used when the in-process `.show()` fails - typically a bad
-/// COM/WinRT apartment in the unpackaged Tauri process's thread. PowerShell.exe
-/// has a registered AUMID, so the toast always renders. Action buttons are built
-/// here via protocol activation (`deskmate:action?name=...`, see pct_encode above)
-/// so they route back into the running app through the single-instance handoff -
-/// but as of 2026-07, they still don't render on Kuba's machine even though the
-/// toast itself shows correctly with the right branding. Root cause not yet found.
+/// Toast XML. Buttons use protocol activation: a click launches
+/// `deskmate:action?name=...&t=...`, single-instance hands the URL to the
+/// running app, and the app only accepts tokens it put on a toast itself.
 #[cfg(windows)]
-fn show_toast_powershell(p: &NotifyPayload, img: Option<&std::path::Path>) -> Result<(), String> {
-    use std::os::windows::process::CommandExt;
-    use tauri_winrt_notification::Toast;
-    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-
+fn toast_xml(p: &NotifyPayload, img: Option<&std::path::Path>) -> String {
     let image_xml = match img {
         Some(path) => format!(
             "<image placement=\"appLogoOverride\" src=\"{}\"/>",
@@ -567,117 +538,69 @@ fn show_toast_powershell(p: &NotifyPayload, img: Option<&std::path::Path>) -> Re
         ),
         None => String::new(),
     };
-    // action buttons: activationType="protocol" -> a click launches deskmate:action?name=...
-    // (works even though the PS process is already gone; single-instance hands the URL to the app)
-    let actions_xml = if p.actions.is_empty() {
-        String::new()
-    } else {
-        let mut s = String::from("<actions>");
-        for a in &p.actions {
-            if a.title.is_empty() || a.action.is_empty() {
-                continue;
-            }
-            s.push_str(&format!(
-                "<action content=\"{}\" arguments=\"{}\" activationType=\"protocol\"/>",
-                xml_escape(&a.title),
-                xml_escape(&format!(
-                    "{}:action?name={}&t={}",
-                    crate::consts::PROTOCOL_SCHEME,
-                    pct_encode(&a.action),
-                    issue_action_token(&a.action),
-                )),
-            ));
+    let mut actions_xml = String::new();
+    for a in &p.actions {
+        if a.title.is_empty() || a.action.is_empty() {
+            continue;
         }
-        s.push_str("</actions>");
-        s
-    };
-    // source label: if branding succeeded -> our own AUMID (toast shows "HomeOS"),
-    // otherwise the PowerShell AUMID (always visible, shows "Windows PowerShell").
-    let aumid = if BRANDED.load(Ordering::Relaxed) {
-        crate::consts::TOAST_AUMID.to_string()
-    } else {
-        Toast::POWERSHELL_APP_ID.to_string()
-    };
-    // The toast XML sits inside single quotes ($x.LoadXml('...')); title/message
-    // escape ' -> &apos;, attributes use ", so nothing breaks inside the PS '...' string.
-    let toast_xml = format!(
+        actions_xml.push_str(&format!(
+            "<action content=\"{}\" arguments=\"{}\" activationType=\"protocol\"/>",
+            xml_escape(&a.title),
+            xml_escape(&format!(
+                "{}:action?name={}&t={}",
+                crate::consts::PROTOCOL_SCHEME,
+                pct_encode(&a.action),
+                issue_action_token(&a.action),
+            )),
+        ));
+    }
+    if !actions_xml.is_empty() {
+        actions_xml = format!("<actions>{actions_xml}</actions>");
+    }
+    format!(
         "<toast><visual><binding template=\"ToastGeneric\"><text>{}</text><text>{}</text>{}</binding></visual>{}</toast>",
         xml_escape(&p.title),
         xml_escape(&p.message),
         image_xml,
         actions_xml
-    );
-    let script = format!(
-        "$ErrorActionPreference='Stop';\
-         $null=[Windows.UI.Notifications.ToastNotificationManager,Windows.UI.Notifications,ContentType=WindowsRuntime];\
-         $null=[Windows.Data.Xml.Dom.XmlDocument,Windows.Data.Xml.Dom.XmlDocument,ContentType=WindowsRuntime];\
-         $x=New-Object Windows.Data.Xml.Dom.XmlDocument;\
-         $x.LoadXml('{toast_xml}');\
-         $t=New-Object Windows.UI.Notifications.ToastNotification $x;\
-         [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('{aumid}').Show($t);",
-        toast_xml = toast_xml,
-        aumid = aumid
-    );
-    let status = std::process::Command::new("powershell")
-        .args(["-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-Command", &script])
-        .creation_flags(CREATE_NO_WINDOW)
-        .status()
-        .map_err(|e| e.to_string())?;
-    if status.success() {
-        Ok(())
-    } else {
-        Err(format!("powershell exited with {status}"))
-    }
+    )
 }
 
+/// AUMID of Windows PowerShell. Only used as the toast's source label when
+/// branding is off or failed; no PowerShell process is ever started for it.
 #[cfg(windows)]
-pub fn show_toast(p: &NotifyPayload, action_tx: Option<tokio::sync::mpsc::UnboundedSender<String>>) -> Result<(), String> {
-    use tauri_winrt_notification::Toast;
+const POWERSHELL_AUMID: &str =
+    "{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\\WindowsPowerShell\\v1.0\\powershell.exe";
+
+/// Shows the toast through WinRT in this process. windows-rs joins the
+/// process-wide multithreaded apartment on its own when the calling thread has
+/// no COM apartment yet.
+#[cfg(windows)]
+pub fn show_toast(p: &NotifyPayload) -> Result<(), String> {
+    use windows::core::HSTRING;
+    use windows::Data::Xml::Dom::XmlDocument;
+    use windows::UI::Notifications::{ToastNotification, ToastNotificationManager};
+
     let aumid = if BRANDED.load(Ordering::Relaxed) {
         crate::consts::TOAST_AUMID
     } else {
-        Toast::POWERSHELL_APP_ID
+        POWERSHELL_AUMID
     };
     let img = p.image.as_deref().and_then(fetch_image);
-
-    // tauri-winrt-notification 0.8 builds each <action> element, sets its
-    // attributes and then never appends it to <actions>, so a toast sent through
-    // the crate arrives with an empty actions list and Windows renders no
-    // buttons. Our own XML is correct and verified, so anything with buttons
-    // takes that path directly instead.
     if let Some(path) = &img {
         schedule_image_removal(path.clone());
     }
-    if !p.actions.is_empty() {
-        return show_toast_powershell(p, img.as_deref());
-    }
-
-    let mut toast = Toast::new(aumid).title(&p.title).text1(&p.message);
-    if let Some(path) = &img {
-        toast = toast.image(path, "");
-    }
-    if let Some(tx) = action_tx {
-        toast = toast.on_activated(move |arg| {
-            if let Some(a) = arg {
-                if !a.is_empty() {
-                    let _ = tx.send(a);
-                }
-            }
-            Ok(())
-        });
-    }
-    // In-process WinRT can be unreliable in an unpackaged process (COM apartment
-    // issues). If it fails, a fresh PowerShell process renders the toast instead.
-    match toast.show().map_err(|e| e.to_string()) {
-        Ok(()) => Ok(()),
-        Err(winrt_err) => match show_toast_powershell(p, img.as_deref()) {
-            Ok(()) => Ok(()),
-            Err(ps_err) => Err(format!("winrt: {winrt_err} | powershell: {ps_err}")),
-        },
-    }
+    let xml = toast_xml(p, img.as_deref());
+    let show = || -> windows::core::Result<()> {
+        let doc = XmlDocument::new()?;
+        doc.LoadXml(&HSTRING::from(xml.as_str()))?;
+        let toast = ToastNotification::CreateToastNotification(&doc)?;
+        ToastNotificationManager::CreateToastNotifierWithId(&HSTRING::from(aumid))?.Show(&toast)
+    };
+    show().map_err(|e| format!("toast: {e}"))
 }
 
 #[cfg(not(windows))]
-pub fn show_toast(_p: &NotifyPayload, _action_tx: Option<tokio::sync::mpsc::UnboundedSender<String>>) -> Result<(), String> {
+pub fn show_toast(_p: &NotifyPayload) -> Result<(), String> {
     Err("windows only".into())
 }

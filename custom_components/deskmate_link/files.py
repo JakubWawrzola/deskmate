@@ -33,6 +33,7 @@ from homeassistant.components import frontend, panel_custom
 from homeassistant.components.http import HomeAssistantView, StaticPathConfig
 from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse
 from homeassistant.exceptions import HomeAssistantError, Unauthorized
+from homeassistant.helpers import device_registry as dr
 import homeassistant.helpers.config_validation as cv
 
 from .const import (
@@ -42,7 +43,6 @@ from .const import (
     FILES_PANEL_ICON,
     FILES_PANEL_TITLE,
     FILES_PANEL_URL,
-    FILES_PANEL_VERSION,
     FILES_STATIC_URL,
     FILES_UPLOAD_IDLE_S,
     SERVICE_FETCH_FILE,
@@ -87,10 +87,21 @@ def _device_name(hub) -> str:
 # ── rejestracja ─────────────────────────────────────────────────
 
 
+def _panel_version() -> str:
+    """Skrot pliku panelu w URL modulu: przegladarka bierze nowy JS po kazdej
+    zmianie, bez recznego podbijania wersji."""
+    js = Path(__file__).parent / "frontend" / f"{PANEL_COMPONENT}.js"
+    return hashlib.sha256(js.read_bytes()).hexdigest()[:12]
+
+
 async def async_setup_files(hass: HomeAssistant) -> None:
     """Widoki HTTP i pliki statyczne raz na uruchomienie HA, panel gdy trzeba."""
     data = _data(hass)
+    # Flagi ustawiane PRZED pierwszym await: kilka wpisow startuje rownolegle
+    # i drugi, ktory wszedl tu w trakcie await pierwszego, rejestrowal panel
+    # jeszcze raz ("Overwriting panel deskmate-files").
     if not data.get("files_http"):
+        data["files_http"] = True
         hass.http.register_view(FilesDevicesView())
         hass.http.register_view(FilesActionView())
         await hass.http.async_register_static_paths(
@@ -102,19 +113,23 @@ async def async_setup_files(hass: HomeAssistant) -> None:
                 )
             ]
         )
-        data["files_http"] = True
     if not data.get("files_panel"):
-        await panel_custom.async_register_panel(
-            hass,
-            webcomponent_name=PANEL_COMPONENT,
-            frontend_url_path=FILES_PANEL_URL,
-            module_url=f"{FILES_STATIC_URL}/{PANEL_COMPONENT}.js?v={FILES_PANEL_VERSION}",
-            sidebar_title=FILES_PANEL_TITLE,
-            sidebar_icon=FILES_PANEL_ICON,
-            require_admin=True,
-            config={},
-        )
         data["files_panel"] = True
+        try:
+            version = await hass.async_add_executor_job(_panel_version)
+            await panel_custom.async_register_panel(
+                hass,
+                webcomponent_name=PANEL_COMPONENT,
+                frontend_url_path=FILES_PANEL_URL,
+                module_url=f"{FILES_STATIC_URL}/{PANEL_COMPONENT}.js?v={version}",
+                sidebar_title=FILES_PANEL_TITLE,
+                sidebar_icon=FILES_PANEL_ICON,
+                require_admin=True,
+                config={},
+            )
+        except Exception:
+            data["files_panel"] = False
+            raise
     _register_services(hass)
 
 
@@ -181,7 +196,7 @@ async def _send_chunks(hub, token: str, offset: int, data: bytes, sha) -> int:
 
 
 class FilesDevicesView(HomeAssistantView):
-    """Lista komputerow, z ktorymi mozna wymieniac pliki."""
+    """Sparowane komputery: do wymiany plikow i zakladki Computers w panelu."""
 
     url = "/api/deskmate_link/files"
     name = "api:deskmate_link:files"
@@ -191,16 +206,24 @@ class FilesDevicesView(HomeAssistantView):
         if (denied := _admin_error(request)) is not None:
             return denied
         hass: HomeAssistant = request.app["hass"]
-        devices = [
-            {
-                "entry_id": entry_id,
-                "name": _device_name(hub),
-                "node_id": hub.node_id,
-                "connected": hub.available,
-            }
-            for entry_id, hub in _hubs(hass).items()
-            if hub.node_id
-        ]
+        dev_reg = dr.async_get(hass)
+        devices = []
+        for entry_id, hub in _hubs(hass).items():
+            if not hub.node_id:
+                continue
+            device = dev_reg.async_get_device(identifiers={(DOMAIN, hub.node_id)})
+            devices.append(
+                {
+                    "entry_id": entry_id,
+                    "name": _device_name(hub),
+                    "node_id": hub.node_id,
+                    "connected": hub.available,
+                    "device_id": device.id if device else None,
+                    "sw_version": (hub.device_info or {}).get("sw_version"),
+                    "protocol": hub.min_version,
+                    "cascade": hub.cascade_enabled,
+                }
+            )
         return self.json(devices)
 
 

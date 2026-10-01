@@ -14,7 +14,8 @@ pub const HA_TOKEN_KEYRING_SERVICE: &str = "Deskmate HA Token";
 /// Toast AUMID: in release builds NSIS registers the identifier from tauri.conf.json
 pub const TOAST_AUMID: &str = "com.deskmate.desktop";
 /// Toast source label shown in the notification corner (branding)
-pub const TOAST_DISPLAY_NAME: &str = "HomeOS";
+/// and the name of the Start Menu shortcut (the installer uses the same one).
+pub const TOAST_DISPLAY_NAME: &str = "Deskmate";
 /// MQTT topic prefix (base = "<prefix>/<node_id>")
 pub const TOPIC_PREFIX: &str = "deskmate";
 /// HA discovery prefix (standard)

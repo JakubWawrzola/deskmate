@@ -279,7 +279,7 @@ the Mark-of-the-Web applied so Windows treats received files like downloads.
 In *Ask on this computer* mode a person accepts each file; the dialog is not
 shown while Windows is locked.
 
-The Home Assistant side (the Deskmate Files page, its HTTP API and the
+The Home Assistant side (the Deskmate sidebar page, its HTTP API and the
 `send_file` / `fetch_file` services) is limited to administrators. Services
 called from automations have no user and are allowed; they can only touch Home
 Assistant paths in `allowlist_external_dirs`. A compromised Home Assistant
@@ -287,6 +287,39 @@ administrator account can therefore place files in the inbox (in automatic
 mode without anyone noticing) and read the shared folders. Keep the inbox in
 *Ask* mode if other people administer your Home Assistant, and do not share
 folders that contain secrets.
+
+## Several Windows users on one computer
+
+*Reconfigure → Pair another Windows user* in Home Assistant shows a code with
+the computer's existing pairing key, its node id and, when enabled, the cascade
+key. Each Windows account keeps its own copy in its own Credential Manager.
+Anyone who can paste that code into Deskmate can act as this computer towards
+Home Assistant, exactly like with the original code, so it belongs only on
+accounts of that computer. Revoking is all or nothing: a new pairing key cuts
+off every account until the new code is pasted again.
+
+The accounts agree on who connects through two named kernel objects in the
+Windows `Global\` namespace (`Deskmate.Seat.<node>` and
+`Deskmate.Seat.<node>.waiting`). They carry no data. Another local program
+could create them to keep Deskmate from connecting, which is a local denial of
+service only; such a program could just as well stop the app.
+
+## Update check
+
+Once a day, and when *Check now* is pressed, the app sends one HTTPS request to
+`api.github.com` for the latest Deskmate release, with a `Deskmate/<version>`
+user agent and no other data. Only the version number is taken from the answer;
+the link the app opens is built locally. Nothing is downloaded or installed.
+Settings → Updates turns it off.
+
+## Notifications without helper processes
+
+Up to 0.7.0 the Start Menu shortcut that gives notifications their Deskmate
+label was created by PowerShell compiling C# through `Add-Type`, started with
+`-EncodedCommand`, and notifications with buttons were shown through another
+PowerShell process. Antivirus heuristics flagged that pattern (GitHub issue
+#2). Both now happen inside the app through COM and WinRT; Deskmate starts
+PowerShell only for custom commands the user created.
 
 ## REST channel
 

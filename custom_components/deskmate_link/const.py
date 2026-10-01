@@ -65,9 +65,10 @@ SERVICE_FETCH_FILE = "fetch_file"
 
 # Deskmate Files (strona w pasku bocznym + API HTTP)
 FILES_PANEL_URL = "deskmate-files"
-FILES_PANEL_TITLE = "Deskmate Files"
-FILES_PANEL_ICON = "mdi:folder-swap"
-FILES_PANEL_VERSION = "0.7.0"
+# Strona w sidebarze: pliki + lista komputerow. URL zostaje "deskmate-files",
+# zeby nie gubic kolejnosci/ukrycia w sidebarze ustawionych przez uzytkownikow.
+FILES_PANEL_TITLE = "Deskmate"
+FILES_PANEL_ICON = "mdi:monitor-share"
 FILES_STATIC_URL = "/deskmate_link_static"
 FILES_LINK_CHUNK = 256 * 1024  # jedna ramka Link (limit po stronie komputera)
 FILES_HTTP_CHUNK = 8 * 1024 * 1024  # jedno zadanie HTTP z przegladarki

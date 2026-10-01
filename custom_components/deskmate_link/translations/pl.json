@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Sparuj urzadzenie Deskmate",
-        "description": "Home Assistant wygeneruje kod parowania. Wklej go w Deskmate (ekran pierwszego uruchomienia albo Ustawienia -> Deskmate Link) na komputerze, ktory chcesz sparowac. Kod zawiera klucz i adres tego Home Assistanta, wiec nic wiecej nie trzeba wpisywac. Wpis przypnie sie do pierwszego komputera, ktory sie nim uwierzytelni.\n\nJesli jakis wpis juz czeka na parowanie, pokaze sie jego kod zamiast tworzenia kolejnego."
+        "description": "Home Assistant wygeneruje kod parowania. Wklej go w Deskmate (ekran pierwszego uruchomienia albo Ustawienia -> Deskmate integration) na komputerze, ktory chcesz sparowac. Kod zawiera klucz i adres tego Home Assistanta, wiec nic wiecej nie trzeba wpisywac. Wpis przypnie sie do pierwszego komputera, ktory sie nim uwierzytelni.\n\nJesli jakis wpis juz czeka na parowanie, pokaze sie jego kod zamiast tworzenia kolejnego."
       },
       "show_key": {
         "title": "Kod parowania",
@@ -24,9 +24,14 @@
       "cascade_off": {
         "title": "Wylacz szyfrowanie kaskadowe",
         "description": "Ruch wraca do pojedynczej warstwy AES-256-GCM. Wylacz ja takze w Deskmate, inaczej ten komputer sie nie polaczy."
+      },
+      "add_user": {
+        "title": "Sparuj kolejnego uzytkownika Windows",
+        "description": "Dla komputera, z ktorego kilka osob korzysta na wlasnych kontach Windows. Zainstaluj Deskmate na drugim koncie i wklej tam ten kod:\n\n`{code}`\n\nTo konto bedzie raportowac jako `{node_id}`: to samo urzadzenie, te same encje. Polaczone jest zawsze tylko jedno konto, to, przy ktorym ktos wlasnie siedzi; po przelaczeniu uzytkownika polaczenie przechodzi na nowe konto.\n\nKod zawiera klucz parowania tego komputera. Nie udostepniaj go poza tym komputerem. Zeby odciac wszystkie konta naraz, wygeneruj nowy klucz parowania."
       }
     },
     "menu_options": {
+      "add_user": "Sparuj kolejnego uzytkownika Windows na tym komputerze",
       "new_key": "Wygeneruj nowy klucz parowania",
       "unbind": "Odepnij od obecnego komputera",
       "cascade_on": "Wlacz szyfrowanie kaskadowe (druga warstwa)",
@@ -35,13 +40,14 @@
     "abort": {
       "already_configured": "Ten node jest juz sparowany.",
       "reconfigure_successful": "Gotowe.",
-      "pending_reused": "Jeden wpis juz czeka na parowanie. Pokazano ponownie jego kod - nic nowego nie powstalo."
+      "pending_reused": "Jeden wpis juz czeka na parowanie. Pokazano ponownie jego kod - nic nowego nie powstalo.",
+      "add_user_done": "Gotowe. Wklej kod w Deskmate na drugim koncie Windows."
     }
   },
   "issues": {
     "unknown_node": {
       "title": "Deskmate: niesparowany komputer probuje sie polaczyc",
-      "description": "Komputer przedstawiajacy sie jako `{node}` ({ip}) nie przechodzi handshake'u Deskmate Link. Zaden sparowany wpis nie ma takiej nazwy albo klucz parowania jest inny.\n\nAlbo sparuj go (Dodaj integracje -> Deskmate Link, potem wklej klucz w Deskmate), albo - jesli ma korzystac z istniejacego wpisu - otworz ten wpis, wybierz Skonfiguruj ponownie -> Odepnij od obecnego komputera i pozwol mu sie przypiac."
+      "description": "Komputer przedstawiajacy sie jako `{node}` ({ip}) nie przechodzi handshake'u Deskmate. Zaden sparowany wpis nie ma takiej nazwy albo klucz parowania jest inny.\n\nAlbo sparuj go (Dodaj integracje -> Deskmate, potem wklej klucz w Deskmate), albo - jesli ma korzystac z istniejacego wpisu - otworz ten wpis, wybierz Skonfiguruj ponownie -> Odepnij od obecnego komputera i pozwol mu sie przypiac."
     }
   }
 }

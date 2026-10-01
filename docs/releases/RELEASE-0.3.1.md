@@ -34,7 +34,7 @@ only the capabilities you need.
 
 For the threat model, exact Mosquitto TLS/ACL setup, residual risks and the
 reason an application-level shared-token scheme is not a substitute for TLS,
-see [SECURITY.md](SECURITY.md).
+see [SECURITY.md](../SECURITY.md).
 
 ## Assets
 

@@ -1,6 +1,6 @@
 notify:
   name: Notify
-  description: Wysyla toast na sparowany komputer przez Deskmate Link.
+  description: Wysyla toast na sparowany komputer przez Deskmate.
   fields:
     node_id:
       name: Node ID

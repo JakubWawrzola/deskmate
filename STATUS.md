@@ -1,5 +1,35 @@
 # STATUS — Deskmate
-Aktualizacja: 2026-09-24 (0.7.0 wydane: commit, tag v0.7.0, release; PC czeka na instalacje)
+Aktualizacja: 2026-10-01 (0.7.1: poprawki z issues #2 i #3, commit + tag v0.7.1 + release)
+
+## Sesja 2026-10-01 — GitHub issues #2 (feedback CBY0) i #3 (multi-user)
+
+Stan: kod gotowy, cargo check (+ --tests) i tsc zielone, py_compile i node
+--check zielone. Nic nie zacommitowane; przeniesienia docs zrobione git mv
+(rename w indeksie). Wersje NIE podbite (CHANGELOG: Unreleased).
+
+- [x] #2 Bitdefender: zero PowerShella w powiadomieniach (notify.rs: WinRT +
+      COM), HomeOS -> Deskmate, stary HomeOS.lnk usuwany (tylko gdy stamp "2|").
+- [x] #2 okno widgetow: capabilities/widget.json (start-dragging, hide).
+- [x] #2 Toggle czarny: knob bez left-0 -> poza pigulka w niektorych WebView2.
+- [x] #2 okno pod innymi oknami: actions::show_main_window (+ ponowne
+      uruchomienie z Start pokazuje okno).
+- [x] #2 aktualizacje: updates.rs (GitHub releases/latest raz dziennie, tray,
+      Status, toast raz na wersje, Settings -> Updates).
+- [x] #2 nazwa: integracja "Deskmate" (manifest, hacs.json, teksty), w apce
+      "Deskmate integration"; ikona brand/ (HA 2026.3+); panel "Deskmate" z
+      zakladkami Files / Computers.
+- [x] #2 dokumentacja: docs/GUIDE.md, nowy README, docs/releases/, docs/dev/.
+- [x] #3 seat.rs + wpiecie w Link i MQTT; HA Reconfigure -> Pair another
+      Windows user (kod z node i kluczem kaskady). NSIS installMode both
+      wycofany: wymuszal UAC przy kazdej instalacji/aktualizacji; zostaje
+      per-user, kazde konto instaluje samo.
+- [x] Wersja 0.7.1 (Kuba): commit, tag v0.7.1, GitHub Release z instalatorami,
+      odpowiedzi na issues #2 i #3. Integracja 0.7.1 wgrana na Pi (backup 0.7.0
+      w scratchpadzie sesji), ARM64 0.7.1 zainstalowany na laptopie.
+- [x] Poprawka po deployu: wyscig rejestracji panelu przy dwoch wpisach
+      ("Overwriting panel deskmate-files") - flagi przed await w files.py.
+- [ ] Testy reczne Kuby (lista w raporcie sesji), instalacja 0.7.1 na PC x64.
+
 
 ## Sesja 2026-09-24 — 0.7.0: Link Files v2 (PLAN, odhaczane na biezaco)
 

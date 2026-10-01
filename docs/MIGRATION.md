@@ -55,9 +55,9 @@ trigger on either.
 
 1. Install the integration and pair, as described in the README. Do not change
    anything in Deskmate yet.
-2. In Deskmate, open *Settings*, switch the transport to **Deskmate Link**,
+2. In Deskmate, open *Settings*, switch the transport to **Deskmate integration**,
    enter the WebSocket address and paste the pairing key, then save.
-3. Check the Status page for `Connected (Link)`.
+3. Check the Status page for `Connected to Home Assistant`.
 4. Replace the `mqtt.publish` calls and MQTT device triggers listed above.
 5. Once you are satisfied, delete the old MQTT device in Home Assistant under
    *Settings → Devices & services → MQTT*. Deskmate removes its retained

@@ -1,7 +1,7 @@
 {
   "domain": "deskmate_link",
-  "name": "Deskmate Link",
-  "version": "0.7.0",
+  "name": "Deskmate",
+  "version": "0.7.1",
   "documentation": "https://github.com/JakubWawrzola/deskmate/blob/main/docs/LINK.md",
   "issue_tracker": "https://github.com/JakubWawrzola/deskmate/issues",
   "codeowners": [

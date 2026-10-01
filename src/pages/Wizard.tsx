@@ -31,6 +31,8 @@ export default function Wizard({
   const [linkKey, setLinkKey] = useState("");
   const onPairingInput = (value: string) => {
     const code = parsePairingCode(value);
+    setPairedNode(code?.node ?? null);
+    setPairedCascade(code?.cascadeKey ?? null);
     if (!code) {
       setLinkKey(value);
       return;
@@ -39,6 +41,8 @@ export default function Wizard({
     if (code.url) setLinkUrl(code.url);
     setLinkUrlRemote(code.urlRemote ?? "");
   };
+  const [pairedNode, setPairedNode] = useState<string | null>(null);
+  const [pairedCascade, setPairedCascade] = useState<string | null>(null);
   const [deviceName, setDeviceName] = useState(config.device_name);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,7 +58,7 @@ export default function Wizard({
       return;
     }
     if (selectedTransport === "link" && !linkKey && !hasLinkKey) {
-      setError("Link pairing key is required.");
+      setError("Paste the pairing code from Home Assistant.");
       return;
     }
     setSaving(true);
@@ -70,11 +74,15 @@ export default function Wizard({
           username: username.trim(),
           link_url: linkUrl.trim(),
           link_url_remote: linkUrlRemote.trim(),
+          // A code for another Windows account joins the computer it was made for.
+          node_id: pairedNode ?? config.node_id,
+          link_cascade: pairedCascade ? true : config.link_cascade,
           device_name: deviceName.trim() || config.device_name,
           configured: true,
         },
         password || undefined,
         linkKey || undefined,
+        pairedCascade ?? undefined,
       );
       await onDone();
     } catch (e) {
@@ -90,7 +98,7 @@ export default function Wizard({
         <p className="font-semibold tracking-[0.14em] text-[13px] mb-1">DESKMATE</p>
         <h1 className="text-lg font-semibold mb-1">Connect to Home Assistant</h1>
         <p className="text-[13px] text-muted mb-5 leading-relaxed">
-          Deskmate Link is the recommended way in: one pairing code from Home Assistant, no broker. MQTT stays available.
+          Add the Deskmate integration in Home Assistant and paste the pairing code it shows. No broker needed. MQTT stays available.
         </p>
 
         <div className="space-y-3">
@@ -101,13 +109,13 @@ export default function Wizard({
               onChange={(e) => setSelectedTransport(e.target.value as TransportKind)}
               className="mt-1 w-full h-9 px-2 bg-panel border border-hairline-strong rounded text-ink text-[13px] focus-visible:border-ink"
             >
-              <option value="link">Deskmate Link (recommended)</option>
-              <option value="mqtt">MQTT</option>
+              <option value="link">Deskmate integration (recommended)</option>
+              <option value="mqtt">MQTT broker</option>
             </select>
             <span className="block mt-1 text-[12px] text-muted leading-relaxed">
-              Deskmate Link is one encrypted WebSocket to Home Assistant, set up with a
-              single pairing key and no broker to install. MQTT stays supported for setups
-              that already run one.
+              The Deskmate integration is one encrypted connection to Home Assistant, set
+              up with a single pairing code and no broker to install. MQTT stays supported
+              for setups that already run one.
             </span>
           </label>
           {selectedTransport === "mqtt" && <>
@@ -154,8 +162,15 @@ export default function Wizard({
               onChange={onPairingInput}
               type="password"
               placeholder={hasLinkKey ? "unchanged (stored in Credential Manager)" : "DMP1... from Home Assistant"}
-              hint="Home Assistant: Settings > Devices & services > Add integration > Deskmate Link. The code fills in the address too."
+              hint="Home Assistant: Settings > Devices & services > Add integration > Deskmate. The code fills in the address too."
             />
+            {pairedNode && (
+              <p className="text-[12px] text-muted leading-relaxed">
+                This code is for a computer that is already paired. This Windows account will
+                join it as <span className="mono text-ink">{pairedNode}</span> and share its
+                device in Home Assistant.
+              </p>
+            )}
             <Field label="Home Assistant WebSocket URL" value={linkUrl} onChange={setLinkUrl} placeholder="ws://homeassistant.local:8123" />
             {linkUrlRemote && (
               <Field label="Fallback WebSocket URL" value={linkUrlRemote} onChange={setLinkUrlRemote} />

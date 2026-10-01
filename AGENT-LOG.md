@@ -238,3 +238,26 @@ autor: Anupam Mediratta). Dopisano notke w README, SECURITY.md i CHANGELOG
 (Unreleased). Bez nowego release'u.
 Nastepny krok: zmiana trafi do kolejnego wydania.
 
+
+## [2026-10-01] Claude — GitHub issues #2 i #3 (bez commita)
+Zrobione: #2 Bitdefender (toasty i skrot Start bez PowerShella: WinRT z wlasnego
+XML + IShellLink/IPropertyStore przez COM, usuniety tauri-winrt-notification,
+HomeOS -> Deskmate, sprzatanie HomeOS.lnk), okno widgetow (capability widget:
+start-dragging + hide), czarny Toggle (left-0), okno na wierzch
+(show_main_window + single-instance), sprawdzanie aktualizacji (updates.rs),
+integracja w HA nazywa sie "Deskmate", ikona brand/, panel "Deskmate" z
+zakladka Computers, jeden przewodnik docs/GUIDE.md, docs/releases + docs/dev,
+nowy README. #3: seat.rs (mutex Global\Deskmate.Seat.<node>, oddawanie
+polaczenia aktywnej sesji), HA Reconfigure -> Pair another Windows user (kod z
+n + c). installMode both wycofany (UAC przy kazdej instalacji), zostaje per-user.
+Dotkniete pliki: src-tauri (notify, seat, updates, lib, link, mqtt, actions,
+config, consts, Cargo.toml, tauri.conf.json, capabilities/widget.json), src
+(pairing, Wizard, SettingsPage, StatusPage, GeekyPage, WidgetPanel, components,
+api, types), custom_components/deskmate_link (config_flow, files, hub, const,
+manifest, strings, translations, panel JS, brand/), hacs.json, docs, README,
+CHANGELOG (Unreleased), HANDOFF.
+Wydanie (polecenie Kuby "zrob 7.1, zacommituj, odpowiedz"): wersja 0.7.1,
+commit bez Co-Authored-By, tag v0.7.1, GitHub Release, komentarze w #2 i #3.
+Integracja na Pi + ARM64 na laptopie. Po deployu naprawiony wyscig rejestracji
+panelu (dwa wpisy naraz). Repo HomeAssistant bez commita.
+Nastepny krok: testy reczne Kuby, instalacja 0.7.1 na PC x64.

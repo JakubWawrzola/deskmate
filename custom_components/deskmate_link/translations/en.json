@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Pair a Deskmate device",
-        "description": "Home Assistant will generate a pairing code. Paste it into Deskmate (first-run screen or Settings -> Deskmate Link) on the computer you want to pair. The code carries the key and this Home Assistant's address, so there is nothing else to type. The entry binds itself to the first computer that authenticates with it.\n\nIf an entry is already waiting for pairing, its code is shown again instead of creating another one."
+        "description": "Home Assistant will generate a pairing code. Paste it into Deskmate (first-run screen or Settings -> Deskmate integration) on the computer you want to pair. The code carries the key and this Home Assistant's address, so there is nothing else to type. The entry binds itself to the first computer that authenticates with it.\n\nIf an entry is already waiting for pairing, its code is shown again instead of creating another one."
       },
       "show_key": {
         "title": "Pairing code",
@@ -24,9 +24,14 @@
       "cascade_off": {
         "title": "Disable cascade encryption",
         "description": "Traffic goes back to a single AES-256-GCM layer. Turn it off in Deskmate as well, otherwise that computer will not reconnect."
+      },
+      "add_user": {
+        "title": "Pair another Windows user",
+        "description": "For a computer that several people use with their own Windows accounts. Install Deskmate on the other account and paste this code there:\n\n`{code}`\n\nThat account then reports as `{node_id}`: the same device, the same entities. Only one account is connected at a time, the one someone is using right now; when you switch users, the connection moves over.\n\nThe code contains this computer's pairing key. Do not share it outside this computer. To revoke every account at once, generate a new pairing key."
       }
     },
     "menu_options": {
+      "add_user": "Pair another Windows user on this computer",
       "new_key": "Generate a new pairing key",
       "unbind": "Unbind from the current computer",
       "cascade_on": "Enable cascade encryption (second layer)",
@@ -35,13 +40,14 @@
     "abort": {
       "already_configured": "This node is already paired.",
       "reconfigure_successful": "Done.",
-      "pending_reused": "An entry is already waiting for pairing. Its code was shown again - nothing new was created."
+      "pending_reused": "An entry is already waiting for pairing. Its code was shown again - nothing new was created.",
+      "add_user_done": "Done. Paste the code into Deskmate on the other Windows account."
     }
   },
   "issues": {
     "unknown_node": {
       "title": "Deskmate: an unpaired computer keeps connecting",
-      "description": "A computer calling itself `{node}` ({ip}) keeps failing the Deskmate Link handshake. No paired entry matches that name, or its pairing key is different.\n\nEither pair it (Add integration -> Deskmate Link, then paste the key into Deskmate), or - if it should use an entry that already exists - open that entry, choose Reconfigure -> Unbind from the current computer, and let it re-attach."
+      "description": "A computer calling itself `{node}` ({ip}) keeps failing the Deskmate handshake. No paired entry matches that name, or its pairing key is different.\n\nEither pair it (Add integration -> Deskmate, then paste the key into Deskmate), or - if it should use an entry that already exists - open that entry, choose Reconfigure -> Unbind from the current computer, and let it re-attach."
     }
   }
 }
