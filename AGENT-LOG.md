@@ -261,3 +261,15 @@ commit bez Co-Authored-By, tag v0.7.1, GitHub Release, komentarze w #2 i #3.
 Integracja na Pi + ARM64 na laptopie. Po deployu naprawiony wyscig rejestracji
 panelu (dwa wpisy naraz). Repo HomeAssistant bez commita.
 Nastepny krok: testy reczne Kuby, instalacja 0.7.1 na PC x64.
+
+## [2026-10-05] Claude — 0.7.2: sensory kamery i mikrofonu (issue #4)
+Przyczyna: aktualne buildy Windows 11 nie zeruja LastUsedTimeStop w
+CapabilityAccessManager\ConsentStore, gdy aplikacja nadal uzywa urzadzenia
+(to samo w HASS.Agent, PR hass-agent/HASS.Agent#476). Nowy media_activity.rs:
+mikrofon = aktywna sesja Core Audio na aktywnym urzadzeniu nagrywajacym,
+kamera = IMFSensorActivityMonitor w tle (callback przez #[implement]),
+rejestr tylko jako fallback. Sonda read-only na laptopie (26200): oba API
+odpowiadaja, monitor wysyla raporty takze bez aktywnosci. Zaleznosc
+windows-core 0.61 (juz w drzewie) + feature Win32_Media_MediaFoundation.
+Wersja 0.7.2 (bez zmian w integracji HA poza numerem).
+Kuba przetestowal i zaakceptowal: commit, push main, tag v0.7.2, release, odpowiedz w #4.

@@ -954,7 +954,7 @@ dependencies = [
 
 [[package]]
 name = "deskmate"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "aes-gcm",
  "arboard",
@@ -983,6 +983,7 @@ dependencies = [
  "ureq",
  "url",
  "windows 0.61.3",
+ "windows-core 0.61.2",
  "winreg 0.55.0",
  "x25519-dalek",
  "zeroize",

@@ -12,6 +12,7 @@ mod hotkeys;
 mod link;
 mod link_files;
 mod media;
+mod media_activity;
 mod mqtt;
 mod notify;
 mod seat;

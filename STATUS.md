@@ -1,5 +1,13 @@
 # STATUS — Deskmate
-Aktualizacja: 2026-10-01 (0.7.1: poprawki z issues #2 i #3, commit + tag v0.7.1 + release)
+Aktualizacja: 2026-10-05 (0.7.2: fix sensorow kamery/mikrofonu, issue #4)
+
+## Sesja 2026-10-05 — 0.7.2, issue #4
+
+- [x] media_activity.rs: Core Audio (mikrofon) + Media Foundation monitor (kamera), rejestr jako fallback.
+- [x] Build instalatorow 0.7.2, CHANGELOG, docs/releases/RELEASE-0.7.2.md.
+- [x] Push + tag v0.7.2 + release + odpowiedz w #4 (akceptacja Kuby 2026-10-05).
+- [x] Test na zywo: Kuba potwierdzil, ze fix dziala.
+
 
 ## Sesja 2026-10-01 — GitHub issues #2 (feedback CBY0) i #3 (multi-user)
 

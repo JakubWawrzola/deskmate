@@ -1,6 +1,6 @@
 [package]
 name = "deskmate"
-version = "0.7.1"
+version = "0.7.2"
 description = "Deskmate - a modern Windows companion for Home Assistant"
 authors = ["Jakub Wawrzola"]
 license = "MIT"
@@ -54,6 +54,10 @@ x25519-dalek = { version = "2", features = ["static_secrets", "zeroize"] }
 # Wipes pairing keys and session keys from memory when they go out of scope.
 zeroize = "1"
 
+# #[implement] (COM callback for the camera monitor) expands to windows_core paths.
+[target.'cfg(windows)'.dependencies.windows-core]
+version = "0.61"
+
 [target.'cfg(windows)'.dependencies.windows]
 version = "0.61"
 features = [
@@ -74,6 +78,8 @@ features = [
   "Win32_System_Wmi",
   "Win32_Media_Audio",
   "Win32_Media_Audio_Endpoints",
+  # camera in use: IMFSensorActivityMonitor (media_activity.rs)
+  "Win32_Media_MediaFoundation",
   "Win32_Media_Speech",
   "Win32_UI_Shell",
   "Win32_UI_Shell_PropertiesSystem",

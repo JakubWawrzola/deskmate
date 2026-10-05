@@ -3,6 +3,18 @@
 All notable changes to Deskmate are documented here. Release-specific upgrade
 notes and asset names are available in `docs/releases/RELEASE-*.md`.
 
+## 0.7.2 - 2026-10-05
+
+### Fixed
+
+- **Camera in use** and **Microphone in use** stayed off on current Windows 11
+  builds (#4). Deskmate read `CapabilityAccessManager\ConsentStore`, where a
+  `LastUsedTimeStop` of 0 meant "in use"; Windows now keeps a past timestamp
+  there while an app is still capturing. The microphone sensor now looks for
+  an active Core Audio recording session, the camera sensor listens to the
+  Media Foundation sensor activity monitor. The registry is only a fallback
+  when those are unavailable. Neither opens the camera or microphone.
+
 ## 0.7.1 - 2026-10-01
 
 Fixes from the first GitHub issues, several Windows users on one PC, an update

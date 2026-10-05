@@ -442,7 +442,7 @@ impl Collector {
             if is_enabled(cfg, "camera_in_use") {
                 out.insert(
                     "camera_in_use".into(),
-                    if win::capability_in_use("webcam") {
+                    if crate::media_activity::camera_in_use() {
                         "ON"
                     } else {
                         "OFF"
@@ -453,7 +453,7 @@ impl Collector {
             if is_enabled(cfg, "mic_in_use") {
                 out.insert(
                     "mic_in_use".into(),
-                    if win::capability_in_use("microphone") {
+                    if crate::media_activity::microphone_in_use() {
                         "ON"
                     } else {
                         "OFF"
@@ -703,9 +703,11 @@ pub mod win {
         }
     }
 
-    /// Whether some application is using the camera/microphone: CapabilityAccessManager
-    /// ConsentStore - LastUsedTimeStop == 0 means "currently in use".
-    /// capability: "webcam" | "microphone".
+    /// Fallback for media_activity: CapabilityAccessManager ConsentStore, where
+    /// LastUsedTimeStop == 0 meant "currently in use". Current Windows 11 builds
+    /// no longer reset it while an app is capturing (GitHub issue #4), so this
+    /// is used only when the live Core Audio / Media Foundation source is
+    /// unavailable. capability: "webcam" | "microphone".
     pub fn capability_in_use(capability: &str) -> bool {
         use winreg::enums::HKEY_CURRENT_USER;
         use winreg::RegKey;
