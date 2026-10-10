@@ -11,7 +11,15 @@ from homeassistant.exceptions import HomeAssistantError
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.storage import Store
 
-from .const import CONF_NODE_ID, DOMAIN, PLATFORMS, SERVICE_NOTIFY, STORAGE_VERSION
+from .const import (
+    CONF_NODE_ID,
+    DOMAIN,
+    LEGACY_UNBOUND_TITLE,
+    PLATFORMS,
+    SERVICE_NOTIFY,
+    STORAGE_VERSION,
+    UNBOUND_TITLE,
+)
 from .files import async_setup_files, async_unload_files
 from .hub import DeskmateHub
 from .ws_view import DeskmateLinkWsView
@@ -40,6 +48,10 @@ def _domain_data(hass: HomeAssistant) -> dict:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     data = _domain_data(hass)
 
+    # Wpis czekajacy na parowanie mial do 0.7.2 polski tytul takze w angielskim HA.
+    if not entry.data.get(CONF_NODE_ID) and entry.title == LEGACY_UNBOUND_TITLE:
+        hass.config_entries.async_update_entry(entry, title=UNBOUND_TITLE)
+
     if not data["view_registered"]:
         hass.http.register_view(DeskmateLinkWsView())
         data["view_registered"] = True
@@ -62,7 +74,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             ]
             if not targets:
                 raise HomeAssistantError(
-                    f"deskmate_link: brak sparowanego node'a {node_id!r}"
+                    f"Deskmate: no paired computer with node id {node_id!r}"
                 )
             for h in targets:
                 await h.async_notify(

@@ -548,7 +548,10 @@ pub async fn restart(app: AppHandle) {
                             format!("Clock mismatch with Home Assistant{label}: {}", error.message)
                         }
                         LinkFailure::Transport => {
-                            format!("Connection error{label}: {}", error.message)
+                            format!(
+                                "Connection error{label}: {}",
+                                crate::transport::explain_connection_error(&error.message)
+                            )
                         }
                     };
                     crate::mqtt::set_status(&app_connection, false, &status);

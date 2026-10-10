@@ -103,7 +103,11 @@ fn with_failover<T>(
     cfg: &AppConfig,
     f: impl Fn(&ureq::Agent, &str, &str) -> Result<T, ureq::Error>,
 ) -> Result<T, String> {
-    let token = get_token(cfg).ok_or("HA API: no token configured")?;
+    let token = get_token(cfg).ok_or(
+        "No Home Assistant API token saved. This optional channel is only for hotkeys, \
+         widgets and tray actions; the connection to Home Assistant itself is shown on the \
+         Status page",
+    )?;
     let candidates = urls(cfg)?;
     if candidates.is_empty() {
         return Err("HA API: no URL configured".into());

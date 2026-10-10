@@ -22,6 +22,7 @@ mod state;
 mod sys_commands;
 mod transport;
 mod tts;
+mod uninstall;
 mod updates;
 
 use std::collections::HashMap;
@@ -718,6 +719,12 @@ fn run_command_local(state: State<'_, AppState>, id: String) -> Result<(), Strin
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Started by the uninstaller ("Delete the application data"): clean up and
+    // exit before anything else, in particular before single-instance.
+    if std::env::args().any(|arg| arg == uninstall::FORGET_ARG) {
+        uninstall::forget_this_computer();
+        return;
+    }
     // Windows starts the registered toast activator as a COM local server when a
     // notification is activated. Deskmate handles button clicks over its URL
     // protocol instead, so such a launch must not turn into a second app window.

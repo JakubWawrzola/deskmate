@@ -1,87 +1,60 @@
 notify:
-  name: Notify
-  description: Wysyla toast na sparowany komputer przez Deskmate.
   fields:
     node_id:
-      name: Node ID
-      description: Ktory komputer (puste = wszystkie sparowane).
       required: false
-      example: laptopwawrzola
+      example: my_laptop
       selector:
         text:
     title:
-      name: Tytul
       required: true
-      example: Pranie skonczone
+      example: Laundry done
       selector:
         text:
     message:
-      name: Tresc
       required: true
-      example: Wyciagnij z pralki.
+      example: Take it out of the washer.
       selector:
         text:
     image:
-      name: Obraz (URL)
       required: false
       selector:
         text:
     actions:
-      name: Przyciski akcji
-      description: 'Lista {id, title} - klik wraca eventem deskmate_link_notify_action.'
       required: false
       selector:
         object:
 send_file:
-  name: Wyslij plik na komputer
-  description: >-
-    Zapisuje plik z Home Assistanta w skrzynce odbiorczej komputera (Deskmate,
-    Ustawienia > Receive files). Sciezka musi byc w allowlist_external_dirs,
-    np. /media. Komputer nigdy nie nadpisuje istniejacych plikow.
   fields:
     node_id:
-      name: Node ID
-      description: Ktory komputer (puste = jedyny sparowany).
       required: false
       selector:
         text:
     path:
-      name: Sciezka w Home Assistancie
       required: true
-      example: /media/snapshots/drzwi.jpg
+      example: /media/snapshots/door.jpg
       selector:
         text:
     filename:
-      name: Nazwa na komputerze
       required: false
       selector:
         text:
 fetch_file:
-  name: Pobierz plik z komputera
-  description: >-
-    Kopiuje plik z folderu udostepnionego przez komputer (Deskmate, Ustawienia >
-    File access) do Home Assistanta. Cel musi byc w allowlist_external_dirs.
   fields:
     node_id:
-      name: Node ID
-      description: Ktory komputer (puste = jedyny sparowany).
       required: false
       selector:
         text:
     path:
-      name: Sciezka na komputerze
       required: true
-      example: C:\Users\Kuba\Documents\raport.pdf
+      example: C:\Users\Me\Documents\report.pdf
       selector:
         text:
     destination:
-      name: Folder lub plik docelowy w HA
       required: true
       example: /media/deskmate
       selector:
         text:
     overwrite:
-      name: Nadpisz istniejacy plik
       required: false
       default: false
       selector:

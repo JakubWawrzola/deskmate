@@ -35,8 +35,8 @@ choose **Reconfigure**: *Generate a new pairing key* invalidates the old key,
 *Unbind from the current computer* releases the entry so the next computer
 using that key takes it over. Entities and their history survive both.
 
-*Pair another Windows user on this computer* shows a code for a second Windows
-account on the same PC. It carries the same key plus the computer's node id
+*Show the pairing code* shows the code of a paired computer again: for a
+reinstalled Deskmate, or for a second Windows account on the same PC. It carries the same key plus the computer's node id
 (and the cascade key when cascade is on), so that account reports as the same
 device. The accounts coordinate through a named object in the Windows Global
 namespace: only one holds the connection, and an account whose session is not

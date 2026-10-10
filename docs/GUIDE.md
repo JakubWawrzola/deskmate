@@ -297,7 +297,7 @@ device:
 
 1. Sign in to the other account and install Deskmate there as well.
 2. In Home Assistant: **Settings → Devices & services → Deskmate**, the
-   computer's entry → **Reconfigure → Pair another Windows user**. It shows a
+   computer's entry → **Reconfigure → Show the pairing code**. It shows the
    code for that computer.
 3. Paste that code into Deskmate on the other account.
 
@@ -367,7 +367,35 @@ update, and if it happens again report it as a false positive to your antivirus
 vendor; custom commands you define yourself do run PowerShell by design.
 
 **Entities are unavailable after switching Windows users.** The other account
-needs Deskmate as well, paired with *Pair another Windows user* (section 10).
+needs Deskmate as well, paired with *Show the pairing code* (section 10).
+
+**"Connection error ... (os error 10013)".** Windows refused the connection
+before it left the PC. That is almost always a firewall or antivirus blocking
+`deskmate.exe`, often after an update or reinstall because the program file
+changed. Allow Deskmate in it (in Bitdefender: the firewall's application
+rules), then press *Reconnect* on the Status page. Deskmate 0.7.3 and
+newer say this in the status text.
+
+**I reinstalled Deskmate and it does not connect.** You do not need a new
+entry in Home Assistant. Open the computer's entry → *Reconfigure* → *Show the
+pairing code* and paste that code into Deskmate. Do not choose *Generate a new
+pairing key* for this: it works too, but every other copy of the old key
+(another Windows account, a second install) stops connecting.
+
+**Starting completely over.**
+
+1. Windows: *Settings → Apps → Deskmate → Uninstall* and tick *Delete the
+   application data*. Since 0.7.3 that also removes the settings
+   (`%APPDATA%\Deskmate`) and the saved keys. Files received from Home
+   Assistant stay where they are.
+2. Older versions leave the keys in *Control Panel → Credential Manager →
+   Windows Credentials → Generic Credentials*. Remove the entries ending in
+   `.Deskmate Link`, `.Deskmate Link Cascade`, `.Deskmate HA Token` and
+   `.Deskmate MQTT` (the part before the dot is the computer's node id or
+   your MQTT user), and the folder `%APPDATA%\Deskmate`.
+3. Home Assistant: delete the computer's entry under *Settings → Devices &
+   services → Deskmate*, then *Add entry* for a new pairing code.
+4. Install Deskmate again and paste the new code.
 
 **The widget panel will not move.** Drag it by the bar at the top. Versions up
 to 0.7.0 lacked the window permission for that.

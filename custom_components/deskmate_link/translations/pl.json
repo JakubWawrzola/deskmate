@@ -26,16 +26,20 @@
         "description": "Ruch wraca do pojedynczej warstwy AES-256-GCM. Wylacz ja takze w Deskmate, inaczej ten komputer sie nie polaczy."
       },
       "add_user": {
-        "title": "Sparuj kolejnego uzytkownika Windows",
-        "description": "Dla komputera, z ktorego kilka osob korzysta na wlasnych kontach Windows. Zainstaluj Deskmate na drugim koncie i wklej tam ten kod:\n\n`{code}`\n\nTo konto bedzie raportowac jako `{node_id}`: to samo urzadzenie, te same encje. Polaczone jest zawsze tylko jedno konto, to, przy ktorym ktos wlasnie siedzi; po przelaczeniu uzytkownika polaczenie przechodzi na nowe konto.\n\nKod zawiera klucz parowania tego komputera. Nie udostepniaj go poza tym komputerem. Zeby odciac wszystkie konta naraz, wygeneruj nowy klucz parowania."
+        "title": "Kod parowania tego komputera",
+        "description": "Wklej ten kod w Deskmate na `{node_id}`: po ponownej instalacji Deskmate albo na innym koncie Windows tego samego komputera.\n\n`{code}`\n\nPolaczy sie z tym wpisem, z jego urzadzeniem i encjami. Tutaj nic sie nie zmienia. Przy kilku kontach Windows polaczone jest tylko to, przy ktorym ktos siedzi; po przelaczeniu uzytkownika polaczenie przechodzi na nowe konto.\n\nKod zawiera klucz parowania tego komputera. Nie udostepniaj go poza tym komputerem. Zeby odciac wszystkie kopie naraz, wygeneruj zamiast tego nowy klucz parowania."
+      },
+      "reconfigure": {
+        "title": "Deskmate",
+        "description": "Co zrobic z wpisem `{node_id}`?",
+        "menu_options": {
+          "add_user": "Pokaz kod parowania (ponowna instalacja Deskmate albo inny uzytkownik Windows)",
+          "new_key": "Wygeneruj nowy klucz parowania (obecny przestanie dzialac)",
+          "unbind": "Odepnij od obecnego komputera",
+          "cascade_on": "Wlacz szyfrowanie kaskadowe (druga warstwa)",
+          "cascade_off": "Wylacz szyfrowanie kaskadowe"
+        }
       }
-    },
-    "menu_options": {
-      "add_user": "Sparuj kolejnego uzytkownika Windows na tym komputerze",
-      "new_key": "Wygeneruj nowy klucz parowania",
-      "unbind": "Odepnij od obecnego komputera",
-      "cascade_on": "Wlacz szyfrowanie kaskadowe (druga warstwa)",
-      "cascade_off": "Wylacz szyfrowanie kaskadowe"
     },
     "abort": {
       "already_configured": "Ten node jest juz sparowany.",
@@ -48,6 +52,74 @@
     "unknown_node": {
       "title": "Deskmate: niesparowany komputer probuje sie polaczyc",
       "description": "Komputer przedstawiajacy sie jako `{node}` ({ip}) nie przechodzi handshake'u Deskmate. Zaden sparowany wpis nie ma takiej nazwy albo klucz parowania jest inny.\n\nAlbo sparuj go (Dodaj integracje -> Deskmate, potem wklej klucz w Deskmate), albo - jesli ma korzystac z istniejacego wpisu - otworz ten wpis, wybierz Skonfiguruj ponownie -> Odepnij od obecnego komputera i pozwol mu sie przypiac."
+    }
+  },
+  "services": {
+    "notify": {
+      "name": "Powiadomienie",
+      "description": "Pokazuje powiadomienie Windows na sparowanym komputerze.",
+      "fields": {
+        "node_id": {
+          "name": "Node ID",
+          "description": "Ktory komputer. Puste: wszystkie sparowane."
+        },
+        "title": {
+          "name": "Tytul",
+          "description": "Tytul powiadomienia."
+        },
+        "message": {
+          "name": "Tresc",
+          "description": "Tekst powiadomienia."
+        },
+        "image": {
+          "name": "Obraz (URL)",
+          "description": "Opcjonalny obraz. Jego adres musi byc dozwolony w Deskmate."
+        },
+        "actions": {
+          "name": "Przyciski akcji",
+          "description": "Lista przyciskow, kazdy z id i title. Klik wywoluje zdarzenie deskmate_link_notify_action."
+        }
+      }
+    },
+    "send_file": {
+      "name": "Wyslij plik na komputer",
+      "description": "Zapisuje plik z Home Assistanta w skrzynce odbiorczej komputera (Deskmate: Settings > Receive files). Sciezka musi byc w allowlist_external_dirs, np. /media. Komputer nigdy nie nadpisuje istniejacych plikow.",
+      "fields": {
+        "node_id": {
+          "name": "Node ID",
+          "description": "Ktory komputer. Puste: jedyny sparowany."
+        },
+        "path": {
+          "name": "Sciezka w Home Assistancie",
+          "description": "Plik do wyslania."
+        },
+        "filename": {
+          "name": "Nazwa na komputerze",
+          "description": "Opcjonalnie. Domyslnie nazwa pliku."
+        }
+      }
+    },
+    "fetch_file": {
+      "name": "Pobierz plik z komputera",
+      "description": "Kopiuje plik z folderu udostepnionego przez komputer (Deskmate: Settings > File access) do Home Assistanta. Cel musi byc w allowlist_external_dirs.",
+      "fields": {
+        "node_id": {
+          "name": "Node ID",
+          "description": "Ktory komputer. Puste: jedyny sparowany."
+        },
+        "path": {
+          "name": "Sciezka na komputerze",
+          "description": "Plik do pobrania."
+        },
+        "destination": {
+          "name": "Cel w Home Assistancie",
+          "description": "Folder albo sciezka pliku."
+        },
+        "overwrite": {
+          "name": "Nadpisz istniejacy plik",
+          "description": "Zastap cel, jesli istnieje."
+        }
+      }
     }
   }
 }

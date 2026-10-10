@@ -436,9 +436,9 @@ def _select_hub(hass: HomeAssistant, node_id: str | None):
     if node_id:
         hubs = [hub for hub in hubs if hub.node_id == node_id]
     if not hubs:
-        raise HomeAssistantError(f"deskmate_link: brak sparowanego komputera {node_id!r}")
+        raise HomeAssistantError(f"Deskmate: no paired computer with node id {node_id!r}")
     if len(hubs) > 1:
-        raise HomeAssistantError("deskmate_link: kilka komputerow - podaj node_id")
+        raise HomeAssistantError("Deskmate: several computers are paired, set node_id")
     return hubs[0]
 
 
@@ -484,10 +484,10 @@ async def _async_send_file(hass: HomeAssistant, call: ServiceCall) -> ServiceRes
     path = call.data["path"]
     if not hass.config.is_allowed_path(path):
         raise HomeAssistantError(
-            f"deskmate_link: {path} nie jest w allowlist_external_dirs"
+            f"Deskmate: {path} is not in allowlist_external_dirs"
         )
     if not await hass.async_add_executor_job(os.path.isfile, path):
-        raise HomeAssistantError(f"deskmate_link: brak pliku {path}")
+        raise HomeAssistantError(f"Deskmate: file not found: {path}")
     size = await hass.async_add_executor_job(os.path.getsize, path)
     name = call.data.get("filename") or os.path.basename(path)
     begin = await hub.async_put_begin(name, size, by)
@@ -517,19 +517,19 @@ async def _async_fetch_file(hass: HomeAssistant, call: ServiceCall) -> ServiceRe
     source = call.data["path"]
     stat = await hub.async_fs_stat(source)
     if stat.get("dir"):
-        raise HomeAssistantError("deskmate_link: to folder, nie plik")
+        raise HomeAssistantError("Deskmate: that is a folder, not a file")
     destination = call.data["destination"]
     if await hass.async_add_executor_job(os.path.isdir, destination):
         safe = os.path.basename(str(stat.get("name") or "file").replace("\\", "/")) or "file"
         destination = os.path.join(destination, safe)
     if not hass.config.is_allowed_path(destination):
         raise HomeAssistantError(
-            f"deskmate_link: {destination} nie jest w allowlist_external_dirs"
+            f"Deskmate: {destination} is not in allowlist_external_dirs"
         )
     if not call.data["overwrite"] and await hass.async_add_executor_job(
         os.path.exists, destination
     ):
-        raise HomeAssistantError(f"deskmate_link: {destination} juz istnieje")
+        raise HomeAssistantError(f"Deskmate: {destination} already exists")
     size = int(stat.get("size") or 0)
     part = f"{destination}.part"
     handle = await hass.async_add_executor_job(open, part, "wb")

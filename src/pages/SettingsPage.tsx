@@ -281,9 +281,9 @@ export default function SettingsPage({
           <p className="text-[12px] text-muted leading-relaxed">
             This computer identifies itself as <span className="mono text-ink">{config.node_id}</span>.
             In Home Assistant add the Deskmate integration, paste the pairing code here and save.
-            The entry binds itself to this computer on the first successful connection. Another
-            Windows account on this computer: in Home Assistant open the Deskmate entry, choose
-            Reconfigure, then Pair another Windows user.
+            The entry binds itself to this computer on the first successful connection. Reinstalled
+            Deskmate, or another Windows account on this computer: in Home Assistant open the
+            Deskmate entry, choose Reconfigure, then Show the pairing code.
           </p>
           <p className="text-[12px] text-muted leading-relaxed">
             The connection is encrypted end to end (Deskmate Link protocol). MQTT settings remain saved and can be selected again at any time.
@@ -420,8 +420,8 @@ export default function SettingsPage({
 
       <Panel title="Home Assistant API (hotkeys, widgets, tray)">
         <p className="text-[12px] text-muted mb-2 leading-relaxed">
-          Optional direct channel to Home Assistant, used by hotkeys, the widget
-          panel and tray quick actions. Create a long-lived access token in HA
+          Optional, and separate from the connection above: only hotkeys, the widget
+          panel and tray quick actions use it. Create a long-lived access token in HA
           (your profile → Security → Long-lived access tokens). The token is
           stored in Windows Credential Manager, never in a file.
         </p>
@@ -450,7 +450,7 @@ export default function SettingsPage({
             <Button kind="primary" onClick={() => void saveHa(false)}>
               Save
             </Button>
-            <Button onClick={() => void saveHa(true)}>Save &amp; test</Button>
+            <Button onClick={() => void saveHa(true)}>Save &amp; test API</Button>
             {haMsg && <span className="text-[12px] text-muted">{haMsg}</span>}
           </div>
         </div>

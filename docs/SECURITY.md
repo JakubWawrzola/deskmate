@@ -290,7 +290,7 @@ folders that contain secrets.
 
 ## Several Windows users on one computer
 
-*Reconfigure → Pair another Windows user* in Home Assistant shows a code with
+*Reconfigure → Show the pairing code* in Home Assistant shows a code with
 the computer's existing pairing key, its node id and, when enabled, the cascade
 key. Each Windows account keeps its own copy in its own Credential Manager.
 Anyone who can paste that code into Deskmate can act as this computer towards

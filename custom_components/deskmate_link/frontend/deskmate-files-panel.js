@@ -248,7 +248,7 @@ class DeskmateFilesPanel extends HTMLElement {
       el("h2", { text: "Add a computer or a Windows user" }),
       el("ol", { class: "steps" }, [
         el("li", { text: "New computer: Settings > Devices & services > Add integration > Deskmate, then paste the pairing code into Deskmate on that computer." }),
-        el("li", { text: "Another Windows account on a paired computer: open the Deskmate integration, choose that computer > Reconfigure > Pair another Windows user." }),
+        el("li", { text: "Deskmate reinstalled, or another Windows account on a paired computer: open the Deskmate integration, choose that computer > Reconfigure > Show the pairing code." }),
         el("li", { text: "Notifications, commands and sensors of each computer are on its device page." }),
       ]),
       el("div", { class: "actions", style: "margin-top: 12px" }, [

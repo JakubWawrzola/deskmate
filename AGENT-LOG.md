@@ -273,3 +273,19 @@ odpowiadaja, monitor wysyla raporty takze bez aktywnosci. Zaleznosc
 windows-core 0.61 (juz w drzewie) + feature Win32_Media_MediaFoundation.
 Wersja 0.7.2 (bez zmian w integracji HA poza numerem).
 Kuba przetestowal i zaakceptowal: commit, push main, tag v0.7.2, release, odpowiedz w #4.
+
+## [2026-10-10] Claude — 0.7.3: druga runda uwag CBY0 (#2)
+Przyczyny: (1) menu_options w strings/translations na poziomie config zamiast
+step.reconfigure -> puste strzalki w Reconfigure, druga = new_key = rotacja
+klucza; (2) UNBOUND_TITLE po polsku, polskie bledy i services.yaml;
+(3) deinstalacja Tauri kasuje tylko %APPDATA%\com.deskmate.desktop, a config
+jest w %APPDATA%\Deskmate, klucze w Credential Manager, wpisy w HKCU\Classes;
+(5) os error 10013 = firewall/antywirus (Bitdefender) blokuje deskmate.exe.
+Zrobione: etykiety menu + opcja "Show the pairing code", angielskie teksty HA
+(+ tlumaczenie pl, migracja tytulu), uninstall.rs (--forget-this-computer:
+Credential Manager po sufiksach + %APPDATA%\Deskmate) i windows/hooks.nsh
+(PRE: forget przy "Delete application data", POST: klucze rejestru),
+transport::explain_connection_error (10013/10061/10060/10065), panel API HA,
+GUIDE (10013, reinstalacja, pelny reset + nazwy w Credential Manager).
+Sonda read-only: filtr Credential Manager trafia 3/13 wpisow, tylko Deskmate.
+Kuba zaakceptowal: commit, push main, tag v0.7.3, release, odpowiedz w #2.

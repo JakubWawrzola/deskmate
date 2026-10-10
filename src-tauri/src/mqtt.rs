@@ -148,7 +148,9 @@ pub async fn restart(app: AppHandle) {
                         Ok(_) => {}
                         Err(e) => {
                             fail_count += 1;
-                            set_status(&app_ev, false, &format!("Connection error{label}: {e}"));
+                            let message =
+                                crate::transport::explain_connection_error(&e.to_string());
+                            set_status(&app_ev, false, &format!("Connection error{label}: {message}"));
                             // multi-host: after 2 failed attempts, switch to the other host
                             if multi && fail_count >= 2 {
                                 idx = (idx + 1) % hosts.len();

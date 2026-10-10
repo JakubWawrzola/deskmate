@@ -7,6 +7,25 @@ use tauri::{AppHandle, Emitter, Manager};
 
 use crate::state::AppState;
 
+/// Adds what to do to the Windows socket errors people actually hit. The raw
+/// text ("An attempt was made to access a socket in a way forbidden by its
+/// access permissions. (os error 10013)") reads like a Deskmate bug, but it is
+/// almost always a firewall or antivirus blocking deskmate.exe.
+pub fn explain_connection_error(message: &str) -> String {
+    let hint = if message.contains("os error 10013") {
+        "Windows blocked the connection. A firewall or antivirus (for example Bitdefender) \
+         is probably blocking deskmate.exe: allow it there, then press Reconnect"
+    } else if message.contains("os error 10061") {
+        "Nothing answered at that address and port. Check the Home Assistant address and port"
+    } else if message.contains("os error 10060") || message.contains("os error 10065") {
+        "Home Assistant could not be reached. Check that this computer is on the same network \
+         or VPN and that the address is right"
+    } else {
+        return message.to_string();
+    };
+    format!("{hint} ({message})")
+}
+
 pub async fn restart(app: AppHandle) {
     let transport = app
         .state::<AppState>()

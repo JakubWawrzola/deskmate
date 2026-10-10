@@ -26,16 +26,20 @@
         "description": "Traffic goes back to a single AES-256-GCM layer. Turn it off in Deskmate as well, otherwise that computer will not reconnect."
       },
       "add_user": {
-        "title": "Pair another Windows user",
-        "description": "For a computer that several people use with their own Windows accounts. Install Deskmate on the other account and paste this code there:\n\n`{code}`\n\nThat account then reports as `{node_id}`: the same device, the same entities. Only one account is connected at a time, the one someone is using right now; when you switch users, the connection moves over.\n\nThe code contains this computer's pairing key. Do not share it outside this computer. To revoke every account at once, generate a new pairing key."
+        "title": "Pairing code for this computer",
+        "description": "Paste this code into Deskmate on `{node_id}`: after reinstalling Deskmate there, or on another Windows account of the same computer.\n\n`{code}`\n\nIt reconnects to this entry with its device and entities. Nothing changes here. With several Windows accounts, only the one someone is using is connected; switching users moves the connection over.\n\nThe code contains this computer's pairing key. Do not share it outside this computer. To cut off every copy at once, generate a new pairing key instead."
+      },
+      "reconfigure": {
+        "title": "Deskmate",
+        "description": "What do you want to do with the entry for `{node_id}`?",
+        "menu_options": {
+          "add_user": "Show the pairing code (Deskmate reinstalled, or another Windows user)",
+          "new_key": "Generate a new pairing key (the current one stops working)",
+          "unbind": "Unbind from the current computer",
+          "cascade_on": "Enable cascade encryption (second layer)",
+          "cascade_off": "Disable cascade encryption"
+        }
       }
-    },
-    "menu_options": {
-      "add_user": "Pair another Windows user on this computer",
-      "new_key": "Generate a new pairing key",
-      "unbind": "Unbind from the current computer",
-      "cascade_on": "Enable cascade encryption (second layer)",
-      "cascade_off": "Disable cascade encryption"
     },
     "abort": {
       "already_configured": "This node is already paired.",
@@ -48,6 +52,74 @@
     "unknown_node": {
       "title": "Deskmate: an unpaired computer keeps connecting",
       "description": "A computer calling itself `{node}` ({ip}) keeps failing the Deskmate handshake. No paired entry matches that name, or its pairing key is different.\n\nEither pair it (Add integration -> Deskmate, then paste the key into Deskmate), or - if it should use an entry that already exists - open that entry, choose Reconfigure -> Unbind from the current computer, and let it re-attach."
+    }
+  },
+  "services": {
+    "notify": {
+      "name": "Notify",
+      "description": "Shows a Windows notification on a paired computer.",
+      "fields": {
+        "node_id": {
+          "name": "Node ID",
+          "description": "Which computer. Empty: every paired computer."
+        },
+        "title": {
+          "name": "Title",
+          "description": "Notification title."
+        },
+        "message": {
+          "name": "Message",
+          "description": "Notification text."
+        },
+        "image": {
+          "name": "Image URL",
+          "description": "Optional picture. Its origin must be allowed in Deskmate."
+        },
+        "actions": {
+          "name": "Action buttons",
+          "description": "List of buttons, each with an id and a title. A click fires the deskmate_link_notify_action event."
+        }
+      }
+    },
+    "send_file": {
+      "name": "Send file to computer",
+      "description": "Saves a file from Home Assistant into the computer's inbox (Deskmate: Settings > Receive files). The path must be in allowlist_external_dirs, e.g. /media. Existing files on the computer are never overwritten.",
+      "fields": {
+        "node_id": {
+          "name": "Node ID",
+          "description": "Which computer. Empty: the only paired one."
+        },
+        "path": {
+          "name": "Path in Home Assistant",
+          "description": "File to send."
+        },
+        "filename": {
+          "name": "Name on the computer",
+          "description": "Optional. Defaults to the file's own name."
+        }
+      }
+    },
+    "fetch_file": {
+      "name": "Fetch file from computer",
+      "description": "Copies a file from a folder the computer shares (Deskmate: Settings > File access) into Home Assistant. The destination must be in allowlist_external_dirs.",
+      "fields": {
+        "node_id": {
+          "name": "Node ID",
+          "description": "Which computer. Empty: the only paired one."
+        },
+        "path": {
+          "name": "Path on the computer",
+          "description": "File to fetch."
+        },
+        "destination": {
+          "name": "Destination in Home Assistant",
+          "description": "Folder or file path."
+        },
+        "overwrite": {
+          "name": "Overwrite an existing file",
+          "description": "Replace the destination if it exists."
+        }
+      }
     }
   }
 }

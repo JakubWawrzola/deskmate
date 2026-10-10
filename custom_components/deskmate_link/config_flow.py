@@ -142,7 +142,11 @@ class DeskmateLinkConfigFlow(ConfigFlow, domain=DOMAIN):
         options.append(
             "cascade_off" if entry.data.get(CONF_CASCADE_KEY) else "cascade_on"
         )
-        return self.async_show_menu(step_id="reconfigure", menu_options=options)
+        return self.async_show_menu(
+            step_id="reconfigure",
+            menu_options=options,
+            description_placeholders={"node_id": entry.data.get(CONF_NODE_ID) or "-"},
+        )
 
     async def async_step_cascade_on(
         self, user_input: dict[str, Any] | None = None

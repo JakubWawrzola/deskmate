@@ -1,5 +1,14 @@
 # STATUS — Deskmate
-Aktualizacja: 2026-10-05 (0.7.2: fix sensorow kamery/mikrofonu, issue #4)
+Aktualizacja: 2026-10-10 (0.7.3: uwagi CBY0 z #2)
+
+## Sesja 2026-10-10 — 0.7.3, druga runda #2
+
+- [x] Reconfigure: etykiety menu, "Show the pairing code"; angielskie teksty HA.
+- [x] Pelna deinstalacja: hooks.nsh + deskmate.exe --forget-this-computer.
+- [x] Czytelny blad 10013 (firewall/antywirus); panel API HA.
+- [x] Build instalatorow 0.7.3, CHANGELOG, docs/releases/RELEASE-0.7.3.md.
+- [x] Akceptacja Kuby (2026-10-10), push, tag v0.7.3, release, odpowiedz w #2.
+
 
 ## Sesja 2026-10-05 — 0.7.2, issue #4
 

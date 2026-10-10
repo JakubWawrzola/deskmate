@@ -3,6 +3,33 @@
 All notable changes to Deskmate are documented here. Release-specific upgrade
 notes and asset names are available in `docs/releases/RELEASE-*.md`.
 
+## 0.7.3 - 2026-10-10
+
+Fixes from the second round of feedback in #2.
+
+### Fixed
+
+- **Reconfigure showed four unlabelled arrows.** The menu labels sat at the
+  wrong level in the translation files, so Home Assistant never found them.
+  Choosing the second arrow to get the pairing code generated a new key and
+  cut off the existing install.
+- The option that shows a paired computer's code again is now called **Show the
+  pairing code** and is meant for a reinstalled Deskmate as well as for another
+  Windows user. Generating a new key says that the current one stops working.
+- A pending entry was titled "Deskmate (oczekuje na parowanie)" in every
+  language. It is "Deskmate (waiting for pairing)" now, existing ones are
+  renamed on start, and the integration's error messages and action
+  descriptions are in English (Polish translation included).
+- **Uninstalling with "Delete the application data"** left the settings in
+  `%APPDATA%\Deskmate`, the saved keys in Credential Manager and Deskmate's
+  registry entries behind, so a reinstall picked them up again. The
+  uninstaller now removes all of them; received files stay.
+- "Connection error ... (os error 10013)" now says that Windows blocked the
+  connection, usually a firewall or antivirus such as Bitdefender, and what to
+  do. Refused and unreachable connections get a hint as well.
+- The Home Assistant API panel in Settings no longer suggests that *Save &
+  test* checks the main connection; it tests the optional API only.
+
 ## 0.7.2 - 2026-10-05
 
 ### Fixed

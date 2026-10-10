@@ -501,19 +501,19 @@ class DeskmateHub:
                 response = await fut
         except TimeoutError as err:
             raise HomeAssistantError(
-                f"Deskmate Files: komputer nie odpowiedzial w ciagu {int(timeout)} s"
+                f"Deskmate Files: the computer did not answer within {int(timeout)} s"
             ) from err
         except ConnectionError as err:
             raise HomeAssistantError(
-                "Deskmate Files: komputer nie jest polaczony"
+                "Deskmate Files: the computer is not connected"
             ) from err
         finally:
             self._pending.pop(request_id, None)
 
         if not isinstance(response, dict) or response.get("t") != "fs_res":
-            raise HomeAssistantError("Deskmate Files: nieprawidlowa odpowiedz klienta")
+            raise HomeAssistantError("Deskmate Files: unexpected answer from the computer")
         if not response.get("ok"):
-            error = str(response.get("error") or "nieznany blad klienta")
+            error = str(response.get("error") or "unknown error on the computer")
             raise HomeAssistantError(f"Deskmate Files: {error}")
         return response
 
@@ -526,7 +526,7 @@ class DeskmateHub:
         if not isinstance(entries, list) or not all(
             isinstance(entry, dict) for entry in entries
         ):
-            raise HomeAssistantError("Deskmate Files: brak poprawnej listy wpisow")
+            raise HomeAssistantError("Deskmate Files: the computer sent no valid folder listing")
         return entries
 
     async def async_fs_stat(self, path: str) -> dict[str, Any]:
@@ -536,7 +536,7 @@ class DeskmateHub:
         )
         stat = response.get("stat")
         if not isinstance(stat, dict):
-            raise HomeAssistantError("Deskmate Files: brak poprawnych metadanych")
+            raise HomeAssistantError("Deskmate Files: the computer sent no valid file details")
         return stat
 
     async def async_fs_roots(self) -> dict[str, Any]:
@@ -588,7 +588,7 @@ class DeskmateHub:
     ) -> dict[str, Any]:
         """Zwraca zakodowany chunk pliku i znacznik EOF."""
         if offset < 0 or len < 0 or len > 256 * 1024:
-            raise HomeAssistantError("Deskmate Files: nieprawidlowy zakres odczytu")
+            raise HomeAssistantError("Deskmate Files: invalid read range")
         response = await self._send_fs_request(
             {
                 "t": "fs",
@@ -601,7 +601,7 @@ class DeskmateHub:
         if not isinstance(response.get("data"), str) or not isinstance(
             response.get("eof"), bool
         ):
-            raise HomeAssistantError("Deskmate Files: nieprawidlowy fragment pliku")
+            raise HomeAssistantError("Deskmate Files: invalid file chunk from the computer")
         return {"data": response["data"], "eof": response["eof"]}
 
     async def async_shutdown(self) -> None:

@@ -42,7 +42,9 @@ LOG_THROTTLE_S = 60
 UNKNOWN_NODE_ISSUE_AFTER = 3
 ISSUE_UNKNOWN_NODE = "unknown_node"
 
-UNBOUND_TITLE = "Deskmate (oczekuje na parowanie)"
+UNBOUND_TITLE = "Deskmate (waiting for pairing)"
+# Tytul wpisow sprzed 0.7.3; zamieniany przy starcie na UNBOUND_TITLE.
+LEGACY_UNBOUND_TITLE = "Deskmate (oczekuje na parowanie)"
 
 # Kod parowania: klucz + adresy HA w jednym ciagu do wklejenia w Deskmate
 PAIRING_CODE_PREFIX = "DMP1."
