@@ -3,6 +3,28 @@
 All notable changes to Deskmate are documented here. Release-specific upgrade
 notes and asset names are available in `docs/releases/RELEASE-*.md`.
 
+## Unreleased
+
+### Added
+
+- **DeskmateTV**, a Deskmate for Android TV and Google TV ([docs/TV.md](docs/TV.md),
+  source in `tv/`). It connects over the same encrypted Deskmate Link and lets a
+  Home Assistant assistant read the screen as compact text, click by number or
+  label, use the D-pad, type, open apps and deep links, switch HDMI inputs,
+  control the media session and show bubbles on screen. Silent, no speech.
+- The integration recognises TV nodes: `tv` requests with `tv_res` answers
+  (`hub.async_tv_request`), a connection entity that stays available when the
+  TV is off, and `deskmate_link.tv_update`, which pushes a new build to the TV.
+  A newer `DeskmateTV-<version>.apk` in `/config/deskmate_tv` is sent
+  automatically when the TV connects.
+- `deskmate_link.notify` to a TV accepts a camera entity as `image`; Home
+  Assistant sends a frame with the message.
+
+### Changed
+
+- `deskmate_link.notify` without `node_id` goes to computers only, never to a
+  TV. The Deskmate page and the file services skip TV nodes.
+
 ## 0.7.3 - 2026-10-10
 
 Fixes from the second round of feedback in #2.
