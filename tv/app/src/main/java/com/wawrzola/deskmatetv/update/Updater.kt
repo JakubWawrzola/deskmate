@@ -154,6 +154,24 @@ object Updater {
         return JSONObject().put("status", p.getString("status", "") ?: "").put("at", p.getLong("at", 0))
     }
 
+    /**
+     * Przy starcie procesu: porzuca wlasne sesje instalacji, ktore nie doszly
+     * do skutku (np. czekaly na potwierdzenie przy wylaczonym ekranie), zeby
+     * okno instalatora nie wyskoczylo pozniej znienacka.
+     */
+    @Synchronized
+    fun abandonStaleSessions(ctx: Context) {
+        if (file != null) return
+        val installer = ctx.packageManager.packageInstaller
+        for (session in installer.mySessions) {
+            try {
+                installer.abandonSession(session.sessionId)
+                Log.i(TAG, "porzucono stara sesje instalacji ${session.sessionId}")
+            } catch (_: Exception) {
+            }
+        }
+    }
+
     fun armAutoConfirm() {
         autoConfirmUntil = System.currentTimeMillis() + 90_000
     }
