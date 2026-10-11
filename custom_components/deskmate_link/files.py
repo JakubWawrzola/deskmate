@@ -209,7 +209,7 @@ class FilesDevicesView(HomeAssistantView):
         dev_reg = dr.async_get(hass)
         devices = []
         for entry_id, hub in _hubs(hass).items():
-            if not hub.node_id:
+            if not hub.node_id or hub.is_tv:  # DeskmateTV nie udostepnia plikow
                 continue
             device = dev_reg.async_get_device(identifiers={(DOMAIN, hub.node_id)})
             devices.append(
@@ -432,7 +432,7 @@ FETCH_FILE_SCHEMA = vol.Schema(
 
 
 def _select_hub(hass: HomeAssistant, node_id: str | None):
-    hubs = [hub for hub in _hubs(hass).values() if hub.node_id]
+    hubs = [hub for hub in _hubs(hass).values() if hub.node_id and not hub.is_tv]
     if node_id:
         hubs = [hub for hub in hubs if hub.node_id == node_id]
     if not hubs:

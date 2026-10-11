@@ -59,3 +59,15 @@ fetch_file:
       default: false
       selector:
         boolean:
+tv_update:
+  fields:
+    node_id:
+      required: false
+      example: living_room_tv
+      selector:
+        text:
+    file:
+      required: false
+      example: DeskmateTV-0.2.0.apk
+      selector:
+        text:

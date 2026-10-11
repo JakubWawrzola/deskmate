@@ -60,6 +60,7 @@ _LOGGER = logging.getLogger(__name__)
 
 CMD_ACK_TIMEOUT = 10.0
 FS_RESPONSE_TIMEOUT = 15.0
+TV_RESPONSE_TIMEOUT = 20.0
 # Czas na klikniecie "Akceptuj" na komputerze przy odbiorze pliku.
 FS_CONFIRM_TIMEOUT = 180.0
 
@@ -402,7 +403,7 @@ class DeskmateHub:
                     fut.set_result(True)
                 else:
                     fut.set_exception(RuntimeError(str(msg.get("error", "error"))))
-        elif mtype == "fs_res":
+        elif mtype in ("fs_res", "tv_res"):
             fut = self._pending.pop(msg.get("id"), None)
             if fut is not None and not fut.done():
                 fut.set_result(msg)
@@ -603,6 +604,44 @@ class DeskmateHub:
         ):
             raise HomeAssistantError("Deskmate Files: invalid file chunk from the computer")
         return {"data": response["data"], "eof": response["eof"]}
+
+    # ── DeskmateTV (wezel typu tv) ───────────────────────────────
+
+    @property
+    def is_tv(self) -> bool:
+        """Wezel to telewizor z DeskmateTV (deklaruje device.type = tv)."""
+        return self.device_info.get("type") == "tv"
+
+    async def async_tv_request(
+        self, op: str, args: dict[str, Any] | None = None, timeout: float = TV_RESPONSE_TIMEOUT
+    ) -> dict[str, Any]:
+        """Polecenie dla DeskmateTV i odpowiedz `tv_res`.
+
+        Zwraca odpowiedz takze przy ok=false (np. code=confirm) - decyzja
+        nalezy do wolajacego. Wyjatek tylko przy braku polaczenia/odpowiedzi.
+        Tresc ekranu nie trafia do stanow encji ani recordera.
+        """
+        self._cmd_id += 1
+        request_id = self._cmd_id
+        payload: dict[str, Any] = dict(args or {})
+        payload.update({"t": "tv", "op": op, "id": request_id})
+        fut: asyncio.Future = self.hass.loop.create_future()
+        self._pending[request_id] = fut
+        try:
+            await self._send(payload)
+            async with asyncio.timeout(timeout):
+                response = await fut
+        except TimeoutError as err:
+            raise HomeAssistantError(
+                f"DeskmateTV: telewizor nie odpowiedzial w ciagu {int(timeout)} s ({op})"
+            ) from err
+        except ConnectionError as err:
+            raise HomeAssistantError("DeskmateTV: telewizor nie jest polaczony") from err
+        finally:
+            self._pending.pop(request_id, None)
+        if not isinstance(response, dict) or response.get("t") != "tv_res":
+            raise HomeAssistantError("DeskmateTV: nieprawidlowa odpowiedz")
+        return response
 
     async def async_shutdown(self) -> None:
         await self._close_current()

@@ -62,6 +62,12 @@ EVENT_TRIGGER = f"{DOMAIN}_trigger"
 SIGNAL_TRIGGER = f"{DOMAIN}_trigger_sig"  # + entry_id + key
 
 SERVICE_NOTIFY = "notify"
+SERVICE_TV_UPDATE = "tv_update"
+
+# DeskmateTV: katalog z APK do aktualizacji (/config/deskmate_tv) i
+# rozmiar fragmentu (192 KB surowych = 256 KB base64 w jednej ramce)
+TV_UPDATE_DIR = "deskmate_tv"
+TV_UPDATE_CHUNK = 192 * 1024
 SERVICE_SEND_FILE = "send_file"
 SERVICE_FETCH_FILE = "fetch_file"
 

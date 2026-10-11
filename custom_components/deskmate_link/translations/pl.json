@@ -120,6 +120,20 @@
           "description": "Zastap cel, jesli istnieje."
         }
       }
+    },
+    "tv_update": {
+      "name": "Aktualizuj DeskmateTV",
+      "description": "Wysyla nowa wersje DeskmateTV na telewizor przez Deskmate Link (bez ADB). Plik DeskmateTV-<wersja>.apk połóż w /config/deskmate_tv. TV sprawdza SHA-256, wyzsza wersje i ten sam podpis, potem instaluje. Nowszy plik trafia na TV takze sam, przy najblizszym polaczeniu.",
+      "fields": {
+        "node_id": {
+          "name": "Node ID",
+          "description": "Ktory telewizor. Puste: jedyny sparowany."
+        },
+        "file": {
+          "name": "Plik APK",
+          "description": "Nazwa pliku w /config/deskmate_tv. Puste: najnowszy DeskmateTV-<wersja>.apk."
+        }
+      }
     }
   }
 }

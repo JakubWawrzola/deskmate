@@ -22,6 +22,11 @@ from .const import (
 )
 from .files import async_setup_files, async_unload_files
 from .hub import DeskmateHub
+from .tv import (
+    async_camera_data_uri,
+    async_register_tv_services,
+    async_track_tv_auto_update,
+)
 from .ws_view import DeskmateLinkWsView
 
 _LOGGER = logging.getLogger(__name__)
@@ -61,26 +66,34 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # wylaczony - odpowiednik retained discovery w MQTT.
     await hub.async_restore()
     data["hubs"][entry.entry_id] = hub
+    entry.async_on_unload(async_track_tv_auto_update(hass, hub))
 
     if not hass.services.has_service(DOMAIN, SERVICE_NOTIFY):
 
         async def _notify(call: ServiceCall) -> None:
             hubs: dict[str, DeskmateHub] = _domain_data(hass)["hubs"]
             node_id = call.data.get("node_id")
+            # Bez node_id: tylko komputery. Telewizor (DeskmateTV) dostaje
+            # dymek wylacznie przy jawnym node_id, inaczej toast "na komputer"
+            # wyskakiwalby tez na ekranie TV.
             targets = [
                 h
                 for h in hubs.values()
-                if node_id is None or h.node_id == node_id
+                if (node_id is None and not h.is_tv) or h.node_id == node_id
             ]
             if not targets:
                 raise HomeAssistantError(
                     f"Deskmate: no paired computer with node id {node_id!r}"
                 )
             for h in targets:
+                image = call.data.get("image")
+                if h.is_tv and image and image.startswith("camera."):
+                    # TV nie ma tokenu do HA - klatka z kamery idzie w wiadomosci
+                    image = await async_camera_data_uri(hass, image)
                 await h.async_notify(
                     call.data["title"],
                     call.data["message"],
-                    call.data.get("image"),
+                    image,
                     call.data.get("actions"),
                 )
 
@@ -88,6 +101,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             DOMAIN, SERVICE_NOTIFY, _notify, schema=NOTIFY_SCHEMA
         )
 
+    async_register_tv_services(hass)
     await async_setup_files(hass)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     _LOGGER.info(
