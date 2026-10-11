@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">DeskmateTV</string>
+    <string name="a11y_description">Lets your Home Assistant assistant read the TV screen as text, select items and open apps. Silent: no speech, no sounds. Data goes only to your Home Assistant over an encrypted connection.</string>
+    <string name="indicator">%1$s is in control</string>
+
+    <string name="status_tagline">Bridge between your Home Assistant assistant and this TV. Set up over ADB (install.ps1), controlled from Home Assistant.</string>
+    <string name="btn_reconnect">Reconnect</string>
+    <string name="btn_test_bubble">Test bubble</string>
+    <string name="test_bubble_text">Home Assistant notifications will look like this.</string>
+    <string name="st_version">Version: %1$s (Android SDK %2$d, %3$s)</string>
+    <string name="st_node">Node: %1$s</string>
+    <string name="st_paired">Paired: %1$s</string>
+    <string name="st_link">Home Assistant connection: %1$s %2$s</string>
+    <string name="st_connected">connected</string>
+    <string name="st_last_error">Last error: %1$s</string>
+    <string name="st_a11y">Accessibility service: %1$s</string>
+    <string name="st_media">Now playing (notification access): %1$s</string>
+    <string name="st_watchdog">Watchdog (WRITE_SECURE_SETTINGS): %1$s</string>
+    <string name="st_update">Self-update allowed: %1$s</string>
+    <string name="st_caps">D-pad via accessibility: %1$s   Screenshot: %2$s</string>
+    <string name="st_last_update">Last update: %1$s</string>
+    <string name="st_error">Could not read status: %1$s</string>
+    <string name="yes">yes</string>
+    <string name="no">NO</string>
+</resources>

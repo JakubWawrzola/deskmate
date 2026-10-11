@@ -1,0 +1,21 @@
+# Sekrety: klucz podpisu, hasla, kody parowania
+_prywatne/
+*.jks
+*.keystore
+keystore.properties
+pairing*.txt
+
+# Build
+.gradle/
+build/
+app/build/
+local.properties
+*.apk
+*.aab
+!dist/.keep
+dist/
+
+# IDE
+.idea/
+*.iml
+.DS_Store

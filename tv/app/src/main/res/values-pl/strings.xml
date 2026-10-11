@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="a11y_description">Pozwala asystentowi z Home Assistanta czytać ekran telewizora jako tekst, wybierać elementy i otwierać aplikacje. Działa po cichu, bez mowy i dźwięków. Dane idą tylko do Twojego Home Assistanta szyfrowanym połączeniem.</string>
+    <string name="indicator">%1$s steruje</string>
+
+    <string name="status_tagline">Most między asystentem z Home Assistanta a tym telewizorem. Konfiguracja przez ADB (install.ps1), sterowanie z Home Assistanta.</string>
+    <string name="btn_reconnect">Połącz ponownie</string>
+    <string name="btn_test_bubble">Test dymka</string>
+    <string name="test_bubble_text">Tak będą wyglądać powiadomienia z Home Assistanta.</string>
+    <string name="st_version">Wersja: %1$s (Android SDK %2$d, %3$s)</string>
+    <string name="st_node">Node: %1$s</string>
+    <string name="st_paired">Sparowany: %1$s</string>
+    <string name="st_link">Połączenie z HA: %1$s %2$s</string>
+    <string name="st_connected">połączony</string>
+    <string name="st_last_error">Ostatni błąd: %1$s</string>
+    <string name="st_a11y">Usługa dostępności: %1$s</string>
+    <string name="st_media">Co gra (dostęp do powiadomień): %1$s</string>
+    <string name="st_watchdog">Watchdog (WRITE_SECURE_SETTINGS): %1$s</string>
+    <string name="st_update">Samoaktualizacja dozwolona: %1$s</string>
+    <string name="st_caps">D-pad z dostępności: %1$s   Zrzut ekranu: %2$s</string>
+    <string name="st_last_update">Ostatnia aktualizacja: %1$s</string>
+    <string name="st_error">Błąd odczytu stanu: %1$s</string>
+    <string name="yes">tak</string>
+    <string name="no">NIE</string>
+</resources>

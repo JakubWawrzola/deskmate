@@ -1,0 +1,59 @@
+{
+  "crypto_py_sha256": "55cdd98ad11901977ef7b8e5ec6f4318a8dae3a00a0bcadc8089fe29a466f874",
+  "psk": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+  "cascade": "ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8=",
+  "node": "salon_tv",
+  "cn": "EBESExQVFhcYGRobHB0eHw==",
+  "sn": "ICEiIyQlJicoKSorLC0uLw==",
+  "ts_c": 1760000000,
+  "ts_s": 1760000001,
+  "client_priv": "lI/mA/YdwDa1xZbcCf484/PTDckPAkyF88gtssyrZ50=",
+  "server_priv": "s+rNM0M7MbUlI1EDLJs+ei56p3ONXezfDdbGJoCFPAY=",
+  "client_epk": "NH42vYcGCVlEt60BKV4KaXevr1JQknXun2zsOQM9iA8=",
+  "server_epk": "rxhVyV5WGzRkxs5GodeRTeYYPPsWKc7PnOH4qCUzJ2s=",
+  "shared": "c6aPb44ABrfSaNK9Zwor/r9HnUNLvqVTP2iB4JXZPXo=",
+  "plain": {
+    "hello_bytes": "0000000a646d6c322068656c6c6f00000001320000000873616c6f6e5f747600000010101112131415161718191a1b1c1d1e1f0000000a3137363030303030303000000020347e36bd8706095944b7ad01295e0a6977afaf52509275ee9f6cec39033d880f0000000130",
+    "hello_mac": "h006cuGuQ90kqsupbJ0suJR1tvJkQgT51PkMDl2BssQ=",
+    "welcome_bytes": "0000000c646d6c322077656c636f6d6500000020ebf61f4ffa49049f5b102b8bf9bba6776d01de2dd744c967ce5d7c2b719c784900000010202122232425262728292a2b2c2d2e2f0000000a3137363030303030303100000020af1855c95e561b3464c6ce46a1d7914de6183cfb1629cecf9ce1f8a82533276b",
+    "welcome_mac": "RT8zfQdpmF8cIRgchpYaMfE1q7tgQKMcUCy01xRvcuc=",
+    "k_c2s": "a8fb4217a2e0310ce67bdc2964b28132f82573a903722938adb1b828efbf25f6",
+    "k_s2c": "de9d26e014f0033f4dd5c86edbbdc55c375c4bff23a589fc32465b7456e189c5",
+    "casc_c2s": null,
+    "casc_s2c": null,
+    "c2s_plain": "{\"t\": \"state\", \"s\": {\"app\": \"Netflix\", \"media_title\": \"Za\\u017c\\u00f3\\u0142\\u0107 g\\u0119\\u015bl\\u0105 ja\\u017a\\u0144\"}}",
+    "c2s_frame": {
+      "t": "e",
+      "n": 1,
+      "p": "DmuBuICp+9/vyt4aA83cf//LXjzgYC1+F4iO9U6IMrZSRUUWsip53lDSRhctj/EbZHVXX6GRsH2rV3XGSTQ7HzieeT2/gS38eKXcKRioCn598n4jQ9HnKIxBKbwG0h+fJy95n0J0B4+1dTBUNb3g9FYgdg3EvQu9V2mR/ILCYA4qMVWWuNGMKg=="
+    },
+    "s2c_plain": "{\"t\": \"tv\", \"id\": 7, \"op\": \"screen\", \"max\": 60}",
+    "s2c_frame": {
+      "t": "e",
+      "n": 1,
+      "p": "/I3J00bSFbPJuL9izVpWM0DhbeFKd/KpIdcG+Mtz36VRtRY0F3RumKPQKUANV2hm/OgYrTAEOzv/mkRTvofY"
+    }
+  },
+  "casc": {
+    "hello_bytes": "0000000a646d6c322068656c6c6f00000001320000000873616c6f6e5f747600000010101112131415161718191a1b1c1d1e1f0000000a3137363030303030303000000020347e36bd8706095944b7ad01295e0a6977afaf52509275ee9f6cec39033d880f0000000131",
+    "hello_mac": "pmI0rCrsjS4sy05rsmfk2DUCrQhqlBR7MM9kynuyFSA=",
+    "welcome_bytes": "0000000c646d6c322077656c636f6d65000000207347c1a99e3d2a6edefd0a54756902db5cde59f9fe87b4408167a8929065dc2d00000010202122232425262728292a2b2c2d2e2f0000000a3137363030303030303100000020af1855c95e561b3464c6ce46a1d7914de6183cfb1629cecf9ce1f8a82533276b",
+    "welcome_mac": "bWJEzJLYg9J7rzz9x7N6/WnYbo2rmtgZ2Icr184pnsc=",
+    "k_c2s": "ed8ae9f0388441c0f20fd26439be9234866c15c11e693de73ea4157a86309075",
+    "k_s2c": "280a5d945fa4da45161b9e029f1128631d67c6a9722f1a29e34c54b5343afa04",
+    "casc_c2s": "ac1dcd10418ff7a2f4d93f63d2b20c8b0a86249389b4e564c0255d136f3e38e5",
+    "casc_s2c": "caa04dd800c12e55e0e157d54c1f500c0b060606fb7db99460f2a341a0d504cc",
+    "c2s_plain": "{\"t\": \"state\", \"s\": {\"app\": \"Netflix\", \"media_title\": \"Za\\u017c\\u00f3\\u0142\\u0107 g\\u0119\\u015bl\\u0105 ja\\u017a\\u0144\"}}",
+    "c2s_frame": {
+      "t": "e",
+      "n": 1,
+      "p": "r5Z1PRrHFAY36vkbWUS3b8hpvXWnHGyXpaTLL90qu02O1KcCmqS9qrmyF/M9MGqaNtzukli4MdADM4kr6L0VY+lrSNgCFsfEoDWKc4fFEfn7kQedkxiD5GHQvRcbIy9rp40bROIOtXtO49z9UUIt5xKDrU3uDVUhE2jjvGTu1+U/oe0AyPg55irhf1R+76rfIuWmUoLx7Ok="
+    },
+    "s2c_plain": "{\"t\": \"tv\", \"id\": 7, \"op\": \"screen\", \"max\": 60}",
+    "s2c_frame": {
+      "t": "e",
+      "n": 1,
+      "p": "8og4MjZN/juBTjrkgiiLELVl2SIdqmQmLC6pekUJlFI5kk1oxfJIvvL06KjMmkWIq4rNGMCPLEEcDNdU6ReHAp8+yrnVkqwo4mAdCMtc1A=="
+    }
+  }
+}

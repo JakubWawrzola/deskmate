@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- feedbackGeneric: zadnej mowy ani dzwiekow. Bez trybu touch exploration,
+     wiec aplikacje nie przechodza w tryb TalkBacka. -->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged|typeWindowsChanged|typeViewFocused|typeViewSelected|typeViewScrolled|typeViewTextChanged|typeViewClicked"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagRetrieveInteractiveWindows|flagReportViewIds|flagIncludeNotImportantViews"
+    android:canRetrieveWindowContent="true"
+    android:canTakeScreenshot="true"
+    android:description="@string/a11y_description"
+    android:notificationTimeout="50"
+    android:settingsActivity="com.wawrzola.deskmatetv.ui.StatusActivity" />
