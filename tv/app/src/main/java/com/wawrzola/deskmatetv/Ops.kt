@@ -87,7 +87,7 @@ object Ops {
         val waitMs = a.optLong("wait_ms", 1500).coerceIn(0, 15000)
         if (waitMs > 0) out.put("changed", s.actions.waitChange(since, waitMs))
         if (a.optBoolean("screen", false)) {
-            out.put("screen", s.reader.read(a.optInt("max", 60).coerceIn(5, 300), a.optBoolean("geo", false)).getString("text"))
+            out.put("screen", s.reader.read(a.optInt("max", 60).coerceIn(5, 300), a.optBoolean("geo", false), remember = true).getString("text"))
         }
         return out
     }
@@ -161,7 +161,7 @@ object Ops {
         }
         out.put("app", currentPkg(s) ?: "?")
         if (a.optBoolean("screen", false)) {
-            out.put("screen", s.reader.read(a.optInt("max", 60).coerceIn(5, 300), a.optBoolean("geo", false)).getString("text"))
+            out.put("screen", s.reader.read(a.optInt("max", 60).coerceIn(5, 300), a.optBoolean("geo", false), remember = true).getString("text"))
         }
         return out
     }
@@ -194,7 +194,7 @@ object Ops {
         if (ms > 0) s.actions.waitChange(s.actions.eventSeq(), minOf(ms, 2500))
         out.put("app", currentPkg(s) ?: "?")
         if (a.optBoolean("screen", false)) {
-            out.put("screen", s.reader.read(a.optInt("max", 60).coerceIn(5, 300), a.optBoolean("geo", false)).getString("text"))
+            out.put("screen", s.reader.read(a.optInt("max", 60).coerceIn(5, 300), a.optBoolean("geo", false), remember = true).getString("text"))
         }
         return out
     }
