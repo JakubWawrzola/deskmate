@@ -14,3 +14,7 @@ src-tauri/gen
 # Build artifacts: installers are published as release assets, not committed
 dist-installers/*.exe
 dist-installers/*.zip
+
+# Python bytecode (py_compile, test vector generator)
+__pycache__/
+*.pyc

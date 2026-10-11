@@ -25,6 +25,8 @@ DEFAULT_CRYPTO = ROOT.parent / "custom_components" / "deskmate_link" / "crypto.p
 
 
 def load_crypto(path: Path):
+    # No __pycache__ next to the integration (it would end up in commits)
+    sys.dont_write_bytecode = True
     spec = importlib.util.spec_from_file_location("dml_crypto", path)
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
