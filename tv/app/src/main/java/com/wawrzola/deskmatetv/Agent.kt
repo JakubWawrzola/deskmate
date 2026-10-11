@@ -13,7 +13,9 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import com.wawrzola.deskmatetv.link.LinkClient
+import com.wawrzola.deskmatetv.service.MediaListenerService
 import com.wawrzola.deskmatetv.service.TvAccessibilityService
+import com.wawrzola.deskmatetv.service.Watchdog
 import com.wawrzola.deskmatetv.tv.Apps
 import com.wawrzola.deskmatetv.tv.Media
 import com.wawrzola.deskmatetv.tv.OpError
@@ -113,6 +115,7 @@ object Agent : LinkClient.Listener {
 
     fun onAccessibility(context: Context, connected: Boolean) {
         init(context)
+        refreshHealth()
         if (connected) {
             TvAccessibilityService.instance?.foregroundPkg?.let { onForeground(context, it) }
             kick(context)
@@ -128,6 +131,22 @@ object Agent : LinkClient.Listener {
         val title = c?.let { Media.title(it) }.orEmpty()
         val playback = Media.stateName(c?.playbackState?.state)
         pushState(mapOf("media_title" to title.take(250), "playback" to playback))
+    }
+
+    /**
+     * "ok" albo lista problemow (no_accessibility, no_media_access,
+     * no_watchdog) - widac w HA, bez podchodzenia do telewizora.
+     */
+    private fun health(): String {
+        val problems = ArrayList<String>(3)
+        if (TvAccessibilityService.instance == null) problems += "no_accessibility"
+        if (!MediaListenerService.connected) problems += "no_media_access"
+        if (!Watchdog.canWriteSecure(app)) problems += "no_watchdog"
+        return if (problems.isEmpty()) "ok" else problems.joinToString(", ")
+    }
+
+    fun refreshHealth() {
+        if (initialized) pushState(mapOf("health" to health()))
     }
 
     private fun volumeState(): Map<String, Any> = try {
@@ -163,6 +182,7 @@ object Agent : LinkClient.Listener {
         state["media_title"] = c?.let { Media.title(it) }.orEmpty().take(250)
         state["playback"] = Media.stateName(c?.playbackState?.state)
         state.putAll(volumeState())
+        state["health"] = health()
         val s = JSONObject()
         for ((k, v) in state) s.put(k, v)
         link.send(JSONObject().put("t", "state").put("s", s))
@@ -260,6 +280,7 @@ object Agent : LinkClient.Listener {
                     .put("icon", "mdi:volume-high").put("min", 0).put("max", 100).put("step", 1).put("unit", "%"),
             )
             .put(JSONObject().put("key", "mute").put("kind", "switch").put("name", name("Mute", "Wyciszenie")).put("icon", "mdi:volume-off"))
+            .put(JSONObject().put("key", "health").put("kind", "sensor").put("name", name("App health", "Stan aplikacji")).put("icon", "mdi:heart-pulse"))
         return JSONObject()
             .put("t", "declare")
             .put(

@@ -19,6 +19,9 @@ notes and asset names are available in `docs/releases/RELEASE-*.md`.
   automatically when the TV connects.
 - `deskmate_link.notify` to a TV accepts a camera entity as `image`; Home
   Assistant sends a frame with the message.
+- An app health entity on the TV shows `ok` or what is missing (accessibility
+  service, notification access, watchdog permission), so a broken setup is
+  visible in Home Assistant without walking to the TV.
 
 ### Changed
 

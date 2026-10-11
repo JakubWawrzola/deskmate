@@ -14,11 +14,13 @@ class MediaListenerService : NotificationListenerService() {
         connected = true
         Media.attach(applicationContext)
         Agent.kick(applicationContext)
+        Agent.refreshHealth()
     }
 
     override fun onListenerDisconnected() {
         connected = false
         Media.detach(applicationContext)
+        Agent.refreshHealth()
         super.onListenerDisconnected()
     }
 

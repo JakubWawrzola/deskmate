@@ -51,6 +51,7 @@ but only when the caller asks for one.
 | `sensor.<tv>_playback` | `playing`, `paused`, `stopped`, `buffering` |
 | `number.<tv>_volume` | Volume in percent (also a Bluetooth speaker connected to the TV) |
 | `switch.<tv>_mute` | Mute |
+| `sensor.<tv>_app_health` | `ok`, or what is missing: `no_accessibility`, `no_media_access`, `no_watchdog` |
 
 Entity names follow the TV language (English or Polish). The ids come from the
 device name, `DeskmateTV` by default.

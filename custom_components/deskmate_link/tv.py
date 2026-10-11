@@ -21,7 +21,7 @@ from typing import Any, Callable
 import voluptuous as vol
 
 from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse, callback
-from homeassistant.exceptions import HomeAssistantError
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 
@@ -177,7 +177,13 @@ def async_register_tv_services(hass: HomeAssistant) -> None:
     async def _update(call: ServiceCall) -> ServiceResponse:
         hub = find_tv_hub(hass, call.data.get("node_id"))
         if hub is None:
-            raise HomeAssistantError("DeskmateTV: no paired TV")
+            raise ServiceValidationError("DeskmateTV: no paired TV")
+        if not hub.available:
+            # Zwykla sytuacja (TV w czuwaniu) - komunikat, nie traceback w logu
+            raise ServiceValidationError(
+                "DeskmateTV: the TV is not connected. A newer APK in "
+                f"/config/{TV_UPDATE_DIR} is sent automatically when it connects."
+            )
         return await async_tv_update(hass, hub, call.data.get("file"))
 
     hass.services.async_register(
