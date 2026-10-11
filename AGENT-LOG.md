@@ -11,6 +11,21 @@ or delete another agent's entry.
 
 ## Log
 
+## [2026-10-11 ~23:55] Claude — DeskmateTV (branch feat/deskmate-tv)
+Zrobione: aplikacja Android TV w `tv/` (Link v2 w Kotlinie z testami
+wektorowymi vs crypto.py, usluga dostepnosci: ekran jako tekst, klik, D-pad,
+tekst, aplikacje, wejscia HDMI, media, glosnosc, dymki, zrzut, samoaktualizacja,
+watchdog). Integracja: wezly typu tv (tv_res, async_tv_request), encja
+polaczenia, deskmate_link.tv_update + autoaktualizacja przy polaczeniu,
+notify bez node_id tylko do komputerow, kamera jako obraz w dymku TV.
+Docs: docs/TV.md, README, CHANGELOG (Unreleased). Wersje aplikacji PC i
+manifestu bez zmian (0.7.3) - release to decyzja Jakuba.
+Wdrozone u Jakuba: HA (0.7.3 + TV), TV 0.2.0. Push galezi + PR na polecenie
+Jakuba z 11.10; bez merge do main, bez tagu i release.
+Dotkniete pliki: custom_components/deskmate_link/*, tv/**, docs/TV.md,
+README.md, CHANGELOG.md, AGENT-LOG.md.
+Nastepny krok: Jakub testuje na TV i decyduje o merge/release.
+
 ## [2026-07-15 ~15:30] Claude — multi-agent coordination setup
 Zrobione: AGENTS.md, AGENT-LOG.md, worktree C:\dev\web\deskmate-codex (branch
 codex/work) utworzony od checkpointu na master. CLAUDE.md w tym repo z
