@@ -7,6 +7,20 @@ notes and asset names are available in `docs/releases/RELEASE-*.md`.
 
 ### Added
 
+- **Your own sensors** (#5): program running, window open, Windows service
+  state, and PowerShell output on its own interval. Sensors page → Your
+  sensors.
+- **Program controls without PowerShell**: start a program, file or URL, and
+  stop a program by name, as Home Assistant buttons (Commands page).
+- **Last active** sensor (#5): the time of the last keyboard or mouse input,
+  for presence, like HASS.Agent's LastActive. Off by default.
+- **Dark theme** (#5): follows Windows, or pick light or dark under Settings →
+  Appearance.
+- **Home Assistant dashboards in a Deskmate window**, from the tray, a hotkey
+  or a quick action.
+- **CPU temperature through PawnIO**: Settings → CPU temperature installs an
+  optional helper (one UAC prompt) that reads Intel and AMD Ryzen sensors and
+  feeds the existing CPU temperature sensor. x64 only.
 - **DeskmateTV groundwork** (preview, no build published yet): a Deskmate for
   Android TV and Google TV ([docs/TV.md](docs/TV.md), source in `tv/`). The
   integration supports TV nodes now; the TV app ships once it is stable.
@@ -28,8 +42,16 @@ notes and asset names are available in `docs/releases/RELEASE-*.md`.
 
 ### Changed
 
+- New installs use the Deskmate integration (Deskmate Link) by default; MQTT
+  stays available, and existing MQTT setups are not switched.
 - `deskmate_link.notify` without `node_id` goes to computers only, never to a
   TV. The Deskmate page and the file services skip TV nodes.
+
+### Fixed
+
+- "Start with Windows" switched itself off after every update (#7): a newer
+  installer runs the old uninstaller, which removed the Run entry. The choice
+  is now remembered and restored on the next start.
 
 ## 0.7.3 - 2026-10-10
 

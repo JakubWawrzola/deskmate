@@ -93,6 +93,9 @@ Two things worth doing right away:
   connection if the naming matters; Home Assistant does not rename entities
   later.
 - **Start with Windows** (Settings), so the PC reports after every reboot.
+  The choice survives updates.
+
+Settings → *Appearance* switches between light, dark and following Windows.
 
 Settings are stored in `%APPDATA%\Deskmate\config.json`. Keys and tokens go to
 Windows Credential Manager, never into that file.
@@ -102,9 +105,13 @@ Windows Credential Manager, never into that file.
 One device per PC, with:
 
 - **Sensors**: CPU, memory, disk, network up and down, battery, uptime, idle
-  time, session locked, current user, "presenting or full screen". With
-  supported hardware also GPU load and temperature, VRAM, per-drive usage and
-  speed, CPU temperature. Sensors a PC cannot read are simply not created.
+  time, session locked, current user, "presenting or full screen", and (off by
+  default) *Last active*, the time of the last keyboard or mouse input, handy
+  for presence. With supported hardware also GPU load and temperature, VRAM,
+  per-drive usage and speed. Sensors a PC cannot read are simply not created.
+- **CPU temperature**: Windows only lets programs with administrator rights
+  read it. Settings → *CPU temperature* sets up a small helper for that, see
+  [below](#cpu-temperature). Running LibreHardwareMonitor works too.
 - **Buttons**: Lock, Sleep, Hibernate, Shutdown, Restart, Monitors off, media
   keys, empty recycle bin. Shutdown and Restart wait 5 seconds.
 - **Controls**: volume slider, mute, Keep awake (stops sleep and screen-off
@@ -114,6 +121,35 @@ One device per PC, with:
   in use.
 
 Turning a sensor off in Deskmate removes its entity from Home Assistant.
+
+### Your own sensors
+
+Sensors page → *Your sensors* adds sensors of your own:
+
+| Type | Shows | Example |
+|---|---|---|
+| Program running | on/off | `steam.exe` |
+| Window open | on/off: a visible window whose title contains the text | `Microsoft Teams` |
+| Windows service state | `running`, `stopped`, `paused`, ... | `Spooler` |
+| PowerShell output | the first line a command prints (optional unit) | `(Get-Process chrome -ErrorAction SilentlyContinue).Count` |
+
+PowerShell sensors run in the background on their own interval (30 seconds or
+more), keep their last value if a run fails, and start disabled: enable one
+after checking the command.
+
+### CPU temperature
+
+1. Install [PawnIO](https://pawnio.eu), a signed open-source driver for reading
+   hardware sensors (also `winget install namazso.PawnIO`).
+2. Deskmate → Settings → *CPU temperature* → *Install helper*. Windows asks for
+   administrator approval once.
+
+The helper is a copy of Deskmate in Program Files that Windows starts with
+administrator rights at sign-in. It reads the processor's temperature through
+PawnIO and hands it to Deskmate, which keeps running without those rights. The
+*CPU temperature* sensor then appears in Home Assistant. Intel and AMD Ryzen
+(and newer) on x64; ARM processors have no such sensor. *Remove* in the same
+panel takes the helper away again; uninstalling Deskmate leaves it idle.
 
 ## 5. Notifications on the PC
 
@@ -156,10 +192,18 @@ Assistant API are allowed automatically.
 
 Besides the built-in buttons:
 
-- **Your own commands** (Commands page): any PowerShell command as a Home
-  Assistant button, switch or slider. Each one is off until you enable it and
-  can ask for confirmation on the PC first. A slider's value reaches the script
-  as `$env:DESKMATE_VALUE`, never inside the command text.
+- **Your own controls** (Commands page), each off until you enable it and
+  able to ask for confirmation on the PC first:
+  - *Start a program*: a button that opens a program, file, shortcut or URL
+    (`steam://...` works), with optional arguments;
+  - *Stop a program*: a button that closes every running copy of a program by
+    name, e.g. `steam.exe`;
+  - *PowerShell script*: any command as a button, switch or slider. A slider's
+    value reaches the script as `$env:DESKMATE_VALUE`, never inside the
+    command text.
+
+  Start and stop run without PowerShell. Together with a *Program running*
+  sensor they make a program controllable from Home Assistant.
 - **Remote input** (Settings, off by default): Home Assistant can type text
   into the focused window, drive a presentation and open allowed web pages.
   Typed text is printable characters only, so it cannot press Enter on its own.
@@ -182,6 +226,11 @@ profile → Security → Create token) entered under Settings → Home Assistant
   Open it from the tray (*Show/hide widgets*) or a hotkey, move it by its top
   bar, close it with `x`.
 - **Tray quick actions**: your own entries in the tray menu.
+- **Dashboards**: Settings → *Home Assistant dashboard* opens a Home Assistant
+  dashboard in a Deskmate window, from the tray (*Open Home Assistant*), a
+  hotkey or a quick action (*Open HA dashboard*, optionally with its own path
+  such as `lovelace/office`). Log in once; the session is kept. This one needs
+  no token.
 - **Stream Deck**: a separate [plugin](../streamdeck-plugin/README.md).
 
 ## 8. Files between your phone and the PC
@@ -319,7 +368,9 @@ beyond the built-in buttons, is off until you turn it on:
 | Feature | Where | Default |
 |---|---|---|
 | Window title, Wi-Fi name, media, camera, microphone sensors | Sensors | Off |
-| Custom commands | Commands | Off, ask before running |
+| Custom commands and program controls | Commands | Off, ask before running |
+| PowerShell sensors | Sensors → Your sensors | Off |
+| CPU temperature helper (administrator, at sign-in) | Settings → CPU temperature | Not installed |
 | Remote input (typing, presentation, opening pages) | Settings | Off |
 | Text to speech | Settings | Off |
 | Clipboard read / write | Settings | Off |

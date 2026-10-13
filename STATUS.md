@@ -1,5 +1,5 @@
 # STATUS — Deskmate
-Aktualizacja: 2026-10-13 (0.8.0 w toku na master, BEZ push)
+Aktualizacja: 2026-10-13 (0.8.0 gotowe lokalnie na master, BEZ push; czeka na testy i decyzje Kuby)
 
 ## Sesja 2026-10-13 — merge TV + feedback spolecznosci (plan, odhaczane)
 
@@ -9,17 +9,18 @@ helper PawnIO (UAC raz, zadanie z najwyzszymi uprawnieniami, named pipe);
 dashboard Lovelace w oknie aplikacji.
 
 - [x] Merge feat/deskmate-tv -> master (fast-forward, lokalnie).
-- [ ] TV ukryte: tv_update tylko gdy jest wezel TV, docs/TV.md jako preview,
+- [x] TV ukryte: tv_update tylko gdy jest wezel TV, docs/TV.md jako preview,
       README bez sekcji TV, angielskie bledy TV.
-- [ ] Domyslny transport: Deskmate Link (MQTT jako opcja).
-- [ ] #7 "Start with Windows" po aktualizacji (zapamietane w configu).
-- [ ] #5 sensor last_active (timestamp), ciemny motyw (system/jasny/ciemny).
-- [ ] Wlasne sensory: proces dziala, stan uslugi, okno, PowerShell.
-- [ ] Procesy: komendy uruchom/zabij (bez PowerShella).
-- [ ] Dashboard Lovelace w oknie + akcja tray/hotkey.
-- [ ] Temperatura CPU: helper PawnIO.
-- [ ] Roadmapa: TV (powiadomienia + podglad kamery), aplikacja Linux.
-- [ ] Docs (GUIDE, CHANGELOG), drafty odpowiedzi w #5 i #7.
+- [x] Domyslny transport: Deskmate Link (MQTT jako opcja).
+- [x] #7 "Start with Windows" po aktualizacji (zapamietane w configu).
+- [x] #5 sensor last_active (timestamp), ciemny motyw (system/jasny/ciemny).
+- [x] Wlasne sensory: proces dziala, stan uslugi, okno, PowerShell.
+- [x] Procesy: komendy uruchom/zabij (bez PowerShella).
+- [x] Dashboard Lovelace w oknie + akcja tray/hotkey.
+- [x] Temperatura CPU: helper PawnIO.
+- [x] Roadmapa: TV (powiadomienia + podglad kamery), aplikacja Linux.
+- [x] Docs (GUIDE, CHANGELOG, SECURITY, README); drafty odpowiedzi w #5 i #7 w raporcie.
+- [ ] Testy reczne Kuby, wersja 0.8.0, build, push, release, odpowiedzi w #5/#7 (na polecenie).
 
 
 ## Sesja 2026-10-10 — 0.7.3, druga runda #2

@@ -54,6 +54,9 @@ Setting this up with an AI assistant? Point it at
 - Buttons and controls: lock, sleep, hibernate, shutdown, restart, monitors off,
   media keys, volume, mute, keep awake, and your own PowerShell commands as
   buttons, switches or sliders.
+- Your own sensors (program running, window open, service state, PowerShell
+  output) and controls that start or stop programs.
+- CPU temperature through the signed PawnIO driver, with an optional helper.
 - Native Windows notifications with an image and action buttons; the clicked
   button comes back as an event.
 - A **Deskmate** page in the sidebar: send files from your phone or laptop to the
@@ -62,7 +65,9 @@ Setting this up with an AI assistant? Point it at
 **On the PC**
 
 - Global hotkeys that control your home or fire events into Home Assistant.
-- An always-on-top widget panel with the entities you pick.
+- An always-on-top widget panel with the entities you pick, and Home Assistant
+  dashboards in their own window.
+- Light and dark theme.
 - Your own quick actions in the tray menu, and a separate
   [Stream Deck plugin](streamdeck-plugin/README.md).
 

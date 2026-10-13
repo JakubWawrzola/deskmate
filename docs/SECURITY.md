@@ -304,6 +304,34 @@ Windows `Global\` namespace (`Deskmate.Seat.<node>` and
 could create them to keep Deskmate from connecting, which is a local denial of
 service only; such a program could just as well stop the app.
 
+## CPU temperature helper
+
+Optional, installed from Settings with one UAC prompt. It is a copy of
+deskmate.exe in `%ProgramFiles%\Deskmate CPU temperature\`, started by the
+scheduled task *Deskmate CPU temperature* at the user's sign-in with the
+highest privileges. The copy is placed where only administrators can write: a
+task that ran the per-user install folder elevated would let any program the
+user runs replace the file and gain administrator rights. The task is
+registered through the Task Scheduler API from an in-memory definition, so
+there is no temporary XML file to swap either.
+
+The helper loads `PawnIOLib.dll` from the PawnIO installation (Program Files)
+and one signed PawnIO module (IntelMSR or AMDFamily17, LGPL-2.1, embedded
+unmodified). Those modules allow reading thermal registers; the helper uses
+nothing else. It accepts no input: each connection to
+`\\.\pipe\deskmate-cpu-temperature` (local clients only) gets one JSON line
+with a temperature or an error code. It stops serving once Deskmate is
+uninstalled for that user; *Remove* in Settings deletes the task and the copy.
+
+## Your own sensors and program controls
+
+*Start a program* opens the configured target with ShellExecute, *Stop a
+program* terminates processes with the configured executable name that the
+user's account may terminate (never Deskmate). Neither uses a shell, and Home
+Assistant cannot change what they act on: only the press comes from it.
+PowerShell sensors run the configured command on an interval and publish the
+first line of its output; like PowerShell controls they start disabled.
+
 ## Update check
 
 Once a day, and when *Check now* is pressed, the app sends one HTTPS request to

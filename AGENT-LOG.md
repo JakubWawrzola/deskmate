@@ -8,7 +8,6 @@ or delete another agent's entry.
 
 | Area | Agent | Since |
 |---|---|---|
-| master: merge DeskmateTV + funkcje z feedbacku (0.8.0), bez push | Claude | 2026-10-13 |
 
 ## Log
 
@@ -305,3 +304,16 @@ transport::explain_connection_error (10013/10061/10060/10065), panel API HA,
 GUIDE (10013, reinstalacja, pelny reset + nazwy w Credential Manager).
 Sonda read-only: filtr Credential Manager trafia 3/13 wpisow, tylko Deskmate.
 Kuba zaakceptowal: commit, push main, tag v0.7.3, release, odpowiedz w #2.
+
+## [2026-10-13] Claude — merge DeskmateTV + feedback spolecznosci (master, bez push)
+Merge feat/deskmate-tv -> master (fast-forward). TV jako preview: tv_update
+tylko przy sparowanym TV, README bez sekcji TV, docs/TV.md oznaczony, roadmapa
+(TV: powiadomienia z podgladem kamery; aplikacja na Linuxa). Funkcje: Link
+domyslny dla nowych instalacji (brak pola transport = MQTT), #7 autostart
+zapamietany w configu i odtwarzany, #5 ciemny motyw + Last active + wlasne
+sensory (proces, okno, usluga, PowerShell) + sterowanie programami (start/stop
+bez PowerShella), dashboard HA w oknie aplikacji, temperatura CPU przez
+PawnIO (helper w Program Files, zadanie przy logowaniu, named pipe, moduly
+0.2.11 LGPL w src-tauri/pawnio). cargo check ARM64 i x64 (--tests), tsc OK.
+Nie budowano, nie testowano na urzadzeniach, nie pushowano. Wersja nadal 0.7.3.
+Nastepny krok: testy Kuby (helper PawnIO na PC x64), decyzja o 0.8.0.
