@@ -142,6 +142,18 @@ pub const SENSOR_DEFS: &[SensorDef] = &[
         privacy: false,
         default_enabled: true,
     },
+    // HASS.Agent's LastActive, used for presence (GitHub issue #5). A
+    // timestamp needs the 0.8.0 integration on Link, hence off by default.
+    SensorDef {
+        id: "last_active",
+        name: "Last active",
+        component: "sensor",
+        unit: None,
+        device_class: Some("timestamp"),
+        icon: Some("mdi:account-clock"),
+        privacy: false,
+        default_enabled: false,
+    },
     // no device_class "lock": in HA, lock means on=unlocked (the opposite of ours)
     SensorDef {
         id: "session_locked",
@@ -409,6 +421,9 @@ impl Collector {
             if is_enabled(cfg, "idle") {
                 out.insert("idle".into(), win::idle_seconds().to_string());
             }
+            if is_enabled(cfg, "last_active") {
+                out.insert("last_active".into(), last_active(win::idle_seconds()));
+            }
             if is_enabled(cfg, "session_locked") {
                 out.insert(
                     "session_locked".into(),
@@ -563,6 +578,38 @@ pub fn session_locked() -> bool {
 #[cfg(not(windows))]
 pub fn session_locked() -> bool {
     false
+}
+
+/// Time of the last keyboard or mouse input as UTC ISO 8601, to the minute so
+/// an active user does not produce a new state every publish interval.
+fn last_active(idle_seconds: u64) -> String {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let at = now.saturating_sub(idle_seconds) / 60 * 60;
+    iso8601_utc(at)
+}
+
+/// Unix seconds -> "YYYY-MM-DDTHH:MM:SS+00:00" (civil-from-days, no date crate).
+fn iso8601_utc(unix: u64) -> String {
+    let days = (unix / 86_400) as i64;
+    let secs = unix % 86_400;
+    let z = days + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z.rem_euclid(146_097);
+    let yoe = (doe - doe / 1_460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let day = doy - (153 * mp + 2) / 5 + 1;
+    let month = if mp < 10 { mp + 3 } else { mp - 9 };
+    let year = yoe + era * 400 + i64::from(month <= 2);
+    format!(
+        "{year:04}-{month:02}-{day:02}T{:02}:{:02}:{:02}+00:00",
+        secs / 3600,
+        secs % 3600 / 60,
+        secs % 60
+    )
 }
 
 fn truncate(s: &str, n: usize) -> String {
@@ -759,5 +806,18 @@ pub mod win {
             }
         }
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::iso8601_utc;
+
+    #[test]
+    fn formats_unix_time_as_iso8601_utc() {
+        assert_eq!(iso8601_utc(0), "1970-01-01T00:00:00+00:00");
+        assert_eq!(iso8601_utc(951_782_400), "2000-02-29T00:00:00+00:00");
+        assert_eq!(iso8601_utc(1_791_900_000), "2026-10-13T14:00:00+00:00");
+        assert_eq!(iso8601_utc(4_102_444_799), "2099-12-31T23:59:59+00:00");
     }
 }

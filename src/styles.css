@@ -13,6 +13,34 @@
   --font-mono: "Cascadia Mono", "Consolas", ui-monospace, monospace;
 }
 
+/* Dark theme (GitHub issue #5): the same monochrome, inverted. Follows
+   Windows unless Settings > Appearance picks one (data-theme on <html>). */
+:root {
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --color-paper: #121211;
+    --color-panel: #1b1b19;
+    --color-ink: #ececea;
+    --color-muted: #a3a39c;
+    --color-faint: #71716b;
+    --color-hairline: #2a2a27;
+    --color-hairline-strong: #3d3d39;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-paper: #121211;
+  --color-panel: #1b1b19;
+  --color-ink: #ececea;
+  --color-muted: #a3a39c;
+  --color-faint: #71716b;
+  --color-hairline: #2a2a27;
+  --color-hairline-strong: #3d3d39;
+}
+
 html,
 body,
 #root {

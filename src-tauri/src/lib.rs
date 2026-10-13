@@ -86,6 +86,9 @@ async fn save_config(
     } else {
         &new_config.node_id
     });
+    if !matches!(new_config.theme.as_str(), "system" | "light" | "dark") {
+        new_config.theme = "system".into();
+    }
     if !matches!(new_config.transport.as_str(), "mqtt" | "link") {
         return Err("transport must be mqtt or link".into());
     }

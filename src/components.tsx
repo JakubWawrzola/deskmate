@@ -76,7 +76,7 @@ export function Button({
 }) {
   const styles =
     kind === "primary"
-      ? "bg-ink text-panel border-ink hover:bg-black"
+      ? "bg-ink text-panel border-ink hover:opacity-90"
       : kind === "danger"
         ? "bg-panel text-ink border-hairline-strong hover:border-ink"
         : "bg-panel text-ink border-hairline-strong hover:border-ink";

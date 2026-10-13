@@ -188,6 +188,9 @@ pub struct AppConfig {
     /// restored (autostart.rs, GitHub issue #7).
     #[serde(default)]
     pub start_with_windows: Option<bool>,
+    /// App colours: system (follow Windows) | light | dark.
+    #[serde(default = "default_theme")]
+    pub theme: String,
     /// Daily check for a newer release on GitHub (nothing is downloaded).
     #[serde(default = "default_true")]
     pub update_check: bool,
@@ -208,6 +211,10 @@ pub struct AppConfig {
 
 fn default_true() -> bool {
     true
+}
+
+fn default_theme() -> String {
+    "system".into()
 }
 
 impl Default for AppConfig {
@@ -244,6 +251,7 @@ impl Default for AppConfig {
             toast_branding: true,
             update_check: true,
             start_with_windows: None,
+            theme: default_theme(),
             update_notified: String::new(),
             ha_url: String::new(),
             ha_url_remote: String::new(),

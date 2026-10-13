@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { parsePairingCode } from "../pairing";
+import { applyTheme } from "../theme";
 import { Button, Field, Panel, Toggle } from "../components";
-import type { AppConfig, ClipboardMode, MqttTransport, TransportKind } from "../types";
+import type { AppConfig, ClipboardMode, MqttTransport, TransportKind, ThemeMode } from "../types";
 
 export default function SettingsPage({
   config,
@@ -48,6 +49,7 @@ export default function SettingsPage({
   const [deviceName, setDeviceName] = useState(config.device_name);
   const [interval, setIntervalS] = useState(String(config.publish_interval_secs));
   const [launchHidden, setLaunchHidden] = useState(config.launch_hidden);
+  const [theme, setTheme] = useState<ThemeMode>(config.theme ?? "system");
   const [allowInput, setAllowInput] = useState(config.allow_input);
   const [ttsEnabled, setTtsEnabled] = useState(config.tts_enabled);
   const [clipboardReadMode, setClipboardReadMode] = useState<ClipboardMode>(config.clipboard_read_mode);
@@ -144,6 +146,7 @@ export default function SettingsPage({
             .filter(Boolean),
           toast_branding: branding,
           update_check: updateCheck,
+          theme,
         },
         password || undefined,
         linkKey || undefined,
@@ -414,6 +417,23 @@ export default function SettingsPage({
             <span className="text-[13px]">Start minimized to tray</span>
             <Toggle on={launchHidden} onChange={setLaunchHidden} />
           </div>
+          <label className="block">
+            <span className="microlabel">Appearance</span>
+            <select
+              value={theme}
+              onChange={(e) => {
+                const next = e.target.value as ThemeMode;
+                setTheme(next);
+                applyTheme(next);
+              }}
+              className="mt-1 w-full h-9 px-2 bg-panel border border-hairline-strong rounded text-ink text-[13px] focus-visible:border-ink"
+            >
+              <option value="system">Follow Windows</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
+            <span className="block mt-1 text-[12px] text-muted">Applied right away; kept after Save.</span>
+          </label>
         </div>
       </Panel>
 

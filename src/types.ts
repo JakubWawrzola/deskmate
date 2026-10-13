@@ -2,6 +2,7 @@ export type CustomKind = "button" | "switch" | "number";
 export type ClipboardMode = "off" | "confirm" | "automatic";
 export type MqttTransport = "tls" | "insecure";
 export type TransportKind = "mqtt" | "link";
+export type ThemeMode = "system" | "light" | "dark";
 
 export type ActionKind = "toggle" | "service" | "command" | "widget" | "mqtt";
 
@@ -87,6 +88,7 @@ export interface AppConfig {
   allowed_url_origins: string[];
   toast_branding: boolean;
   update_check: boolean;
+  theme?: ThemeMode;
   start_with_windows?: boolean | null;
   update_notified: string;
   ha_url: string;
