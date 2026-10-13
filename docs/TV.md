@@ -1,5 +1,11 @@
 # DeskmateTV
 
+> **Preview, not released.** The Home Assistant integration already supports
+> TV nodes, but no DeskmateTV build is published yet: the app is built from
+> source in `tv/` until it is stable on more TVs. Nothing TV-related shows up in
+> Home Assistant until a TV is paired. Planned next: notifications with a live
+> camera preview. See `docs/dev/ROADMAP.md`.
+
 DeskmateTV puts a Deskmate on your Android TV or Google TV. It lets a Home
 Assistant voice assistant see the TV screen as plain text and act on it: open
 apps, pick items, type into search fields, read what is playing, change the

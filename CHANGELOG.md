@@ -7,9 +7,12 @@ notes and asset names are available in `docs/releases/RELEASE-*.md`.
 
 ### Added
 
-- **DeskmateTV**, a Deskmate for Android TV and Google TV ([docs/TV.md](docs/TV.md),
-  source in `tv/`). It connects over the same encrypted Deskmate Link and lets a
-  Home Assistant assistant read the screen as compact text, click by number or
+- **DeskmateTV groundwork** (preview, no build published yet): a Deskmate for
+  Android TV and Google TV ([docs/TV.md](docs/TV.md), source in `tv/`). The
+  integration supports TV nodes now; the TV app ships once it is stable.
+  `deskmate_link.tv_update` appears only when a TV is paired. The app
+  connects over the same encrypted Deskmate Link and lets a Home Assistant
+  assistant read the screen as compact text, click by number or
   label, use the D-pad, type, open apps and deep links, switch HDMI inputs,
   control the media session and show bubbles on screen. Silent, no speech.
 - The integration recognises TV nodes: `tv` requests with `tv_res` answers

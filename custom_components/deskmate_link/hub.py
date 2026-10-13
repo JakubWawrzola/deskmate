@@ -633,14 +633,14 @@ class DeskmateHub:
                 response = await fut
         except TimeoutError as err:
             raise HomeAssistantError(
-                f"DeskmateTV: telewizor nie odpowiedzial w ciagu {int(timeout)} s ({op})"
+                f"DeskmateTV: the TV did not answer within {int(timeout)} s ({op})"
             ) from err
         except ConnectionError as err:
-            raise HomeAssistantError("DeskmateTV: telewizor nie jest polaczony") from err
+            raise HomeAssistantError("DeskmateTV: the TV is not connected") from err
         finally:
             self._pending.pop(request_id, None)
         if not isinstance(response, dict) or response.get("t") != "tv_res":
-            raise HomeAssistantError("DeskmateTV: nieprawidlowa odpowiedz")
+            raise HomeAssistantError("DeskmateTV: unexpected answer from the TV")
         return response
 
     async def async_shutdown(self) -> None:

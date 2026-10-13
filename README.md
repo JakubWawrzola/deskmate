@@ -66,13 +66,6 @@ Setting this up with an AI assistant? Point it at
 - Your own quick actions in the tray menu, and a separate
   [Stream Deck plugin](streamdeck-plugin/README.md).
 
-**On the TV**
-
-- [DeskmateTV](docs/TV.md) for Android TV and Google TV: a Home Assistant
-  assistant reads the screen as text, opens apps, picks items, types, switches
-  HDMI inputs and shows messages on screen. Volume, mute, the foreground app
-  and what is playing show up as entities.
-
 Several computers and several Windows users on one computer are supported; see
 the [guide](docs/GUIDE.md#10-several-computers-several-windows-users).
 
@@ -102,7 +95,6 @@ events, a widget panel, files from the phone).
 
 - [docs/GUIDE.md](docs/GUIDE.md): the guide, start here
 - [docs/LINK.md](docs/LINK.md): the connection, pairing, remote access, protocol
-- [docs/TV.md](docs/TV.md): DeskmateTV, the Android TV app
 - [docs/SECURITY.md](docs/SECURITY.md): threat model and defaults
 - [docs/HA-SETUP.md](docs/HA-SETUP.md) and [docs/MIGRATION.md](docs/MIGRATION.md):
   the MQTT route, and moving from it

@@ -101,7 +101,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             DOMAIN, SERVICE_NOTIFY, _notify, schema=NOTIFY_SCHEMA
         )
 
-    async_register_tv_services(hass)
+    # DeskmateTV is not released yet. Its service appears only once a TV node
+    # is paired, so computer-only setups never see it.
+    if hub.is_tv:
+        async_register_tv_services(hass)
     await async_setup_files(hass)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     _LOGGER.info(

@@ -1,5 +1,26 @@
 # STATUS — Deskmate
-Aktualizacja: 2026-10-10 (0.7.3: uwagi CBY0 z #2)
+Aktualizacja: 2026-10-13 (0.8.0 w toku na master, BEZ push)
+
+## Sesja 2026-10-13 — merge TV + feedback spolecznosci (plan, odhaczane)
+
+Polecenie Kuby: zmergowac TV do main bez push, TV ukryte do stabilnej wersji,
+dokumentacja; potem funkcje z feedbacku. Decyzje Kuby: temperatura CPU przez
+helper PawnIO (UAC raz, zadanie z najwyzszymi uprawnieniami, named pipe);
+dashboard Lovelace w oknie aplikacji.
+
+- [x] Merge feat/deskmate-tv -> master (fast-forward, lokalnie).
+- [ ] TV ukryte: tv_update tylko gdy jest wezel TV, docs/TV.md jako preview,
+      README bez sekcji TV, angielskie bledy TV.
+- [ ] Domyslny transport: Deskmate Link (MQTT jako opcja).
+- [ ] #7 "Start with Windows" po aktualizacji (zapamietane w configu).
+- [ ] #5 sensor last_active (timestamp), ciemny motyw (system/jasny/ciemny).
+- [ ] Wlasne sensory: proces dziala, stan uslugi, okno, PowerShell.
+- [ ] Procesy: komendy uruchom/zabij (bez PowerShella).
+- [ ] Dashboard Lovelace w oknie + akcja tray/hotkey.
+- [ ] Temperatura CPU: helper PawnIO.
+- [ ] Roadmapa: TV (powiadomienia + podglad kamery), aplikacja Linux.
+- [ ] Docs (GUIDE, CHANGELOG), drafty odpowiedzi w #5 i #7.
+
 
 ## Sesja 2026-10-10 — 0.7.3, druga runda #2
 

@@ -157,6 +157,9 @@ def async_track_tv_auto_update(hass: HomeAssistant, hub) -> Callable[[], None]:
 
     @callback
     def _declared() -> None:
+        if not hub.is_tv:
+            return
+        async_register_tv_services(hass)
         hass.async_create_background_task(_check(), f"deskmate_tv_auto_update_{hub.entry.entry_id}")
 
     return async_dispatcher_connect(hass, f"{SIGNAL_DECLARED}_{hub.entry.entry_id}", _declared)

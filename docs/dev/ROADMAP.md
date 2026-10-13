@@ -1,41 +1,57 @@
 # Roadmap
 
-Ordered by user value. Done items stay for context.
+Ordered by user value. Done items stay for context; release details are in
+`CHANGELOG.md`.
 
 ## Done
 
-- **0.1** — MQTT discovery core: sensors, commands, custom PowerShell buttons,
-  toast notifications with image, media keys, tray app, 5-field wizard.
-- **0.2** — actionable notifications (toast buttons → MQTT), clipboard bridge
-  PC↔HA, remote text input + presentation control, TTS, custom switch/number
-  controls, broker failover (local + fallback address), "HomeOS" toast
-  branding (Start Menu shortcut with AUMID; PowerShell-AUMID fallback that
-  always renders), toast buttons via `deskmate:` protocol activation.
-- **0.3** — Home Assistant API channel (REST, token in Credential Manager,
-  URL failover), **global hotkeys** (toggle entity / call service / local
-  command / widget panel / MQTT device trigger), **always-on-top widget
-  panel** with live entity tiles, **tray quick actions**, keep-awake switch,
-  camera/microphone-in-use sensors (opt-in), empty recycle bin, open URL
-  (http/https only), Stream Deck plugin (standalone, SDK v2).
+- **0.1-0.3** — MQTT discovery, sensors, commands, custom PowerShell controls,
+  toasts with images and buttons, clipboard bridge, remote input, TTS, hotkeys,
+  widget panel, tray actions, Home Assistant API channel, Stream Deck plugin.
+- **0.4-0.6** — Deskmate Link: own Home Assistant integration over one
+  encrypted WebSocket, pairing code, protocol v2 with forward secrecy, cascade
+  encryption, hardware sensors (GPU, VRAM, disks), read-only file access.
+- **0.7.x** — files from phone or laptop to the PC through the Deskmate
+  sidebar page, several Windows users on one PC, daily update check, no
+  PowerShell for notifications, camera/microphone sensors for current Windows
+  11, full uninstall, readable connection errors.
+
+## In progress (0.8.0)
+
+- Deskmate Link as the default transport for new installs; MQTT stays.
+- Community requests (#5, #7, Reddit/Facebook): dark theme, a `last_active`
+  timestamp sensor for presence, own sensors (process running, service state,
+  window title, PowerShell output), process control (start and stop programs
+  without PowerShell), "Start with Windows" kept across updates.
+- Home Assistant dashboards (Lovelace) in a Deskmate window, from the tray or
+  a hotkey.
+- CPU temperature without third-party tools: an optional helper that reads
+  Intel/AMD sensors through the signed PawnIO driver, approved once with UAC.
+- DeskmateTV groundwork: the integration understands TV nodes; the TV app is
+  not released until it is stable (see below).
 
 ## Next
 
-- WebSocket to HA for widget tiles (replace 3 s polling; live updates + lower
-  overhead once tile counts grow).
-- Custom user sensors (PowerShell script → JSON → entities) — the v0.4 opener.
-- Media artwork as an HA `image` entity (SMTC thumbnail over MQTT).
-- Full `media_player` entity (needs a small custom integration on the HA side
-  — the MQTT discovery schema has no media_player).
-- File transfer PC↔HA (upload to `www/`, token-scoped, path-traversal safe).
-- Screenshot on demand (privacy-heavy; needs a deliberate opt-in design).
-- Optional application-layer signed command envelopes (HMAC + timestamp/nonce)
-  if a future HA-side Deskmate integration can generate and verify them. MQTT
-  TLS and per-node broker ACLs remain the primary transport controls.
-- Broker autodetection (mDNS `_mqtt._tcp`), UI i18n (EN/PL), tray icon
-  reflecting connection state, light theme for the widget panel.
+- **DeskmateTV release** (Android TV / Google TV, `tv/`, `docs/TV.md`):
+  - stability on more TVs before the first public build;
+  - notifications with a live camera preview from a Home Assistant camera
+    entity (doorbell on the TV), not just a still frame — asked for in the
+    Reddit thread;
+  - a picture-in-picture style overlay that does not take the remote's focus.
+- **Deskmate for Linux** (asked for by the community): the Rust core and the
+  Link protocol are portable; sensors, notifications (libnotify / D-Bus),
+  tray and hotkeys need Linux backends. Packaging: AppImage first, then .deb.
+- **Stream Deck: Deskmate Copy** (branch `codex/streamdeck-neo`): files and
+  clipboard text between PCs from Stream Deck keys; awaiting build and tests.
+- Full `media_player` entity for the PC (now play/pause/next buttons and
+  sensors).
+- Media artwork as an `image` entity.
+- WebSocket to Home Assistant for widget tiles instead of polling.
 
 ## Infrastructure
 
-- GitHub Actions: build x64 + ARM64, attach release artifacts.
-- Code signing (cost decision pending).
-- Tauri updater (auto-updates).
+- GitHub Actions: build x64 + ARM64, attach release artifacts (local uplink is
+  slow, about 6 KB/s).
+- Code signing (cost decision pending); it would also calm antivirus
+  heuristics.
+- Tauri updater (in-app updates instead of downloading the installer).

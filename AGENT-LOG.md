@@ -8,6 +8,7 @@ or delete another agent's entry.
 
 | Area | Agent | Since |
 |---|---|---|
+| master: merge DeskmateTV + funkcje z feedbacku (0.8.0), bez push | Claude | 2026-10-13 |
 
 ## Log
 

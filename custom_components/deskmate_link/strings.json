@@ -123,7 +123,7 @@
     },
     "tv_update": {
       "name": "Update DeskmateTV",
-      "description": "Sends a new DeskmateTV build to the TV over Deskmate Link (no ADB needed). Put DeskmateTV-<version>.apk in /config/deskmate_tv. The TV checks SHA-256, a higher version and the same signing certificate, then installs it. A newer file there is also sent automatically when the TV connects.",
+      "description": "Sends a new DeskmateTV build to the TV over Deskmate Link (no ADB needed). Put DeskmateTV-X.Y.Z.apk in /config/deskmate_tv. The TV checks SHA-256, a higher version and the same signing certificate, then installs it. A newer file there is also sent automatically when the TV connects.",
       "fields": {
         "node_id": {
           "name": "Node ID",
@@ -131,7 +131,7 @@
         },
         "file": {
           "name": "APK file",
-          "description": "File name in /config/deskmate_tv. Empty: the newest DeskmateTV-<version>.apk."
+          "description": "File name in /config/deskmate_tv. Empty: the newest DeskmateTV-X.Y.Z.apk."
         }
       }
     }
