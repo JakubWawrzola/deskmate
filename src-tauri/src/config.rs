@@ -58,6 +58,42 @@ pub struct CustomCommand {
     /// Ask on the Windows desktop before each execution.
     #[serde(default = "default_true")]
     pub require_confirmation: bool,
+    /// powershell: `command` is a script | launch: `command` is a program, file
+    /// or URL opened with `args` | stop: `command` is a program name to stop.
+    /// launch and stop never go through PowerShell.
+    #[serde(default = "default_command_action")]
+    pub action: String,
+    /// Arguments for launch, passed as typed.
+    #[serde(default)]
+    pub args: String,
+}
+
+fn default_command_action() -> String {
+    "powershell".into()
+}
+
+/// A sensor added on the Sensors page (custom_sensors.rs).
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct CustomSensor {
+    /// [a-z0-9_]
+    pub id: String,
+    pub name: String,
+    /// process | window | service | powershell
+    pub kind: String,
+    /// program name | window title text | service name | PowerShell command
+    pub target: String,
+    /// optional unit for a PowerShell sensor that prints a number
+    #[serde(default)]
+    pub unit: String,
+    /// PowerShell only: seconds between runs (30 or more)
+    #[serde(default = "default_sensor_interval")]
+    pub interval_secs: u64,
+    #[serde(default)]
+    pub enabled: bool,
+}
+
+fn default_sensor_interval() -> u64 {
+    60
 }
 
 impl Default for CustomCommand {
@@ -72,6 +108,8 @@ impl Default for CustomCommand {
             num_step: default_num_step(),
             enabled: false,
             require_confirmation: true,
+            action: default_command_action(),
+            args: String::new(),
         }
     }
 }
@@ -165,6 +203,8 @@ pub struct AppConfig {
     /// sensors that can be disabled; key = sensor id, missing entry = that sensor's default
     pub sensors_enabled: std::collections::HashMap<String, bool>,
     pub custom_commands: Vec<CustomCommand>,
+    #[serde(default)]
+    pub custom_sensors: Vec<CustomSensor>,
     pub launch_hidden: bool,
     /// opt-in: allow HA to type text / control a presentation (SendInput keystrokes)
     pub allow_input: bool,
@@ -242,6 +282,7 @@ impl Default for AppConfig {
             publish_interval_secs: 15,
             sensors_enabled: Default::default(),
             custom_commands: Vec::new(),
+            custom_sensors: Vec::new(),
             launch_hidden: false,
             allow_input: false,
             tts_enabled: false,

@@ -6,6 +6,7 @@ mod autostart;
 mod clipboard;
 mod config;
 mod consts;
+mod custom_sensors;
 mod discovery;
 mod ha_api;
 mod hardware;
@@ -16,6 +17,7 @@ mod media;
 mod media_activity;
 mod mqtt;
 mod notify;
+mod processes;
 mod seat;
 mod security;
 mod sensors;
@@ -604,14 +606,28 @@ async fn add_custom_command(
     num_min: Option<f64>,
     num_max: Option<f64>,
     num_step: Option<f64>,
+    action: Option<String>,
+    args: Option<String>,
 ) -> Result<(), String> {
     let id_s = config::sanitize_id(&id);
     if id_s.is_empty() || name.trim().is_empty() || command.trim().is_empty() {
         return Err("id, name and command are required".into());
     }
-    let kind = kind.unwrap_or_else(|| "button".into());
+    let action = action.unwrap_or_else(|| "powershell".into());
+    let mut kind = kind.unwrap_or_else(|| "button".into());
     if !["button", "switch", "number"].contains(&kind.as_str()) {
         return Err("kind must be button|switch|number".into());
+    }
+    let mut command = command.trim().to_string();
+    match action.as_str() {
+        "powershell" => {}
+        "launch" => kind = "button".into(),
+        "stop" => {
+            kind = "button".into();
+            command = processes::normalize_name(&command)
+                .ok_or("give the program's name, e.g. notepad.exe, not a path")?;
+        }
+        _ => return Err("action must be powershell|launch|stop".into()),
     }
     let cfg = {
         let mut cfg = state.config.lock().await;
@@ -621,13 +637,15 @@ async fn add_custom_command(
         cfg.custom_commands.push(config::CustomCommand {
             id: id_s,
             name: name.trim().into(),
-            command: command.trim().into(),
+            command,
             kind,
             num_min: num_min.unwrap_or(0.0),
             num_max: num_max.unwrap_or(100.0),
             num_step: num_step.unwrap_or(1.0),
             enabled: false,
             require_confirmation: true,
+            action,
+            args: args.unwrap_or_default().trim().to_string(),
         });
         cfg.clone()
     };
@@ -675,6 +693,100 @@ async fn remove_custom_command(
     let client = state.client.lock().await.clone();
     if let Some(client) = client {
         for (topic, payload) in discovery::remove_custom(&cfg.node_id, &id) {
+            let _ = client
+                .publish(topic, rumqttc::QoS::AtLeastOnce, true, payload)
+                .await;
+        }
+    }
+    if cfg.transport == "link" {
+        transport::refresh_entities(&app).await;
+    }
+    Ok(())
+}
+
+// ---------- custom sensors (Sensors page) ----------
+
+#[tauri::command]
+async fn add_custom_sensor(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    name: String,
+    kind: String,
+    target: String,
+    unit: Option<String>,
+    interval_secs: Option<u64>,
+) -> Result<(), String> {
+    let id = config::sanitize_id(&name);
+    if id.is_empty() || name.trim().is_empty() || target.trim().is_empty() {
+        return Err("name and target are required".into());
+    }
+    if !custom_sensors::KINDS.contains(&kind.as_str()) {
+        return Err("kind must be process|window|service|powershell".into());
+    }
+    let mut target = target.trim().to_string();
+    if kind == "process" {
+        target = processes::normalize_name(&target)
+            .ok_or("give the program's name, e.g. steam.exe, not a path")?;
+    }
+    let cfg = {
+        let mut cfg = state.config.lock().await;
+        if cfg.custom_sensors.iter().any(|s| s.id == id) {
+            return Err(format!("a sensor named '{id}' already exists"));
+        }
+        cfg.custom_sensors.push(config::CustomSensor {
+            id,
+            name: name.trim().into(),
+            // PowerShell runs code: off until reviewed, like custom commands.
+            enabled: kind != "powershell",
+            kind,
+            target,
+            unit: unit.unwrap_or_default().trim().chars().take(16).collect(),
+            interval_secs: interval_secs.unwrap_or(60).clamp(30, 86_400),
+        });
+        cfg.clone()
+    };
+    config::save(&cfg)?;
+    transport::refresh_entities(&app).await;
+    Ok(())
+}
+
+#[tauri::command]
+async fn set_custom_sensor_enabled(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: String,
+    enabled: bool,
+) -> Result<(), String> {
+    let cfg = {
+        let mut cfg = state.config.lock().await;
+        let sensor = cfg
+            .custom_sensors
+            .iter_mut()
+            .find(|s| s.id == id)
+            .ok_or_else(|| format!("unknown sensor '{id}'"))?;
+        sensor.enabled = enabled;
+        cfg.clone()
+    };
+    config::save(&cfg)?;
+    transport::refresh_entities(&app).await;
+    Ok(())
+}
+
+#[tauri::command]
+async fn remove_custom_sensor(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<(), String> {
+    let cfg = {
+        let mut cfg = state.config.lock().await;
+        cfg.custom_sensors.retain(|s| s.id != id);
+        cfg.clone()
+    };
+    config::save(&cfg)?;
+    let client = state.client.lock().await.clone();
+    if let Some(client) = client {
+        for (topic, payload) in discovery::remove_custom_sensor(&cfg.node_id, &id) {
             let _ = client
                 .publish(topic, rumqttc::QoS::AtLeastOnce, true, payload)
                 .await;
@@ -920,7 +1032,10 @@ pub fn run() {
             check_updates_now,
             open_update_page,
             autostart::get_start_with_windows,
-            autostart::set_start_with_windows
+            autostart::set_start_with_windows,
+            add_custom_sensor,
+            set_custom_sensor_enabled,
+            remove_custom_sensor
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

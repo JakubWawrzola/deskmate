@@ -888,6 +888,8 @@ fn typed_states(values: &HashMap<String, String>) -> Value {
                 .map(Value::Number)
                 .unwrap_or_else(|| Value::String(value.clone())),
             _ if key == "keep_awake" => Value::Bool(value.eq_ignore_ascii_case("ON")),
+            // on/off custom sensors; Home Assistant reads the text "OFF" as true
+            _ if key.starts_with("csb_") => Value::Bool(value.eq_ignore_ascii_case("ON")),
             _ => Value::String(value.clone()),
         };
         states.insert(key.clone(), typed);

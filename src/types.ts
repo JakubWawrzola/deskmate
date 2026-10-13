@@ -1,4 +1,7 @@
 export type CustomKind = "button" | "switch" | "number";
+/** powershell: a script; launch: open a program, file or URL; stop: stop a program by name */
+export type CustomAction = "powershell" | "launch" | "stop";
+export type CustomSensorKind = "process" | "window" | "service" | "powershell";
 export type ClipboardMode = "off" | "confirm" | "automatic";
 export type MqttTransport = "tls" | "insecure";
 export type TransportKind = "mqtt" | "link";
@@ -57,6 +60,18 @@ export interface CustomCommand {
   num_step: number;
   enabled: boolean;
   require_confirmation: boolean;
+  action?: CustomAction;
+  args?: string;
+}
+
+export interface CustomSensor {
+  id: string;
+  name: string;
+  kind: CustomSensorKind;
+  target: string;
+  unit: string;
+  interval_secs: number;
+  enabled: boolean;
 }
 
 export interface AppConfig {
@@ -80,6 +95,7 @@ export interface AppConfig {
   publish_interval_secs: number;
   sensors_enabled: Record<string, boolean>;
   custom_commands: CustomCommand[];
+  custom_sensors?: CustomSensor[];
   launch_hidden: boolean;
   allow_input: boolean;
   tts_enabled: boolean;

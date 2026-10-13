@@ -424,6 +424,7 @@ impl Collector {
             if is_enabled(cfg, "last_active") {
                 out.insert("last_active".into(), last_active(win::idle_seconds()));
             }
+            crate::custom_sensors::collect(cfg, &mut out);
             if is_enabled(cfg, "session_locked") {
                 out.insert(
                     "session_locked".into(),

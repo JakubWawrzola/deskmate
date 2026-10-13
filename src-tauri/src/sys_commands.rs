@@ -227,6 +227,27 @@ pub fn run_custom(cfg: &crate::config::AppConfig, id: &str, value: &str) -> Resu
             return Err("custom command denied by user".into());
         }
     }
+    match cmd.action.as_str() {
+        // Program controls: a fixed program or name from the config, no shell.
+        "launch" => {
+            let result = launch(&cmd.command, &cmd.args);
+            crate::security::audit("custom_command", if result.is_ok() { "launched" } else { "failed" });
+            return result;
+        }
+        "stop" => {
+            let result = crate::processes::stop_by_name(&cmd.command);
+            crate::security::audit(
+                "custom_command",
+                match &result {
+                    Ok(0) => "stop_nothing_running",
+                    Ok(_) => "stopped",
+                    Err(_) => "failed",
+                },
+            );
+            return result.map(|_| ());
+        }
+        _ => {}
+    }
     // value is validated: only safe characters (digits/letters/./-/space/ON/OFF)
     let safe: String = value
         .chars()
@@ -253,6 +274,41 @@ pub fn run_custom(cfg: &crate::config::AppConfig, id: &str, value: &str) -> Resu
             Err(e.to_string())
         }
     }
+}
+
+/// Opens a program, document, shortcut or URL like double-clicking it, with
+/// optional arguments. ShellExecute, not a shell: nothing is interpreted.
+#[cfg(windows)]
+fn launch(target: &str, args: &str) -> Result<(), String> {
+    use windows::core::{w, HSTRING, PCWSTR};
+    use windows::Win32::UI::Shell::ShellExecuteW;
+    use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+    let target = target.trim();
+    if target.is_empty() {
+        return Err("nothing to start".into());
+    }
+    let file = HSTRING::from(target);
+    let params = HSTRING::from(args.trim());
+    let result = unsafe {
+        ShellExecuteW(
+            None,
+            w!("open"),
+            &file,
+            if args.trim().is_empty() { PCWSTR::null() } else { PCWSTR(params.as_ptr()) },
+            PCWSTR::null(),
+            SW_SHOWNORMAL,
+        )
+    };
+    if result.0 as usize > 32 {
+        Ok(())
+    } else {
+        Err(format!("cannot start {target} (ShellExecute {})", result.0 as usize))
+    }
+}
+
+#[cfg(not(windows))]
+fn launch(_target: &str, _args: &str) -> Result<(), String> {
+    Err("windows only".into())
 }
 
 // ---------- key input (SendInput) ----------

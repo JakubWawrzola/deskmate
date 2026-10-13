@@ -23,6 +23,9 @@ class DeskmateBinarySensor(DeskmateEntity, BinarySensorEntity):
         value = self._value
         if value is None:
             return None
+        if isinstance(value, str):
+            # bool("OFF") is True; text states come from older clients
+            return value.strip().upper() in ("ON", "TRUE", "1")
         return bool(value)
 
 

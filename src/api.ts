@@ -2,6 +2,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
   AppConfig,
+  CustomAction,
+  CustomSensorKind,
   ConfigView,
   Hotkey,
   NotifyRecord,
@@ -44,6 +46,8 @@ export const api = {
     numMin?: number,
     numMax?: number,
     numStep?: number,
+    action: CustomAction = "powershell",
+    args?: string,
   ) =>
     invoke<void>("add_custom_command", {
       id,
@@ -53,7 +57,26 @@ export const api = {
       numMin: numMin ?? null,
       numMax: numMax ?? null,
       numStep: numStep ?? null,
+      action,
+      args: args ?? null,
     }),
+  addCustomSensor: (
+    name: string,
+    kind: CustomSensorKind,
+    target: string,
+    unit?: string,
+    intervalSecs?: number,
+  ) =>
+    invoke<void>("add_custom_sensor", {
+      name,
+      kind,
+      target,
+      unit: unit ?? null,
+      intervalSecs: intervalSecs ?? null,
+    }),
+  setCustomSensorEnabled: (id: string, enabled: boolean) =>
+    invoke<void>("set_custom_sensor_enabled", { id, enabled }),
+  removeCustomSensor: (id: string) => invoke<void>("remove_custom_sensor", { id }),
   removeCustomCommand: (id: string) => invoke<void>("remove_custom_command", { id }),
   updateCustomCommandSecurity: (
     id: string,

@@ -130,6 +130,36 @@ pub fn build_all(cfg: &AppConfig, hardware_defs: &[OwnedSensorDef]) -> Vec<Disco
         out.push((topic, payload.to_string()));
     }
 
+    // --- sensors added on the Sensors page ---
+    for sensor in &cfg.custom_sensors {
+        let key = crate::custom_sensors::key(sensor);
+        let component = crate::custom_sensors::component(sensor);
+        let topic = cfg_topic(component, node, &key);
+        if !sensor.enabled {
+            out.push((topic, String::new()));
+            continue;
+        }
+        let mut payload = json!({
+            "name": sensor.name,
+            "unique_id": format!("deskmate_{}_{}", node, key),
+            "state_topic": consts::state_topic(node, &key),
+            "availability_topic": avail,
+            "expire_after": expire.max(sensor.interval_secs * 3),
+            "icon": crate::custom_sensors::icon(sensor),
+            "device": device,
+        });
+        if component == "binary_sensor" {
+            payload["payload_on"] = json!("ON");
+            payload["payload_off"] = json!("OFF");
+            if sensor.kind == "process" {
+                payload["device_class"] = json!("running");
+            }
+        } else if !sensor.unit.trim().is_empty() {
+            payload["unit_of_measurement"] = json!(sensor.unit.trim());
+        }
+        out.push((topic, payload.to_string()));
+    }
+
     // --- predefined commands (buttons) ---
     for def in COMMAND_DEFS {
         let topic = cfg_topic("button", node, def.id);
@@ -158,7 +188,7 @@ pub fn build_all(cfg: &AppConfig, hardware_defs: &[OwnedSensorDef]) -> Vec<Disco
         let uid = format!("deskmate_{}_custom_{}", node, c.id);
         // clear the other components (in case the control type was changed)
         let active = match c.kind.as_str() {
-            "switch" | "number" => c.kind.as_str(),
+            "switch" | "number" if c.action == "powershell" => c.kind.as_str(),
             _ => "button",
         };
         for comp in ["button", "switch", "number"] {
@@ -182,7 +212,7 @@ pub fn build_all(cfg: &AppConfig, hardware_defs: &[OwnedSensorDef]) -> Vec<Disco
             }),
             _ => json!({
                 "name": c.name, "unique_id": uid,
-                "command_topic": cmd_t, "payload_press": "PRESS", "icon": "mdi:console",
+                "command_topic": cmd_t, "payload_press": "PRESS", "icon": command_icon(c),
                 "availability_topic": avail, "device": device,
             }),
         };
@@ -386,19 +416,33 @@ pub fn build_link_declare(cfg: &AppConfig, hardware_defs: &[OwnedSensorDef]) -> 
         }
         entities.push(entity);
     }
+    for sensor in cfg.custom_sensors.iter().filter(|sensor| sensor.enabled) {
+        let mut entity = json!({
+            "key": crate::custom_sensors::key(sensor),
+            "kind": crate::custom_sensors::component(sensor),
+            "name": sensor.name,
+            "icon": crate::custom_sensors::icon(sensor),
+        });
+        if sensor.kind == "process" {
+            entity["device_class"] = json!("running");
+        } else if !crate::custom_sensors::is_binary(&sensor.kind) && !sensor.unit.trim().is_empty() {
+            entity["unit"] = json!(sensor.unit.trim());
+        }
+        entities.push(entity);
+    }
     for def in COMMAND_DEFS {
         entities.push(json!({"key": def.id, "kind": "button", "name": def.name, "icon": def.icon}));
     }
     for command in cfg.custom_commands.iter().filter(|command| command.enabled) {
         let kind = match command.kind.as_str() {
-            "switch" | "number" => command.kind.as_str(),
+            "switch" | "number" if command.action == "powershell" => command.kind.as_str(),
             _ => "button",
         };
         let mut entity = json!({
             "key": format!("custom_{}", command.id),
             "kind": kind,
             "name": command.name,
-            "icon": if kind == "switch" { "mdi:toggle-switch" } else if kind == "number" { "mdi:tune" } else { "mdi:console" },
+            "icon": if kind == "switch" { "mdi:toggle-switch" } else if kind == "number" { "mdi:tune" } else { command_icon(command) },
         });
         if kind == "number" {
             entity["min"] = json!(command.num_min);
@@ -493,6 +537,14 @@ pub fn remove_hotkey(node_id: &str, hotkey_id: &str) -> DiscoveryMsg {
         cfg_topic("device_automation", node_id, &format!("hotkey_{hotkey_id}")),
         String::new(),
     )
+}
+
+/// Messages that remove a deleted custom sensor (both possible components).
+pub fn remove_custom_sensor(node_id: &str, sensor_id: &str) -> Vec<DiscoveryMsg> {
+    vec![
+        (cfg_topic("binary_sensor", node_id, &format!("csb_{sensor_id}")), String::new()),
+        (cfg_topic("sensor", node_id, &format!("cs_{sensor_id}")), String::new()),
+    ]
 }
 
 /// Messages that remove the custom-control entities (all 3 components).
@@ -613,5 +665,13 @@ mod tests {
             .unwrap()
             .iter()
             .any(|entity| entity["key"] == "gpu_usage"));
+    }
+}
+
+fn command_icon(command: &crate::config::CustomCommand) -> &'static str {
+    match command.action.as_str() {
+        "launch" => "mdi:play-box-outline",
+        "stop" => "mdi:stop-circle-outline",
+        _ => "mdi:console",
     }
 }
