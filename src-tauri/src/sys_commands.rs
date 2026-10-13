@@ -279,7 +279,7 @@ pub fn run_custom(cfg: &crate::config::AppConfig, id: &str, value: &str) -> Resu
 /// Opens a program, document, shortcut or URL like double-clicking it, with
 /// optional arguments. ShellExecute, not a shell: nothing is interpreted.
 #[cfg(windows)]
-fn launch(target: &str, args: &str) -> Result<(), String> {
+pub fn launch(target: &str, args: &str) -> Result<(), String> {
     use windows::core::{w, HSTRING, PCWSTR};
     use windows::Win32::UI::Shell::ShellExecuteW;
     use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
@@ -307,7 +307,7 @@ fn launch(target: &str, args: &str) -> Result<(), String> {
 }
 
 #[cfg(not(windows))]
-fn launch(_target: &str, _args: &str) -> Result<(), String> {
+pub fn launch(_target: &str, _args: &str) -> Result<(), String> {
     Err("windows only".into())
 }
 

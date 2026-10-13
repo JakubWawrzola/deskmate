@@ -64,6 +64,15 @@ export interface CustomCommand {
   args?: string;
 }
 
+export interface CpuTemperatureStatus {
+  supported: boolean;
+  pawnio_installed: boolean;
+  helper_installed: boolean;
+  helper_running: boolean;
+  celsius: number | null;
+  error: string | null;
+}
+
 export interface CustomSensor {
   id: string;
   name: string;

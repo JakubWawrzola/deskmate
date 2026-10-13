@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api";
 import { parsePairingCode } from "../pairing";
 import { applyTheme } from "../theme";
+import CpuTemperaturePanel from "./CpuTemperaturePanel";
 import { Button, Field, Panel, Toggle } from "../components";
 import type { AppConfig, ClipboardMode, MqttTransport, TransportKind, ThemeMode } from "../types";
 
@@ -441,6 +442,8 @@ export default function SettingsPage({
           </label>
         </div>
       </Panel>
+
+      <CpuTemperaturePanel />
 
       <Panel title="Home Assistant dashboard">
         <p className="text-[12px] text-muted mb-2 leading-relaxed">

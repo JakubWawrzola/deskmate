@@ -6,6 +6,7 @@ mod autostart;
 mod clipboard;
 mod config;
 mod consts;
+mod cpu_temperature;
 mod custom_sensors;
 mod dashboard;
 mod discovery;
@@ -806,6 +807,35 @@ async fn remove_custom_sensor(
     Ok(())
 }
 
+// ---------- CPU temperature helper (PawnIO) ----------
+
+#[tauri::command]
+async fn cpu_temperature_status() -> Result<cpu_temperature::Status, String> {
+    tauri::async_runtime::spawn_blocking(cpu_temperature::status)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn install_cpu_temperature_helper() -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(cpu_temperature::request_install)
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Fixed address, not taken from the page.
+#[tauri::command]
+fn open_pawnio_site() -> Result<(), String> {
+    sys_commands::launch("https://pawnio.eu/", "")
+}
+
+#[tauri::command]
+async fn remove_cpu_temperature_helper() -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(cpu_temperature::request_remove)
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 #[tauri::command]
 async fn restart_connection(app: AppHandle) -> Result<(), String> {
     tauri::async_runtime::spawn(transport::restart(app));
@@ -852,6 +882,18 @@ pub fn run() {
     if std::env::args().any(|arg| arg == uninstall::FORGET_ARG) {
         uninstall::forget_this_computer();
         return;
+    }
+    // CPU temperature helper (cpu_temperature.rs): the elevated loop, and the
+    // elevated install/remove steps started through UAC from Settings.
+    if std::env::args().any(|arg| arg == cpu_temperature::HELPER_ARG) {
+        cpu_temperature::run_helper();
+        return;
+    }
+    if std::env::args().any(|arg| arg == cpu_temperature::INSTALL_ARG) {
+        std::process::exit(if cpu_temperature::install().is_ok() { 0 } else { 1 });
+    }
+    if std::env::args().any(|arg| arg == cpu_temperature::REMOVE_ARG) {
+        std::process::exit(if cpu_temperature::remove().is_ok() { 0 } else { 1 });
     }
     // Windows starts the registered toast activator as a COM local server when a
     // notification is activated. Deskmate handles button clicks over its URL
@@ -1052,7 +1094,11 @@ pub fn run() {
             add_custom_sensor,
             set_custom_sensor_enabled,
             remove_custom_sensor,
-            dashboard::open_dashboard
+            dashboard::open_dashboard,
+            cpu_temperature_status,
+            install_cpu_temperature_helper,
+            remove_cpu_temperature_helper,
+            open_pawnio_site
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

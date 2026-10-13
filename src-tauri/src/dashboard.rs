@@ -65,7 +65,10 @@ pub async fn open(app: &AppHandle, path: &str) -> Result<(), String> {
     };
     let url = dashboard_url(&cfg, &path)?;
     if let Some(window) = app.get_webview_window(LABEL) {
-        let same = window.url().map(|current| current.path() == url.path()).unwrap_or(false);
+        let same = window
+            .url()
+            .map(|current| current.path() == url.path())
+            .unwrap_or(false);
         if !same {
             window.navigate(url).map_err(|e| e.to_string())?;
         }

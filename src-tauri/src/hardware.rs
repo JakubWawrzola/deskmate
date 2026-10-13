@@ -328,6 +328,9 @@ fn wmi_temperatures() -> Temperatures {
     let hr = unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) };
     let uninitialize = hr.is_ok();
     let mut result = Temperatures::default();
+    // The PawnIO helper, when installed, is the most direct CPU source.
+    result.cpu = crate::cpu_temperature::read_celsius();
+    let cpu_from_helper = result.cpu.is_some();
     for namespace in ["ROOT\\LibreHardwareMonitor", "ROOT\\OpenHardwareMonitor"] {
         let rows = unsafe {
             query(
@@ -351,7 +354,9 @@ fn wmi_temperatures() -> Temperatures {
             let label = format!("{identifier} {name}");
             if label.contains("/gpu") || label.contains("gpu") {
                 result.gpu = Some(result.gpu.map(|old| old.max(value)).unwrap_or(value));
-            } else if label.contains("/cpu") || label.contains("cpu") || label.contains("package") {
+            } else if (label.contains("/cpu") || label.contains("cpu") || label.contains("package"))
+                && !cpu_from_helper
+            {
                 result.cpu = Some(result.cpu.map(|old| old.max(value)).unwrap_or(value));
             }
         }
