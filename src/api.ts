@@ -33,6 +33,8 @@ export const api = {
   setFeatureFlag: (flag: string, enabled: boolean) =>
     invoke<void>("set_feature_flag", { flag, enabled }),
   checkUpdatesNow: () => invoke<UpdateInfo | null>("check_updates_now"),
+  getStartWithWindows: () => invoke<boolean>("get_start_with_windows"),
+  setStartWithWindows: (enabled: boolean) => invoke<void>("set_start_with_windows", { enabled }),
   openUpdatePage: () => invoke<void>("open_update_page"),
   addCustomCommand: (
     id: string,

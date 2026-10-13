@@ -87,6 +87,7 @@ export interface AppConfig {
   allowed_url_origins: string[];
   toast_branding: boolean;
   update_check: boolean;
+  start_with_windows?: boolean | null;
   update_notified: string;
   ha_url: string;
   ha_url_remote: string;

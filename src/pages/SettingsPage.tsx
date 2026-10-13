@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
 import { api } from "../api";
 import { parsePairingCode } from "../pairing";
 import { Button, Field, Panel, Toggle } from "../components";
@@ -92,7 +91,7 @@ export default function SettingsPage({
   };
 
   useEffect(() => {
-    isEnabled().then(setAutostart).catch(() => setAutostart(false));
+    api.getStartWithWindows().then(setAutostart).catch(() => setAutostart(false));
   }, []);
 
   // opt-ins apply immediately (like sensors) - entities appear without Save
@@ -172,8 +171,8 @@ export default function SettingsPage({
 
   const toggleAutostart = async (v: boolean) => {
     try {
-      if (v) await enable();
-      else await disable();
+      // Through the app, so the choice is remembered and survives updates (#7).
+      await api.setStartWithWindows(v);
       setAutostart(v);
     } catch (e) {
       setMsg(String(e));
@@ -190,8 +189,8 @@ export default function SettingsPage({
             onChange={(event) => setTransport(event.target.value as TransportKind)}
             className="mt-1 w-full h-9 px-2 bg-panel border border-hairline-strong rounded text-ink text-[13px] focus-visible:border-ink"
           >
-            <option value="mqtt">MQTT (default)</option>
-            <option value="link">Deskmate integration</option>
+            <option value="link">Deskmate integration (recommended)</option>
+            <option value="mqtt">MQTT broker</option>
           </select>
         </label>
       </Panel>

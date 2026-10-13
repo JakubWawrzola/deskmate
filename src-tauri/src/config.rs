@@ -19,7 +19,9 @@ fn default_num_step() -> f64 {
 fn default_mqtt_transport() -> String {
     "tls".into()
 }
-fn default_transport() -> String {
+/// Configs written before 0.5 have no `transport` field and always used MQTT.
+/// A missing field therefore still means MQTT, so those setups keep working.
+fn legacy_transport() -> String {
     "mqtt".into()
 }
 fn default_clipboard_mode() -> String {
@@ -123,7 +125,7 @@ pub struct WidgetItem {
 pub struct AppConfig {
     pub configured: bool,
     /// mqtt (default) | link
-    #[serde(default = "default_transport")]
+    #[serde(default = "legacy_transport")]
     pub transport: String,
     pub broker_host: String,
     /// optional fallback host (e.g. public IP / Tailscale). When set,
@@ -181,6 +183,11 @@ pub struct AppConfig {
     /// when branding fails -> toasts carry the PowerShell AUMID (always works).
     #[serde(default = "default_true")]
     pub toast_branding: bool,
+    /// "Start with Windows" as last chosen in Settings. None: not recorded yet
+    /// (configs from before 0.8.0). Lets a Run entry removed by an update be
+    /// restored (autostart.rs, GitHub issue #7).
+    #[serde(default)]
+    pub start_with_windows: Option<bool>,
     /// Daily check for a newer release on GitHub (nothing is downloaded).
     #[serde(default = "default_true")]
     pub update_check: bool,
@@ -208,7 +215,8 @@ impl Default for AppConfig {
         let host = hostname();
         Self {
             configured: false,
-            transport: default_transport(),
+            // New installs start on the Deskmate integration; MQTT stays available.
+            transport: "link".into(),
             broker_host: String::new(),
             broker_host_remote: String::new(),
             broker_port: 8883,
@@ -235,6 +243,7 @@ impl Default for AppConfig {
             allowed_url_origins: Vec::new(),
             toast_branding: true,
             update_check: true,
+            start_with_windows: None,
             update_notified: String::new(),
             ha_url: String::new(),
             ha_url_remote: String::new(),

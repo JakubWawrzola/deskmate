@@ -2,6 +2,7 @@
 //! Composition root: state, tauri commands, tray, window.
 
 mod actions;
+mod autostart;
 mod clipboard;
 mod config;
 mod consts;
@@ -164,6 +165,10 @@ async fn save_config(
     // old order deleted the stored pairing key first and could then fail on
     // the cascade check, leaving a computer that had lost its pairing.
     let old = state.config.lock().await.clone();
+    // Owned by the backend: changed only through set_start_with_windows / the
+    // update check, never by a stale copy the settings page sends back.
+    new_config.start_with_windows = old.start_with_windows;
+    new_config.update_notified = old.update_notified.clone();
     let link_key = link_key
         .map(|key| zeroize::Zeroizing::new(key.trim().to_string()))
         .filter(|key| !key.is_empty());
@@ -875,6 +880,7 @@ pub fn run() {
             }
 
             updates::spawn(app.handle().clone());
+            autostart::reconcile(app.handle());
 
             // start the selected transport if configured
             let handle = app.handle().clone();
@@ -909,7 +915,9 @@ pub fn run() {
             toggle_widget_window,
             update_tray_actions,
             check_updates_now,
-            open_update_page
+            open_update_page,
+            autostart::get_start_with_windows,
+            autostart::set_start_with_windows
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
