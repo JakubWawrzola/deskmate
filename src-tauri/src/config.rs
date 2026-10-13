@@ -228,6 +228,13 @@ pub struct AppConfig {
     /// restored (autostart.rs, GitHub issue #7).
     #[serde(default)]
     pub start_with_windows: Option<bool>,
+    /// Home Assistant dashboard opened from the tray or a hotkey, as a path
+    /// such as "lovelace/0". Empty: the user's default dashboard.
+    #[serde(default)]
+    pub dashboard_path: String,
+    /// Keep the dashboard window above other windows.
+    #[serde(default)]
+    pub dashboard_on_top: bool,
     /// App colours: system (follow Windows) | light | dark.
     #[serde(default = "default_theme")]
     pub theme: String,
@@ -293,6 +300,8 @@ impl Default for AppConfig {
             update_check: true,
             start_with_windows: None,
             theme: default_theme(),
+            dashboard_path: String::new(),
+            dashboard_on_top: false,
             update_notified: String::new(),
             ha_url: String::new(),
             ha_url_remote: String::new(),

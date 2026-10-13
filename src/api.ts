@@ -36,6 +36,7 @@ export const api = {
     invoke<void>("set_feature_flag", { flag, enabled }),
   checkUpdatesNow: () => invoke<UpdateInfo | null>("check_updates_now"),
   getStartWithWindows: () => invoke<boolean>("get_start_with_windows"),
+  openDashboard: (path?: string) => invoke<void>("open_dashboard", { path: path ?? null }),
   setStartWithWindows: (enabled: boolean) => invoke<void>("set_start_with_windows", { enabled }),
   openUpdatePage: () => invoke<void>("open_update_page"),
   addCustomCommand: (

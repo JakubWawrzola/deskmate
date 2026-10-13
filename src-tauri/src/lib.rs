@@ -7,6 +7,7 @@ mod clipboard;
 mod config;
 mod consts;
 mod custom_sensors;
+mod dashboard;
 mod discovery;
 mod ha_api;
 mod hardware;
@@ -515,6 +516,10 @@ pub(crate) fn rebuild_tray_menu(app: &AppHandle, cfg: &AppConfig) -> Result<(), 
         items.push(mk(&format!("qa_{}", t.id), &t.name).map_err(|e| e.to_string())?);
     }
     let widgets = mk("widgets", "Show/hide widgets").map_err(|e| e.to_string())?;
+    let dashboard = dashboard::base_url(cfg)
+        .map(|_| mk("dashboard", "Open Home Assistant"))
+        .transpose()
+        .map_err(|e| e.to_string())?;
     let open = mk("open", "Open Deskmate").map_err(|e| e.to_string())?;
     let quit = mk("quit", "Quit").map_err(|e| e.to_string())?;
     let sep = PredefinedMenuItem::separator(app).map_err(|e| e.to_string())?;
@@ -533,6 +538,9 @@ pub(crate) fn rebuild_tray_menu(app: &AppHandle, cfg: &AppConfig) -> Result<(), 
     }
     if !items.is_empty() {
         refs.push(&sep);
+    }
+    if let Some(dashboard) = &dashboard {
+        refs.push(dashboard);
     }
     refs.push(&widgets);
     refs.push(&open);
@@ -952,6 +960,14 @@ pub fn run() {
                             }
                         }
                         "widgets" => actions::toggle_widget_window(app),
+                        "dashboard" => {
+                            let app = app.clone();
+                            tauri::async_runtime::spawn(async move {
+                                if let Err(e) = dashboard::open(&app, "").await {
+                                    log::warn!("dashboard: {e}");
+                                }
+                            });
+                        }
                         "quit" => app.exit(0),
                         _ => {
                             // quick action: qa_<id> -> execute the ActionSpec from config
@@ -1035,7 +1051,8 @@ pub fn run() {
             autostart::set_start_with_windows,
             add_custom_sensor,
             set_custom_sensor_enabled,
-            remove_custom_sensor
+            remove_custom_sensor,
+            dashboard::open_dashboard
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -7,7 +7,7 @@ export type MqttTransport = "tls" | "insecure";
 export type TransportKind = "mqtt" | "link";
 export type ThemeMode = "system" | "light" | "dark";
 
-export type ActionKind = "toggle" | "service" | "command" | "widget" | "mqtt";
+export type ActionKind = "toggle" | "service" | "command" | "widget" | "dashboard" | "mqtt";
 
 export interface ActionSpec {
   kind: ActionKind;
@@ -105,6 +105,8 @@ export interface AppConfig {
   toast_branding: boolean;
   update_check: boolean;
   theme?: ThemeMode;
+  dashboard_path?: string;
+  dashboard_on_top?: boolean;
   start_with_windows?: boolean | null;
   update_notified: string;
   ha_url: string;

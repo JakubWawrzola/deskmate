@@ -68,6 +68,12 @@ pub async fn execute(app: &AppHandle, spec: &ActionSpec, source_id: &str) {
             }
         }
         "widget" => toggle_widget_window(app),
+        // data: optional dashboard path, empty = the one from Settings
+        "dashboard" => {
+            if let Err(e) = crate::dashboard::open(app, &spec.data).await {
+                log::warn!("action {source_id}: {e}");
+            }
+        }
         "mqtt" => {
             // Event to HA over the selected transport; no HA API token needed.
             crate::transport::publish_trigger(app, source_id).await;

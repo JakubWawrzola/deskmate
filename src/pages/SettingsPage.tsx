@@ -50,6 +50,9 @@ export default function SettingsPage({
   const [interval, setIntervalS] = useState(String(config.publish_interval_secs));
   const [launchHidden, setLaunchHidden] = useState(config.launch_hidden);
   const [theme, setTheme] = useState<ThemeMode>(config.theme ?? "system");
+  const [dashboardPath, setDashboardPath] = useState(config.dashboard_path ?? "");
+  const [dashboardOnTop, setDashboardOnTop] = useState(config.dashboard_on_top ?? false);
+  const [dashboardMsg, setDashboardMsg] = useState<string | null>(null);
   const [allowInput, setAllowInput] = useState(config.allow_input);
   const [ttsEnabled, setTtsEnabled] = useState(config.tts_enabled);
   const [clipboardReadMode, setClipboardReadMode] = useState<ClipboardMode>(config.clipboard_read_mode);
@@ -147,6 +150,8 @@ export default function SettingsPage({
           toast_branding: branding,
           update_check: updateCheck,
           theme,
+          dashboard_path: dashboardPath.trim(),
+          dashboard_on_top: dashboardOnTop,
         },
         password || undefined,
         linkKey || undefined,
@@ -434,6 +439,41 @@ export default function SettingsPage({
             </select>
             <span className="block mt-1 text-[12px] text-muted">Applied right away; kept after Save.</span>
           </label>
+        </div>
+      </Panel>
+
+      <Panel title="Home Assistant dashboard">
+        <p className="text-[12px] text-muted mb-2 leading-relaxed">
+          Opens a Home Assistant dashboard in a Deskmate window, from the tray menu, a hotkey or a
+          tray quick action. Log in to Home Assistant there once; the session is kept. The page
+          has no access to Deskmate itself.
+        </p>
+        <div className="space-y-3">
+          <Field
+            label="Dashboard path"
+            value={dashboardPath}
+            onChange={setDashboardPath}
+            placeholder="empty: your default dashboard, or e.g. lovelace/0"
+          />
+          <div className="flex items-center justify-between h-9">
+            <span className="text-[13px]">Keep the dashboard window on top</span>
+            <Toggle on={dashboardOnTop} onChange={setDashboardOnTop} />
+          </div>
+          <div className="flex items-center gap-3">
+            <Button
+              onClick={async () => {
+                setDashboardMsg(null);
+                try {
+                  await api.openDashboard(dashboardPath.trim());
+                } catch (e) {
+                  setDashboardMsg(String(e));
+                }
+              }}
+            >
+              Open now
+            </Button>
+            <span className="text-[12px] text-muted">{dashboardMsg ?? "Path and on-top are kept after Save."}</span>
+          </div>
         </div>
       </Panel>
 

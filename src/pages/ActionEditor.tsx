@@ -5,6 +5,7 @@ const KINDS: { value: ActionKind; label: string; needsApi: boolean }[] = [
   { value: "service", label: "Call HA service", needsApi: true },
   { value: "command", label: "Local command", needsApi: false },
   { value: "widget", label: "Show/hide widgets", needsApi: false },
+  { value: "dashboard", label: "Open HA dashboard", needsApi: false },
   { value: "mqtt", label: "HA event trigger (MQTT / Link)", needsApi: false },
 ];
 
@@ -91,6 +92,15 @@ export default function ActionEditor({
             </option>
           ))}
         </select>
+      )}
+
+      {value.kind === "dashboard" && (
+        <input
+          className={input}
+          placeholder="dashboard path (optional), e.g. lovelace/0 - empty: the one from Settings"
+          value={value.data}
+          onChange={(e) => set({ data: e.target.value })}
+        />
       )}
 
       {value.kind === "mqtt" && (
