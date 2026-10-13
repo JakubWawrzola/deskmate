@@ -28,6 +28,18 @@ Ordered by user value. Done items stay for context; release details are in
 
 ## Next
 
+- **Auto-updater** (in-app updates instead of downloading the installer):
+  - Tauri updater plugin: Deskmate downloads the new installer in the
+    background and installs it in update mode, then restarts itself;
+  - an update manifest (`latest.json`) attached to every GitHub release, signed
+    with an Ed25519 key (decide where the private key lives: local only or CI
+    secret; never in the repo);
+  - Settings → Updates: install automatically, ask first (default), or only
+    tell me (today's behaviour);
+  - the installer's update mode also keeps "Start with Windows", the root
+    cause of #7;
+  - keep the CPU temperature helper and the pairing untouched across updates;
+    the Home Assistant integration keeps updating through HACS.
 - **DeskmateTV release** (Android TV / Google TV, `tv/`, `docs/TV.md`):
   - stability on more TVs before the first public build;
   - notifications with a live camera preview from a Home Assistant camera
@@ -50,4 +62,3 @@ Ordered by user value. Done items stay for context; release details are in
   slow, about 6 KB/s).
 - Code signing (cost decision pending); it would also calm antivirus
   heuristics.
-- Tauri updater (in-app updates instead of downloading the installer).

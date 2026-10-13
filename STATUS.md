@@ -22,6 +22,9 @@ dashboard Lovelace w oknie aplikacji.
 - [x] Docs (GUIDE, CHANGELOG, SECURITY, README); drafty odpowiedzi w #5 i #7 w raporcie.
 - [x] Wersja 0.8.0 (polecenie Kuby): build, commit, push, tag v0.8.0, release, odpowiedzi w #5/#7.
 - [ ] Testy reczne Kuby (lista w raporcie), helper PawnIO na PC x64.
+- [x] 0.8.0 zainstalowane na laptopie (ARM64), polaczone z HA.
+- [x] Integracja 0.8.0 na HAOS (SMB homeassistant.local, backup 0.7.3 w scratchpadzie), restart, 3 wpisy loaded.
+- [ ] TODO: autoupdater (Tauri updater, podpisany latest.json, tryby w Settings) - opis w docs/dev/ROADMAP.md.
 
 
 ## Sesja 2026-10-10 — 0.7.3, druga runda #2
