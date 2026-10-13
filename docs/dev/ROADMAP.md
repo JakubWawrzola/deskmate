@@ -15,20 +15,16 @@ Ordered by user value. Done items stay for context; release details are in
   sidebar page, several Windows users on one PC, daily update check, no
   PowerShell for notifications, camera/microphone sensors for current Windows
   11, full uninstall, readable connection errors.
+- **0.8.0** — community requests (#5, #7, Reddit, Facebook): Deskmate Link
+  as the default for new installs, own sensors (program running, window open,
+  service state, PowerShell output), program controls without PowerShell,
+  Last active sensor, dark theme, Home Assistant dashboards in a window, CPU
+  temperature through PawnIO with an optional elevated helper, "Start with
+  Windows" kept across updates, DeskmateTV groundwork (TV app not released).
 
-## In progress (0.8.0)
+## In progress
 
-- Deskmate Link as the default transport for new installs; MQTT stays.
-- Community requests (#5, #7, Reddit/Facebook): dark theme, a `last_active`
-  timestamp sensor for presence, own sensors (process running, service state,
-  window title, PowerShell output), process control (start and stop programs
-  without PowerShell), "Start with Windows" kept across updates.
-- Home Assistant dashboards (Lovelace) in a Deskmate window, from the tray or
-  a hotkey.
-- CPU temperature without third-party tools: an optional helper that reads
-  Intel/AMD sensors through the signed PawnIO driver, approved once with UAC.
-- DeskmateTV groundwork: the integration understands TV nodes; the TV app is
-  not released until it is stable (see below).
+- Stream Deck: Deskmate Copy (see Next).
 
 ## Next
 

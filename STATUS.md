@@ -1,5 +1,5 @@
 # STATUS — Deskmate
-Aktualizacja: 2026-10-13 (0.8.0 gotowe lokalnie na master, BEZ push; czeka na testy i decyzje Kuby)
+Aktualizacja: 2026-10-13 (0.8.0 wydane: push, tag v0.8.0, release)
 
 ## Sesja 2026-10-13 — merge TV + feedback spolecznosci (plan, odhaczane)
 
@@ -20,7 +20,8 @@ dashboard Lovelace w oknie aplikacji.
 - [x] Temperatura CPU: helper PawnIO.
 - [x] Roadmapa: TV (powiadomienia + podglad kamery), aplikacja Linux.
 - [x] Docs (GUIDE, CHANGELOG, SECURITY, README); drafty odpowiedzi w #5 i #7 w raporcie.
-- [ ] Testy reczne Kuby, wersja 0.8.0, build, push, release, odpowiedzi w #5/#7 (na polecenie).
+- [x] Wersja 0.8.0 (polecenie Kuby): build, commit, push, tag v0.8.0, release, odpowiedzi w #5/#7.
+- [ ] Testy reczne Kuby (lista w raporcie), helper PawnIO na PC x64.
 
 
 ## Sesja 2026-10-10 — 0.7.3, druga runda #2

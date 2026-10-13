@@ -316,4 +316,7 @@ bez PowerShella), dashboard HA w oknie aplikacji, temperatura CPU przez
 PawnIO (helper w Program Files, zadanie przy logowaniu, named pipe, moduly
 0.2.11 LGPL w src-tauri/pawnio). cargo check ARM64 i x64 (--tests), tsc OK.
 Nie budowano, nie testowano na urzadzeniach, nie pushowano. Wersja nadal 0.7.3.
-Nastepny krok: testy Kuby (helper PawnIO na PC x64), decyzja o 0.8.0.
+Wydanie (polecenie Kuby 13.10): wersja 0.8.0, docs uzupelnione (LINK parity,
+ROADMAP, RELEASE-0.8.0), commit bez Co-Authored-By, push main, tag v0.8.0,
+release z instalatorami, odpowiedzi w #5 i #7.
+Nastepny krok: testy Kuby (helper PawnIO na PC x64).

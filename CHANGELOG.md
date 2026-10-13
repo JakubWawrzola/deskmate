@@ -3,7 +3,11 @@
 All notable changes to Deskmate are documented here. Release-specific upgrade
 notes and asset names are available in `docs/releases/RELEASE-*.md`.
 
-## Unreleased
+## 0.8.0 - 2026-10-13
+
+Requests from issues, Reddit and Facebook: your own sensors and program
+controls, a dark theme, Home Assistant dashboards in a window, CPU temperature
+through PawnIO. Upgrade notes: `docs/releases/RELEASE-0.8.0.md`.
 
 ### Added
 

@@ -275,6 +275,8 @@ read back through Home Assistant unless you also add it as a shared folder.
 | Hotkeys | MQTT device trigger for the event action | Event entity plus `deskmate_link_trigger`; every configured hotkey emits `press` |
 | Toasts and action buttons | Notify/action topics | Encrypted notify/ack and `deskmate_link_notify_action` |
 | Hardware sensors | Dynamic MQTT discovery | Same detected set in `declare` |
+| Your own sensors (program, window, service, PowerShell) | Discovery under `csb_<id>` / `cs_<id>` | Same keys; on/off sensors sent as booleans |
+| Program controls (start, stop) | Button discovery | Buttons, same keys as custom controls |
 | Files | Not available | `fs` / `fs_res`: read from shared folders, write to the inbox; both off by default |
 | Native MQTT device-trigger representation and raw topics | Supported | MQTT-only; Link uses its event entity and event-bus equivalent |
 | Hotkeys/widgets/tray using the direct HA API | Independent of transport | Independent of transport |
