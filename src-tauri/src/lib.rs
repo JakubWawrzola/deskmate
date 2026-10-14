@@ -2,6 +2,7 @@
 //! Composition root: state, tauri commands, tray, window.
 
 mod actions;
+mod audio;
 mod autostart;
 mod clipboard;
 mod config;
@@ -10,6 +11,7 @@ mod cpu_temperature;
 mod custom_sensors;
 mod dashboard;
 mod discovery;
+mod family;
 mod ha_api;
 mod hardware;
 mod hotkeys;
@@ -176,6 +178,7 @@ async fn save_config(
     // update check, never by a stale copy the settings page sends back.
     new_config.start_with_windows = old.start_with_windows;
     new_config.update_notified = old.update_notified.clone();
+    new_config.family = old.family.clone();
     let link_key = link_key
         .map(|key| zeroize::Zeroizing::new(key.trim().to_string()))
         .filter(|key| !key.is_empty());
@@ -823,6 +826,14 @@ async fn install_cpu_temperature_helper() -> Result<(), String> {
         .map_err(|e| e.to_string())?
 }
 
+/// Files page: the latest transfers from the security log.
+#[tauri::command]
+async fn recent_file_transfers() -> Result<Vec<security::FileEvent>, String> {
+    tauri::async_runtime::spawn_blocking(|| security::recent_file_events(30))
+        .await
+        .map_err(|e| e.to_string())
+}
+
 /// Fixed address, not taken from the page.
 #[tauri::command]
 fn open_pawnio_site() -> Result<(), String> {
@@ -895,6 +906,15 @@ pub fn run() {
     if std::env::args().any(|arg| arg == cpu_temperature::REMOVE_ARG) {
         std::process::exit(if cpu_temperature::remove().is_ok() { 0 } else { 1 });
     }
+    // Family protection (family.rs): the elevated steps from the Family page
+    // and the scheduled task that starts Deskmate again.
+    if let Some(code) = family::handle_elevated_args() {
+        std::process::exit(code);
+    }
+    if std::env::args().any(|arg| arg == family::WATCHDOG_ARG) {
+        family::run_watchdog();
+        return;
+    }
     // Windows starts the registered toast activator as a COM local server when a
     // notification is activated. Deskmate handles button clicks over its URL
     // protocol instead, so such a launch must not turn into a second app window.
@@ -907,7 +927,8 @@ pub fn run() {
 
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
     let cfg = config::load();
-    let launch_hidden = cfg.launch_hidden;
+    let launch_hidden =
+        cfg.launch_hidden || std::env::args().any(|arg| arg == family::HIDDEN_ARG);
     let toast_branding = cfg.toast_branding;
 
     tauri::Builder::default()
@@ -924,8 +945,9 @@ pub fn run() {
                 }
             }
             // Started again from Start or the desktop while already running in
-            // the tray: show the window instead of doing nothing.
-            if !toast_click {
+            // the tray: show the window instead of doing nothing. The family
+            // watchdog starts it hidden and must not pop the window up.
+            if !toast_click && !argv.iter().any(|arg| arg == family::HIDDEN_ARG) {
                 actions::show_main_window(app);
             }
         }))
@@ -1054,6 +1076,7 @@ pub fn run() {
 
             updates::spawn(app.handle().clone());
             autostart::reconcile(app.handle());
+            family::spawn(app.handle().clone());
 
             // start the selected transport if configured
             let handle = app.handle().clone();
@@ -1098,7 +1121,12 @@ pub fn run() {
             cpu_temperature_status,
             install_cpu_temperature_helper,
             remove_cpu_temperature_helper,
-            open_pawnio_site
+            open_pawnio_site,
+            family::get_family,
+            family::set_family,
+            family::protect_family_account,
+            family::unprotect_family_account,
+            recent_file_transfers
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

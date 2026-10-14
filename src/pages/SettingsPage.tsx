@@ -4,7 +4,7 @@ import { parsePairingCode } from "../pairing";
 import { applyTheme } from "../theme";
 import CpuTemperaturePanel from "./CpuTemperaturePanel";
 import { Button, Field, Panel, Toggle } from "../components";
-import type { AppConfig, ClipboardMode, MqttTransport, TransportKind, ThemeMode } from "../types";
+import type { AppConfig, MqttTransport, TransportKind, ThemeMode } from "../types";
 
 export default function SettingsPage({
   config,
@@ -42,11 +42,6 @@ export default function SettingsPage({
   };
   const [pairedNode, setPairedNode] = useState<string | null>(null);
   const [pairedCascade, setPairedCascade] = useState<string | null>(null);
-  const [fileRoots, setFileRoots] = useState(config.link_file_roots);
-  const [inboxMode, setInboxMode] = useState<ClipboardMode>(config.link_inbox_mode ?? "off");
-  const [inboxDir, setInboxDir] = useState(config.link_inbox_dir ?? "");
-  const [filesMaxMb, setFilesMaxMb] = useState(String(config.link_files_max_mb ?? 256));
-  const [fileRootDraft, setFileRootDraft] = useState("");
   const [deviceName, setDeviceName] = useState(config.device_name);
   const [interval, setIntervalS] = useState(String(config.publish_interval_secs));
   const [launchHidden, setLaunchHidden] = useState(config.launch_hidden);
@@ -56,8 +51,6 @@ export default function SettingsPage({
   const [dashboardMsg, setDashboardMsg] = useState<string | null>(null);
   const [allowInput, setAllowInput] = useState(config.allow_input);
   const [ttsEnabled, setTtsEnabled] = useState(config.tts_enabled);
-  const [clipboardReadMode, setClipboardReadMode] = useState<ClipboardMode>(config.clipboard_read_mode);
-  const [clipboardWriteMode, setClipboardWriteMode] = useState<ClipboardMode>(config.clipboard_write_mode);
   const [allowedOrigins, setAllowedOrigins] = useState(config.allowed_url_origins.join("\n"));
   const [branding, setBranding] = useState(config.toast_branding);
   const [updateCheck, setUpdateCheck] = useState(config.update_check ?? true);
@@ -133,17 +126,11 @@ export default function SettingsPage({
           // A code for another Windows account joins the computer it was made for.
           node_id: pairedNode ?? config.node_id,
           link_cascade: pairedCascade ? true : config.link_cascade,
-          link_file_roots: fileRoots,
-          link_inbox_mode: inboxMode,
-          link_inbox_dir: inboxDir.trim(),
-          link_files_max_mb: Math.min(4096, Math.max(1, parseInt(filesMaxMb, 10) || 256)),
           device_name: deviceName.trim() || config.device_name,
           publish_interval_secs: Math.max(2, parseInt(interval, 10) || 15),
           launch_hidden: launchHidden,
           allow_input: allowInput,
           tts_enabled: ttsEnabled,
-          clipboard_read_mode: clipboardReadMode,
-          clipboard_write_mode: clipboardWriteMode,
           allowed_url_origins: allowedOrigins
             .split(/[\n,]+/)
             .map((origin) => origin.trim())
@@ -169,13 +156,6 @@ export default function SettingsPage({
     } finally {
       setSaving(false);
     }
-  };
-
-  const addFileRoot = () => {
-    const root = fileRootDraft.trim();
-    if (!root || fileRoots.some((item) => item.toLocaleLowerCase() === root.toLocaleLowerCase())) return;
-    setFileRoots((items) => [...items, root]);
-    setFileRootDraft("");
   };
 
   const toggleAutostart = async (v: boolean) => {
@@ -298,118 +278,6 @@ export default function SettingsPage({
           </p>
         </div>
       </Panel>}
-
-      <Panel title="Receive files">
-        <p className="text-[12px] text-muted mb-3 leading-relaxed">
-          Send files from your phone or laptop to this computer through the Deskmate Files page in Home Assistant.
-          Files only ever land in the folder below. Home Assistant cannot overwrite, rename, delete or read anything
-          through it; a name that already exists gets a number. Received files are marked as downloaded from another
-          computer, so Windows treats them like browser downloads.
-        </p>
-        <div className="grid grid-cols-[1fr_120px] gap-3">
-          <label className="block">
-            <span className="microlabel">Files from Home Assistant</span>
-            <select
-              value={inboxMode}
-              onChange={(e) => setInboxMode(e.target.value as ClipboardMode)}
-              className="mt-1 w-full h-9 px-2 bg-panel border border-hairline-strong rounded text-ink text-[13px] focus-visible:border-ink"
-            >
-              <option value="off">Off</option>
-              <option value="confirm">Ask on this computer for every file</option>
-              <option value="automatic">Accept automatically</option>
-            </select>
-          </label>
-          <Field label="Max size (MB)" value={filesMaxMb} onChange={setFilesMaxMb} placeholder="256" />
-        </div>
-        <div className="mt-3">
-          <Field
-            label="Save to folder"
-            value={inboxDir}
-            onChange={setInboxDir}
-            placeholder="Downloads\Deskmate (default)"
-            hint="Leave empty for Downloads\Deskmate. Local folder only; it is created if missing."
-          />
-        </div>
-        {inboxMode === "confirm" && (
-          <p className="mt-2 text-[12px] text-muted">
-            While Windows is locked nobody can accept, so transfers are refused.
-          </p>
-        )}
-        {inboxMode === "automatic" && (
-          <p className="mt-2 text-[12px] border border-hairline-strong rounded p-2">
-            Anyone with an admin account in Home Assistant can put files on this computer without asking.
-          </p>
-        )}
-        <p className="mt-2 text-[12px] text-muted">The size limit also applies to files Home Assistant reads from the folders below.</p>
-      </Panel>
-
-      <Panel title="File access">
-        <p className="text-[12px] border border-hairline-strong rounded p-2 mb-3 leading-relaxed">
-          Read-only remote access. Home Assistant can list, inspect and download files inside the folders below.
-          Leave this list empty to keep file access disabled. Never add a folder containing secrets you do not want exposed to HA.
-        </p>
-        <div className="flex items-end gap-2">
-          <div className="flex-1">
-            <Field
-              label="Allowed local folder"
-              value={fileRootDraft}
-              onChange={setFileRootDraft}
-              placeholder="C:\\Users\\Kuba\\Documents"
-              hint="Absolute local path only. UNC shares, symbolic links and alternate data streams are rejected."
-            />
-          </div>
-          <Button onClick={addFileRoot} disabled={!fileRootDraft.trim()}>Add folder</Button>
-        </div>
-        {fileRoots.length === 0 ? (
-          <p className="mt-3 text-[12px] text-muted">Disabled — no folders are allowed.</p>
-        ) : (
-          <div className="mt-3 space-y-2">
-            {fileRoots.map((root) => (
-              <div key={root.toLocaleLowerCase()} className="flex items-center gap-2 border-b border-hairline pb-2 last:border-b-0">
-                <span className="flex-1 mono text-[12px] break-all">{root}</span>
-                <Button kind="danger" onClick={() => setFileRoots((items) => items.filter((item) => item !== root))}>
-                  Remove
-                </Button>
-              </div>
-            ))}
-          </div>
-        )}
-      </Panel>
-
-      <Panel title="Clipboard security">
-        <p className="text-[12px] text-muted mb-3 leading-relaxed">
-          Clipboard read and write permissions are independent. Both are blocked while Windows is locked. Confirmation mode asks only when the clipboard value changes (read) or for every incoming write.
-        </p>
-        <div className="grid grid-cols-2 gap-3">
-          <label className="block">
-            <span className="microlabel">Publish clipboard to HA</span>
-            <select
-              value={clipboardReadMode}
-              onChange={(e) => setClipboardReadMode(e.target.value as ClipboardMode)}
-              className="mt-1 w-full h-9 px-2 bg-panel border border-hairline-strong rounded text-ink text-[13px] focus-visible:border-ink"
-            >
-              <option value="off">Off</option>
-              <option value="confirm">Confirm each changed value</option>
-              <option value="automatic">Automatic periodic publication</option>
-            </select>
-          </label>
-          <label className="block">
-            <span className="microlabel">Allow clipboard writes from HA</span>
-            <select
-              value={clipboardWriteMode}
-              onChange={(e) => setClipboardWriteMode(e.target.value as ClipboardMode)}
-              className="mt-1 w-full h-9 px-2 bg-panel border border-hairline-strong rounded text-ink text-[13px] focus-visible:border-ink"
-            >
-              <option value="off">Off</option>
-              <option value="confirm">Confirm every write</option>
-              <option value="automatic">Automatic</option>
-            </select>
-          </label>
-        </div>
-        <p className="mt-2 text-[12px] text-muted">
-          Published clipboard values can remain in Home Assistant history even after Deskmate stops publishing them.
-        </p>
-      </Panel>
 
       <Panel title="Device">
         <div className="space-y-3">

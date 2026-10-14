@@ -331,7 +331,7 @@ class DeskmateFilesPanel extends HTMLElement {
     } else {
       this._inboxText.textContent = "";
       this._drop.hidden = true;
-      this._notice(this._sendNotice, "Receiving files is turned off on this computer. Turn it on in Deskmate: Settings > Receive files.");
+      this._notice(this._sendNotice, "Receiving files is turned off on this computer. Turn it on in Deskmate: Files > Receive files.");
     }
   }
 
@@ -342,7 +342,7 @@ class DeskmateFilesPanel extends HTMLElement {
     if (!roots.length) {
       this._browseText.textContent = "";
       this._list.replaceChildren();
-      this._notice(this._browseNotice, "This computer shares no folders. Add one in Deskmate: Settings > File access.");
+      this._notice(this._browseNotice, "This computer shares no folders. Add one in Deskmate: Files > Shared folders.");
       return;
     }
     this._browseText.textContent = "Folders this computer shares. Read only.";

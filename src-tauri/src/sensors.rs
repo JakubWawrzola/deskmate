@@ -9,7 +9,7 @@ use sysinfo::{Disks, Networks, System};
 pub struct SensorDef {
     pub id: &'static str,
     pub name: &'static str,
-    /// HA component: sensor | binary_sensor
+    /// HA component: sensor | binary_sensor | number | select
     pub component: &'static str,
     pub unit: Option<&'static str>,
     pub device_class: Option<&'static str>,
@@ -280,6 +280,39 @@ pub const SENSOR_DEFS: &[SensorDef] = &[
         privacy: false,
         default_enabled: true,
     },
+    // Microphone level for the default recording device (audio.rs)
+    SensorDef {
+        id: "mic_volume",
+        name: "Microphone volume",
+        component: "number",
+        unit: Some("%"),
+        device_class: None,
+        icon: Some("mdi:microphone"),
+        privacy: false,
+        default_enabled: true,
+    },
+    // Default sound devices as select entities; the options are the devices
+    // Windows reports (audio.rs)
+    SensorDef {
+        id: "audio_output",
+        name: "Sound output",
+        component: "select",
+        unit: None,
+        device_class: None,
+        icon: Some("mdi:speaker"),
+        privacy: false,
+        default_enabled: true,
+    },
+    SensorDef {
+        id: "audio_input",
+        name: "Sound input",
+        component: "select",
+        unit: None,
+        device_class: None,
+        icon: Some("mdi:microphone-variant"),
+        privacy: false,
+        default_enabled: true,
+    },
 ];
 
 pub fn is_enabled(cfg: &crate::config::AppConfig, id: &str) -> bool {
@@ -443,6 +476,7 @@ impl Collector {
             if let Some(muted) = crate::sys_commands::audio_muted() {
                 out.insert("audio_mute".into(), if muted { "ON" } else { "OFF" }.into());
             }
+            crate::audio::collect(cfg, &mut out);
             if is_enabled(cfg, "active_window") {
                 out.insert("active_window".into(), truncate(&win::active_window(), 250));
             }

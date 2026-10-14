@@ -205,11 +205,11 @@ MQTT discovery and Link `declare`.
 
 Two independent capabilities, both off by default:
 
-- **Receive files** (Settings → Receive files): Home Assistant can put new
+- **Receive files** (Files page → Receive files): Home Assistant can put new
   files into one folder on the computer, `Downloads\Deskmate` unless you pick
   another. Mode *Ask on this computer* shows a dialog for every file (refused
   while Windows is locked); *Accept automatically* does not ask.
-- **File access** (Settings → File access): Home Assistant can list and read
+- **Shared folders** (Files page → Shared folders): Home Assistant can list and read
   files in the folders you add. Nothing else on the disk is reachable.
 
 ### The Deskmate page
@@ -255,7 +255,7 @@ called from the UI.
 - Shared folders: absolute local paths only; UNC and device paths, `.`/`..`,
   alternate data streams, symlinks and junctions are rejected. Reads go in
   256 KiB chunks through a 4 MiB/s rate gate.
-- One size limit (Settings → Receive files → Max size, 256 MB by default) applies
+- One size limit (Files page → Receive files → Max size, 256 MB by default) applies
   to both directions.
 - Every transfer is recorded in `%APPDATA%\Deskmate\security.log` with its
   operation, name and result, never its content.
@@ -277,6 +277,9 @@ read back through Home Assistant unless you also add it as a shared folder.
 | Hardware sensors | Dynamic MQTT discovery | Same detected set in `declare` |
 | Your own sensors (program, window, service, PowerShell) | Discovery under `csb_<id>` / `cs_<id>` | Same keys; on/off sensors sent as booleans |
 | Program controls (start, stop) | Button discovery | Buttons, same keys as custom controls |
+| Microphone mute and volume | Switch and number discovery | Same keys (`mic_mute`, `mic_volume`); switches sent as booleans |
+| Default sound devices | Select discovery, options re-published when a device comes or goes | `select` entities; a new `declare` carries the new options |
+| Screen time and family rules | Same entities through discovery | Same keys; on a protected account the rule entities are marked `restore` and Home Assistant puts back its values |
 | Files | Not available | `fs` / `fs_res`: read from shared folders, write to the inbox; both off by default |
 | Native MQTT device-trigger representation and raw topics | Supported | MQTT-only; Link uses its event entity and event-bus equivalent |
 | Hotkeys/widgets/tray using the direct HA API | Independent of transport | Independent of transport |

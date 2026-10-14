@@ -5,7 +5,38 @@ notes and asset names are available in `docs/releases/RELEASE-*.md`.
 
 ## 0.8.1 - 2026-10-14
 
-Getting ready for the default HACS list. No changes to the app itself.
+Microphone and sound devices, screen time and family rules that work on the PC
+itself, and Files and Clipboard as their own pages. Upgrade notes:
+`docs/releases/RELEASE-0.8.1.md`.
+
+### Added
+
+- **Mute microphone** switch and **Microphone volume** slider (asked for on
+  Reddit, as in HASS.Agent). Mutes the default recording device and the call
+  device when that is another one.
+- **Sound output** and **Sound input** lists that switch the Windows default
+  device for apps, media and calls. Devices plugged in or out show up on
+  their own.
+- **Screen time and family rules** (Family page, off by default): screen time
+  today per Windows account, a daily limit with extra time for today, allowed
+  hours, warnings at 10, 5 and 1 minute, lock or sign out when the time is up,
+  a button that asks Home Assistant for more time, a block list for programs,
+  and *Lock with message*. Counted and enforced on the PC, also offline.
+- **Protect this account** (one administrator password): Windows starts
+  Deskmate again within a minute, the rules can only be changed in Home
+  Assistant, and Home Assistant puts back a rule changed on the PC.
+- **Sign out** button.
+- **Files** page: receiving files, shared folders and the recent transfers
+  from the security log. **Clipboard** page: both clipboard permissions. Both
+  were panels in Settings.
+- The integration supports `select` entities, a text `pattern`, and values that
+  Home Assistant keeps for a protected account.
+
+### Fixed
+
+- *Mute audio* over the Deskmate integration always showed as on: the PC sent
+  the state as text, which Home Assistant read as true. The PC now sends a
+  boolean and the integration also reads the old text.
 
 ### Changed
 

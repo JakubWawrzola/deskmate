@@ -82,7 +82,11 @@ FILES_LINK_CHUNK = 256 * 1024  # jedna ramka Link (limit po stronie komputera)
 FILES_HTTP_CHUNK = 8 * 1024 * 1024  # jedno zadanie HTTP z przegladarki
 FILES_UPLOAD_IDLE_S = 600
 
-PLATFORMS = ["sensor", "binary_sensor", "switch", "number", "button", "text", "event"]
+PLATFORMS = ["sensor", "binary_sensor", "switch", "number", "button", "text", "event", "select"]
+
+# Wartosci regul rodzinnych na chronionym koncie: HA odklada je ponownie,
+# gdy komputer zglosi cos innego - nie czesciej niz co tyle sekund.
+OWNED_PUSH_EVERY_S = 30
 
 # Klucze redagowane w diagnostyce
 REDACT = {CONF_KEY, CONF_CASCADE_KEY}

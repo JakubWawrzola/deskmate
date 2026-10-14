@@ -83,7 +83,7 @@
     },
     "send_file": {
       "name": "Wyslij plik na komputer",
-      "description": "Zapisuje plik z Home Assistanta w skrzynce odbiorczej komputera (Deskmate: Settings > Receive files). Sciezka musi byc w allowlist_external_dirs, np. /media. Komputer nigdy nie nadpisuje istniejacych plikow.",
+      "description": "Zapisuje plik z Home Assistanta w skrzynce odbiorczej komputera (Deskmate: Files > Receive files). Sciezka musi byc w allowlist_external_dirs, np. /media. Komputer nigdy nie nadpisuje istniejacych plikow.",
       "fields": {
         "node_id": {
           "name": "Node ID",
@@ -101,7 +101,7 @@
     },
     "fetch_file": {
       "name": "Pobierz plik z komputera",
-      "description": "Kopiuje plik z folderu udostepnionego przez komputer (Deskmate: Settings > File access) do Home Assistanta. Cel musi byc w allowlist_external_dirs.",
+      "description": "Kopiuje plik z folderu udostepnionego przez komputer (Deskmate: Files > Shared folders) do Home Assistanta. Cel musi byc w allowlist_external_dirs.",
       "fields": {
         "node_id": {
           "name": "Node ID",

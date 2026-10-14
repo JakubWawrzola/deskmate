@@ -6,10 +6,10 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .entity import DeskmateEntity, setup_dynamic_platform
+from .entity import DeskmateOwnedEntity, setup_dynamic_platform
 
 
-class DeskmateNumber(DeskmateEntity, NumberEntity):
+class DeskmateNumber(DeskmateOwnedEntity, NumberEntity):
     def __init__(self, hub, desc) -> None:
         super().__init__(hub, desc)
         self._attr_native_min_value = float(desc.get("min", 0))
@@ -18,12 +18,15 @@ class DeskmateNumber(DeskmateEntity, NumberEntity):
         if desc.get("unit"):
             self._attr_native_unit_of_measurement = desc["unit"]
 
+    def _normalize(self, value) -> float:
+        return float(value)
+
     @property
     def native_value(self):
         return self._value
 
     async def async_set_native_value(self, value: float) -> None:
-        await self.hub.async_command(self.key, "set", value)
+        await self._set_owned(value)
 
 
 async def async_setup_entry(

@@ -8,22 +8,32 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .entity import DeskmateEntity, setup_dynamic_platform
+from .entity import DeskmateOwnedEntity, setup_dynamic_platform
 
 
-class DeskmateSwitch(DeskmateEntity, SwitchEntity):
+def _as_bool(value: Any) -> bool:
+    # Deskmate do 0.8.0 wysylal "Mute audio" jako tekst "ON"/"OFF"
+    if isinstance(value, str):
+        return value.strip().lower() in ("on", "true", "1")
+    return bool(value)
+
+
+class DeskmateSwitch(DeskmateOwnedEntity, SwitchEntity):
+    def _normalize(self, value: Any) -> bool:
+        return _as_bool(value)
+
     @property
     def is_on(self):
         value = self._value
         if value is None:
             return None
-        return bool(value)
+        return _as_bool(value)
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        await self.hub.async_command(self.key, "set", True)
+        await self._set_owned(True)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        await self.hub.async_command(self.key, "set", False)
+        await self._set_owned(False)
 
 
 async def async_setup_entry(

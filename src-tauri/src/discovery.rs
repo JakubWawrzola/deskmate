@@ -69,6 +69,28 @@ pub fn build_all(cfg: &AppConfig, hardware_defs: &[OwnedSensorDef]) -> Vec<Disco
                 }
                 out.push((topic, p.to_string()));
             }
+            "select" => {
+                // default sound devices; MQTT needs at least one option
+                let topic = cfg_topic("select", node, object_id);
+                let options = crate::audio::options_for(def.id);
+                if !enabled || options.is_empty() {
+                    out.push((topic, String::new()));
+                    continue;
+                }
+                let mut p = json!({
+                    "name": def.name,
+                    "unique_id": format!("deskmate_{}_{}", node, def.id),
+                    "state_topic": consts::state_topic(node, def.id),
+                    "command_topic": consts::cmd_topic(node, def.id),
+                    "options": options,
+                    "availability_topic": avail,
+                    "device": device,
+                });
+                if let Some(i) = def.icon {
+                    p["icon"] = json!(i);
+                }
+                out.push((topic, p.to_string()));
+            }
             comp => {
                 let topic = cfg_topic(comp, node, object_id);
                 if !enabled {
@@ -343,6 +365,34 @@ pub fn build_all(cfg: &AppConfig, hardware_defs: &[OwnedSensorDef]) -> Vec<Disco
         out.push((topic, p.to_string()));
     }
 
+    // Microphone mute: switch over the default recording devices (audio.rs)
+    {
+        let topic = cfg_topic("switch", node, "mic_mute");
+        let p = json!({
+            "name": "Mute microphone",
+            "unique_id": format!("deskmate_{}_mic_mute", node),
+            "command_topic": consts::cmd_topic(node, "mic_mute"),
+            "state_topic": consts::state_topic(node, "mic_mute"),
+            "payload_on": "ON", "payload_off": "OFF",
+            "icon": "mdi:microphone-off",
+            "availability_topic": avail,
+            "device": device,
+        });
+        out.push((topic, p.to_string()));
+    }
+
+    // Screen time and family rules (family.rs): same entities as over Link
+    let family = crate::family::link_entities(cfg);
+    if family.is_empty() {
+        for (component, key) in crate::family::ENTITIES {
+            out.push(remove(component, key));
+        }
+    } else {
+        for entity in &family {
+            out.push(mqtt_from_descriptor(node, &avail, &device, entity));
+        }
+    }
+
     // Hotkeys of type mqtt -> device triggers (HA automations without an API token)
     for h in &cfg.hotkeys {
         let topic = cfg_topic("device_automation", node, &format!("hotkey_{}", h.id));
@@ -392,6 +442,14 @@ pub fn build_link_declare(cfg: &AppConfig, hardware_defs: &[OwnedSensorDef]) -> 
             entity["min"] = json!(0);
             entity["max"] = json!(100);
             entity["step"] = json!(1);
+        }
+        if def.component == "select" {
+            // added once the first sensor tick has listed the devices
+            let options = crate::audio::options_for(def.id);
+            if options.is_empty() {
+                continue;
+            }
+            entity["options"] = json!(options);
         }
         entities.push(entity);
     }
@@ -498,6 +556,10 @@ pub fn build_link_declare(cfg: &AppConfig, hardware_defs: &[OwnedSensorDef]) -> 
     entities.push(
         json!({"key": "audio_mute", "kind": "switch", "name": "Mute audio", "icon": "mdi:volume-off"}),
     );
+    entities.push(
+        json!({"key": "mic_mute", "kind": "switch", "name": "Mute microphone", "icon": "mdi:microphone-off"}),
+    );
+    entities.extend(crate::family::link_entities(cfg));
     for hotkey in &cfg.hotkeys {
         let display_name = if hotkey.name.is_empty() {
             &hotkey.id
@@ -521,6 +583,43 @@ pub fn build_link_declare(cfg: &AppConfig, hardware_defs: &[OwnedSensorDef]) -> 
         },
         "entities": entities,
     })
+}
+
+/// MQTT discovery for an entity described like a Link `declare` entry.
+fn mqtt_from_descriptor(node: &str, avail: &str, device: &Value, entity: &Value) -> DiscoveryMsg {
+    let kind = entity["kind"].as_str().unwrap_or("sensor");
+    let key = entity["key"].as_str().unwrap_or_default();
+    let mut p = json!({
+        "name": entity["name"],
+        "unique_id": format!("deskmate_{}_{}", node, key),
+        "state_topic": consts::state_topic(node, key),
+        "availability_topic": avail,
+        "device": device,
+    });
+    if kind != "sensor" {
+        p["command_topic"] = json!(consts::cmd_topic(node, key));
+    }
+    for (from, to) in [
+        ("icon", "icon"),
+        ("unit", "unit_of_measurement"),
+        ("device_class", "device_class"),
+        ("state_class", "state_class"),
+        ("min", "min"),
+        ("max", "max"),
+        ("step", "step"),
+        ("pattern", "pattern"),
+        ("mode", "mode"),
+        ("options", "options"),
+    ] {
+        if let Some(value) = entity.get(from) {
+            p[to] = value.clone();
+        }
+    }
+    if kind == "switch" {
+        p["payload_on"] = json!("ON");
+        p["payload_off"] = json!("OFF");
+    }
+    (cfg_topic(kind, node, key), p.to_string())
 }
 
 pub fn link_hotkey_key(hotkey_id: &str) -> String {

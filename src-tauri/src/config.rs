@@ -149,6 +149,29 @@ pub struct TrayAction {
     pub action: ActionSpec,
 }
 
+/// Screen time and family rules (family.rs). Changed from Home Assistant or
+/// the Family page, never by a stale copy the settings page sends back.
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+#[serde(default)]
+pub struct FamilyConfig {
+    /// Count screen time for this Windows account and show the family entities.
+    /// An administrator's protection turns it on regardless (family.rs).
+    pub enabled: bool,
+    /// Enforce the daily limit and the allowed hours.
+    pub rules_on: bool,
+    /// Minutes per day, 0 = no limit.
+    pub daily_limit_min: u32,
+    /// "HH:MM" or empty.
+    pub allowed_from: String,
+    pub allowed_until: String,
+    /// Close the programs below as soon as they start.
+    pub block_apps: bool,
+    /// Executable names such as "steam.exe".
+    pub blocked_apps: Vec<String>,
+    /// lock (default) | sign_out
+    pub time_up_action: String,
+}
+
 /// Widget panel tile.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(default)]
@@ -254,6 +277,9 @@ pub struct AppConfig {
     pub widgets: Vec<WidgetItem>,
     /// quick actions in the tray menu
     pub tray_actions: Vec<TrayAction>,
+    /// screen time and family rules
+    #[serde(default)]
+    pub family: FamilyConfig,
 }
 
 fn default_true() -> bool {
@@ -308,6 +334,7 @@ impl Default for AppConfig {
             hotkeys: Vec::new(),
             widgets: Vec::new(),
             tray_actions: Vec::new(),
+            family: FamilyConfig::default(),
         }
     }
 }

@@ -10,9 +10,24 @@ import HotkeysPage from "./pages/HotkeysPage";
 import WidgetsPage from "./pages/WidgetsPage";
 import NotificationsPage from "./pages/NotificationsPage";
 import SettingsPage from "./pages/SettingsPage";
+import FilesPage from "./pages/FilesPage";
+import ClipboardPage from "./pages/ClipboardPage";
+import FamilyPage from "./pages/FamilyPage";
 import GeekyPage from "./pages/GeekyPage";
 
-const PAGES = ["Status", "Sensors", "Commands", "Hotkeys", "Widgets", "Notifications", "Settings", "Geeky stuff"] as const;
+const PAGES = [
+  "Status",
+  "Sensors",
+  "Commands",
+  "Files",
+  "Clipboard",
+  "Family",
+  "Hotkeys",
+  "Widgets",
+  "Notifications",
+  "Settings",
+  "Geeky stuff",
+] as const;
 export type Page = (typeof PAGES)[number];
 
 export default function App() {
@@ -112,6 +127,26 @@ export default function App() {
           {page === "Commands" && snapshot && (
             <CommandsPage snapshot={snapshot} config={config} onChanged={reloadConfig} />
           )}
+          {page === "Files" && (
+            <FilesPage
+              config={config}
+              onSaved={async () => {
+                await reloadConfig();
+                await reloadSnapshot();
+              }}
+            />
+          )}
+          {page === "Clipboard" && (
+            <ClipboardPage
+              config={config}
+              snapshotClipboard={snapshot?.sensor_values.clipboard}
+              onSaved={async () => {
+                await reloadConfig();
+                await reloadSnapshot();
+              }}
+            />
+          )}
+          {page === "Family" && <FamilyPage />}
           {page === "Hotkeys" && snapshot && (
             <HotkeysPage snapshot={snapshot} config={config} onChanged={reloadConfig} />
           )}

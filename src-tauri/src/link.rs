@@ -887,7 +887,21 @@ fn typed_states(values: &HashMap<String, String>) -> Value {
                 .and_then(serde_json::Number::from_f64)
                 .map(Value::Number)
                 .unwrap_or_else(|| Value::String(value.clone())),
-            _ if key == "keep_awake" => Value::Bool(value.eq_ignore_ascii_case("ON")),
+            _ if matches!(
+                key.as_str(),
+                "keep_awake" | "audio_mute" | "mic_mute" | "family_rules" | "block_apps"
+            ) =>
+            {
+                Value::Bool(value.eq_ignore_ascii_case("ON"))
+            }
+            // no daily limit: unknown in Home Assistant
+            _ if key == "screen_time_left" && value == "None" => Value::Null,
+            _ if matches!(key.as_str(), "screen_time_limit" | "screen_time_bonus") => value
+                .parse::<f64>()
+                .ok()
+                .and_then(serde_json::Number::from_f64)
+                .map(Value::Number)
+                .unwrap_or_else(|| Value::String(value.clone())),
             // on/off custom sensors; Home Assistant reads the text "OFF" as true
             _ if key.starts_with("csb_") => Value::Bool(value.eq_ignore_ascii_case("ON")),
             _ => Value::String(value.clone()),

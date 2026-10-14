@@ -189,14 +189,33 @@ export default function SensorsPage({
     await onChanged();
   };
 
-  const std = snapshot.sensor_defs.filter((d) => !d.privacy && d.component !== "number");
+  const isControl = (d: SensorDef) => d.component === "number" || d.component === "select";
+  const std = snapshot.sensor_defs.filter((d) => !d.privacy && !isControl(d));
   const priv = snapshot.sensor_defs.filter((d) => d.privacy);
+  const sound = snapshot.sensor_defs.filter(isControl);
 
   return (
     <>
       <Panel title="System sensors">
         {std.length === 0 && <EmptyState text="No sensors." />}
         {std.map((d) => (
+          <Row
+            key={d.id}
+            def={d}
+            value={snapshot.sensor_values[d.id]}
+            enabled={enabledOf(config, d)}
+            onToggle={(v) => void toggle(d.id, v)}
+          />
+        ))}
+      </Panel>
+
+      <Panel title="Sound">
+        <p className="text-[12px] text-muted mb-2 leading-relaxed">
+          Controls for Home Assistant: speaker and microphone volume, and which sound devices Windows uses.
+          "Mute audio" and "Mute microphone" switches are always there. An automation can mute the microphone when
+          the radio starts, or switch to the headset when a call comes in.
+        </p>
+        {sound.map((d) => (
           <Row
             key={d.id}
             def={d}

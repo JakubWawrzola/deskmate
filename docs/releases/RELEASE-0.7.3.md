@@ -25,7 +25,7 @@ Fixes from the second round of feedback in #2 (thanks @CBY0).
    version. Settings and pairing are kept.
 
 Starting completely over is described in the
-[guide](https://github.com/JakubWawrzola/deskmate/blob/main/docs/GUIDE.md#13-troubleshooting).
+[guide](https://github.com/JakubWawrzola/deskmate/blob/main/docs/GUIDE.md#14-troubleshooting).
 
 ## Assets
 

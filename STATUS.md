@@ -1,5 +1,22 @@
 # STATUS — Deskmate
-Aktualizacja: 2026-10-13 (0.8.0 wydane: push, tag v0.8.0, release)
+Aktualizacja: 2026-10-14 (0.8.1 przetestowane przez Kube, wypchniete na main; tag i release czekaja)
+
+## Sesja 2026-10-14 — 0.8.1 (polecenie Kuby: mikrofon i zrodla dzwieku, family safety, zakladki; pliki i serwer na 0.9)
+
+- [x] HACS: commit 7c18ca7 wypchniety, CI zielone (run 38555368855). Build "0.8.1 bez zmian aplikacji" porzucony (nieaktualny).
+- [x] audio.rs: Mute microphone, Microphone volume, Sound output/input (IPolicyConfig), opcje odswiezane po podlaczeniu urzadzenia.
+- [x] family.rs: czas ekranu na konto, limit + Extra time today, godziny, ostrzezenia 10/5/1, lock/sign out, "Ask for more time", blokada programow, Lock with message, ochrona konta (HKLM + zadanie "Deskmate watchdog" + Program Files), wartosci HA-owned.
+- [x] Integracja: platforma select, pattern w text, DeskmateOwnedEntity (restore), fix "Mute audio" zawsze on.
+- [x] UI: zakladki Files (z Recent transfers), Clipboard, Family; panel Sound na Sensors; panele usuniete z Settings.
+- [x] Docs: GUIDE (sekcja 11 + dzwiek), SECURITY, LINK, ROADMAP (0.9.0 = pliki + serwer), CHANGELOG, RELEASE-0.8.1, README.
+- [x] cargo check (ARM64 + x64) i tsc bez bledow i ostrzezen.
+- [x] Build instalatorow 0.8.1 (hashe w RELEASE-0.8.1.md), testy Kuby OK, commit + push na main (14.10), README z pelna lista funkcji.
+- [ ] CI zielone, tag v0.8.1, release z instalatorami - po zgodzie Kuby.
+- [ ] Testy reczne (lista w raporcie sesji), zwlaszcza watchdog na koncie standardowym i IPolicyConfig na x64/ARM64.
+- [x] 0.8.1 ARM64 zainstalowane na laptopie (14.10), polaczone z HA przez Tailscale.
+- [x] Integracja 0.8.1 na HAOS przez Tailscale (SMB //100.106.86.21/config, poswiadczenie zapisane przez Kube cmdkey), backup 0.8.0 w scratchpadzie, check_config valid, restart, 3 wpisy loaded, encje select dzwieku sa.
+- [ ] Po release: PR do hacs/default (docs/dev/HACS.md) tylko na polecenie Kuby.
+
 
 ## Sesja 2026-10-13 — merge TV + feedback spolecznosci (plan, odhaczane)
 
@@ -24,7 +41,9 @@ dashboard Lovelace w oknie aplikacji.
 - [ ] Testy reczne Kuby (lista w raporcie), helper PawnIO na PC x64.
 - [x] 0.8.0 zainstalowane na laptopie (ARM64), polaczone z HA.
 - [x] Integracja 0.8.0 na HAOS (SMB homeassistant.local, backup 0.7.3 w scratchpadzie), restart, 3 wpisy loaded.
-- [ ] TODO: autoupdater (Tauri updater, podpisany latest.json, tryby w Settings) - opis w docs/dev/ROADMAP.md.
+- [ ] TODO 0.9.0 (Kuba 14.10): autoupdate - powiadomienie z przyciskiem "Install now", pobranie z GitHuba, instalacja w trybie update - opis w docs/dev/ROADMAP.md.
+- [x] Mikrofon, zakladki, zasady rodzinne przeniesione do 0.8.1 (sesja 2026-10-14).
+- [ ] TODO 0.9.0 (Kuba 14.10): transfer plikow + serwer plikow Deskmate (udostepnianie miedzy komputerami lub folder na RPi, szyfrowanie end-to-end i zero-knowledge na dysku) - szkic w docs/dev/ROADMAP.md.
 
 
 ## Sesja 2026-10-10 — 0.7.3, druga runda #2

@@ -70,6 +70,8 @@ pub async fn publish_states(app: &AppHandle, values: &HashMap<String, String>) {
 }
 
 pub async fn update_hardware_defs(app: &AppHandle, defs: Vec<crate::sensors::OwnedSensorDef>) {
+    // A sound device plugged in or removed changes the select options.
+    let devices_changed = crate::audio::take_changed();
     let (changed, removed) = {
         let state = app.state::<AppState>();
         let mut current = state.hardware_sensor_defs.lock().await;
@@ -106,6 +108,8 @@ pub async fn update_hardware_defs(app: &AppHandle, defs: Vec<crate::sensors::Own
                 }
             }
         }
+        refresh_entities(app).await;
+    } else if devices_changed {
         refresh_entities(app).await;
     }
 }
@@ -238,18 +242,28 @@ pub async fn handle_command(
         return Ok(());
     }
 
-    if key == "audio_mute" {
+    if key == "audio_mute" || key == "mic_mute" {
         let on = payload.trim().eq_ignore_ascii_case("ON");
-        crate::sys_commands::set_audio_muted(on)?;
+        if key == "audio_mute" {
+            crate::sys_commands::set_audio_muted(on)?;
+        } else {
+            tokio::task::spawn_blocking(move || crate::audio::set_mic_muted(on))
+                .await
+                .map_err(|e| e.to_string())??;
+        }
         // The sensor loop would pick this up on its next tick anyway; echoing it
         // immediately keeps the switch from snapping back in the HA interface.
         let mut values = HashMap::new();
         values.insert(
-            "audio_mute".to_string(),
+            key.to_string(),
             if on { "ON".into() } else { "OFF".to_string() },
         );
         publish_states(app, &values).await;
         return Ok(());
+    }
+
+    if crate::family::is_command(key) {
+        return crate::family::handle_command(app, key, &payload).await;
     }
 
     if key == "tts_say" {
@@ -330,21 +344,32 @@ pub async fn handle_command(
     }
 
     let key_owned = key.to_string();
+    let selected = payload.trim().to_string();
     let result =
         tokio::task::spawn_blocking(move || crate::sys_commands::run_builtin(&key_owned, &payload))
             .await
             .map_err(|e| e.to_string())?;
     result?;
-    if key == "volume" {
-        if let Some(volume) = tokio::task::spawn_blocking(crate::sys_commands::get_volume)
+    // Echo the new value at once, so the control does not snap back in Home
+    // Assistant until the next sensor tick.
+    let echoed = match key {
+        "volume" => tokio::task::spawn_blocking(crate::sys_commands::get_volume)
             .await
             .ok()
             .flatten()
-        {
-            let mut values = HashMap::new();
-            values.insert("volume".to_string(), volume.to_string());
-            publish_states(app, &values).await;
-        }
+            .map(|v| v.to_string()),
+        "mic_volume" => tokio::task::spawn_blocking(crate::audio::mic_volume)
+            .await
+            .ok()
+            .flatten()
+            .map(|v| v.to_string()),
+        "audio_output" | "audio_input" => Some(selected),
+        _ => None,
+    };
+    if let Some(value) = echoed {
+        let mut values = HashMap::new();
+        values.insert(key.to_string(), value);
+        publish_states(app, &values).await;
     }
     Ok(())
 }

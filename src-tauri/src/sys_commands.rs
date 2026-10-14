@@ -20,6 +20,7 @@ pub const COMMAND_DEFS: &[CommandDef] = &[
     CommandDef { id: "hibernate", name: "Hibernate", icon: "mdi:power-sleep" },
     CommandDef { id: "shutdown", name: "Shutdown", icon: "mdi:power" },
     CommandDef { id: "restart", name: "Restart", icon: "mdi:restart" },
+    CommandDef { id: "sign_out", name: "Sign out", icon: "mdi:logout" },
     CommandDef { id: "monitor_off", name: "Monitors off", icon: "mdi:monitor-off" },
     CommandDef { id: "media_play_pause", name: "Media play/pause", icon: "mdi:play-pause" },
     CommandDef { id: "media_next", name: "Media next", icon: "mdi:skip-next" },
@@ -49,6 +50,9 @@ pub fn run_builtin(key: &str, payload: &str) -> Result<(), String> {
         "media_next" => crate::media::control("next"),
         "media_prev" => crate::media::control("prev"),
         "volume" => set_volume(payload),
+        "sign_out" => sign_out(),
+        "mic_volume" => crate::audio::set_mic_volume(payload),
+        "audio_output" | "audio_input" => crate::audio::select(key, payload),
         // text input + presentation (allow_input gate checked in MQTT routing)
         "type_text" => type_text(payload),
         "present_next" => tap_vk(0x27),   // VK_RIGHT
@@ -410,6 +414,25 @@ fn lock() -> Result<(), String> {
 #[cfg(not(windows))]
 fn lock() -> Result<(), String> {
     Err("windows only".into())
+}
+
+/// Signs the current Windows user out. Programs get the usual chance to close;
+/// one that hangs is closed anyway.
+#[cfg(windows)]
+pub fn sign_out() -> Result<(), String> {
+    use windows::Win32::System::Shutdown::{
+        ExitWindowsEx, EWX_FORCEIFHUNG, EWX_LOGOFF, SHTDN_REASON_FLAG_PLANNED,
+    };
+    unsafe { ExitWindowsEx(EWX_LOGOFF | EWX_FORCEIFHUNG, SHTDN_REASON_FLAG_PLANNED) }
+        .map_err(|e| e.to_string())
+}
+#[cfg(not(windows))]
+pub fn sign_out() -> Result<(), String> {
+    Err("windows only".into())
+}
+
+pub fn lock_now() -> Result<(), String> {
+    lock()
 }
 
 #[cfg(windows)]

@@ -272,7 +272,7 @@ is why it is shown once and stored in the credential vault on both ends.
 ## Link Files
 
 Reading and receiving are separate settings and both start off. Home Assistant
-can read only inside the folders listed under File access, and can write only
+can read only inside the folders listed under Shared folders, and can write only
 new files into the inbox folder: no overwrite, rename or delete, file names
 reduced to a plain name, data verified by SHA-256 before it becomes visible, and
 the Mark-of-the-Web applied so Windows treats received files like downloads.
@@ -322,6 +322,48 @@ nothing else. It accepts no input: each connection to
 `\\.\pipe\deskmate-cpu-temperature` (local clients only) gets one JSON line
 with a temperature or an error code. It stops serving once Deskmate is
 uninstalled for that user; *Remove* in Settings deletes the task and the copy.
+
+## Sound devices
+
+The default device is changed through `IPolicyConfig`, the COM interface the
+Windows sound settings use. It is not documented by Microsoft but has been
+stable since Windows 7. Home Assistant sends a device name; Deskmate only acts
+on a name that matches an active device it listed itself. Muting the
+microphone and its volume use Core Audio like the speaker controls.
+
+## Screen time and family rules
+
+Off until turned on per Windows account. Counting happens on the PC, the usage
+file is `%APPDATA%\Deskmate\screen-time.json`, and only minutes and the
+rule states go to Home Assistant, never window titles or program lists (except
+the block list the parent typed). The block list closes processes with the
+listed names that the account may close; Windows processes and Deskmate itself
+are refused.
+
+Without protection the rules are a convenience: the child can quit Deskmate or
+edit `config.json`. Protection is the administrator's part:
+
+- *Protect this account* starts deskmate.exe through UAC with the account's
+  SID as an argument (an administrator typing a password into UAC runs the
+  step as the administrator, so the account cannot come from the elevated
+  process itself). The SID is checked to be a user SID.
+- The account is listed under `HKLM\SOFTWARE\Deskmate\Family\Protected`.
+  Standard accounts can read but not change it.
+- A copy of deskmate.exe goes to `%ProgramFiles%\Deskmate watchdog\`, where
+  only administrators can write, and the scheduled task *Deskmate watchdog*
+  runs it for members of Users at sign-in and every minute, without elevation.
+  It starts the account's Deskmate when no Deskmate runs in that session, or
+  itself in its place when the per-user install was deleted. For accounts that
+  are not listed it exits at once.
+- On a protected account the Family page cannot change the rules, the entities
+  are declared as owned by Home Assistant, and the integration stores their
+  values and sends them back when the PC reports a different one (at most every
+  30 seconds). Over MQTT that last part is missing.
+
+What it does not cover: an administrator account, another Windows account,
+another operating system, a PC kept offline after its settings file was edited
+(the rules come back with the connection), or ending the task every minute by
+hand, which standard accounts cannot do for a task an administrator created.
 
 ## Your own sensors and program controls
 

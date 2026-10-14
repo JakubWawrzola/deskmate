@@ -83,7 +83,7 @@
     },
     "send_file": {
       "name": "Send file to computer",
-      "description": "Saves a file from Home Assistant into the computer's inbox (Deskmate: Settings > Receive files). The path must be in allowlist_external_dirs, e.g. /media. Existing files on the computer are never overwritten.",
+      "description": "Saves a file from Home Assistant into the computer's inbox (Deskmate: Files > Receive files). The path must be in allowlist_external_dirs, e.g. /media. Existing files on the computer are never overwritten.",
       "fields": {
         "node_id": {
           "name": "Node ID",
@@ -101,7 +101,7 @@
     },
     "fetch_file": {
       "name": "Fetch file from computer",
-      "description": "Copies a file from a folder the computer shares (Deskmate: Settings > File access) into Home Assistant. The destination must be in allowlist_external_dirs.",
+      "description": "Copies a file from a folder the computer shares (Deskmate: Files > Shared folders) into Home Assistant. The destination must be in allowlist_external_dirs.",
       "fields": {
         "node_id": {
           "name": "Node ID",

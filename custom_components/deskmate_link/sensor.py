@@ -26,6 +26,9 @@ class DeskmateSensor(DeskmateEntity, SensorEntity):
         # text the computer sends (e.g. "Last active").
         if self.device_class == SensorDeviceClass.TIMESTAMP:
             return dt_util.parse_datetime(self._value) if isinstance(self._value, str) else None
+        # Liczbowy sensor bez wartosci (np. "Screen time left" bez limitu)
+        if self._value == "" and self.native_unit_of_measurement:
+            return None
         return self._value
 
 

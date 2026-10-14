@@ -3,7 +3,8 @@
 A modern, open-source Windows companion for Home Assistant, in the spirit of
 HASS.Agent. Your PC shows up in Home Assistant as a device with sensors,
 buttons, switches and notifications, your keyboard becomes a remote for your
-home, and your phone can drop files straight onto the PC.
+home, your phone can drop files straight onto the PC, and the kids' screen time
+rules run on the PC itself, without a Microsoft account.
 
 It talks to its own Home Assistant integration over one encrypted connection,
 so there is no MQTT broker to set up (MQTT still works if you already run one).
@@ -44,35 +45,64 @@ Setting this up with an AI assistant? Point it at
 
 ## What it does
 
-**In Home Assistant**
+**Your PC in Home Assistant**
 
-- Sensors: CPU, memory, disks, network, battery, uptime, idle time, locked,
-  current user, "presenting or full screen", plus GPU, VRAM and temperatures
-  where the hardware allows.
-- Privacy-sensitive sensors, off until you enable them: window title, Wi-Fi
-  name, now playing, camera and microphone in use.
-- Buttons and controls: lock, sleep, hibernate, shutdown, restart, monitors off,
-  media keys, volume, mute, keep awake, and your own PowerShell commands as
-  buttons, switches or sliders.
-- Your own sensors (program running, window open, service state, PowerShell
-  output) and controls that start or stop programs.
-- CPU temperature through the signed PawnIO driver, with an optional helper.
-- Native Windows notifications with an image and action buttons; the clicked
-  button comes back as an event.
-- A **Deskmate** page in the sidebar: send files from your phone or laptop to the
-  PC, download from folders the PC shares, see every paired computer.
+- CPU, memory, disks, network, battery, uptime, and GPU and temperatures where
+  the hardware allows (CPU temperature too, with a small optional helper).
+- Whether someone is at the PC: idle time, last activity, locked or not, who is
+  signed in, a presentation or full-screen video running.
+- If you want them: the window you are in, the Wi-Fi name, what is playing,
+  whether the camera or the microphone is in use. Off until you turn them on.
+- Your own sensors: is a program running, is a window open, is a Windows
+  service up, or anything a script can tell.
 
-**On the PC**
+**Control the PC from Home Assistant**
 
-- Global hotkeys that control your home or fire events into Home Assistant.
-- An always-on-top widget panel with the entities you pick, and Home Assistant
-  dashboards in their own window.
-- Light and dark theme.
-- Your own quick actions in the tray menu, and a separate
-  [Stream Deck plugin](streamdeck-plugin/README.md).
+- Lock, sleep, hibernate, shut down, restart, sign out, turn the screens off.
+- Volume, mute, play/pause, next track, keep the PC awake.
+- Mute the microphone and set its level, for example as soon as the radio
+  starts.
+- Choose the speakers, headset or microphone Windows uses.
+- Start or close programs, or run your own scripts as buttons, switches and
+  sliders.
+- Type text, move through a presentation, open a web page, read text out loud.
+  Off until you turn them on.
 
-Several computers and several Windows users on one computer are supported; see
-the [guide](docs/GUIDE.md#10-several-computers-several-windows-users).
+**Notifications**
+
+- Windows notifications from Home Assistant, with a picture and buttons that
+  start automations. The doorbell on your screen, with *Open gate* on it.
+
+**Screen time and family rules**
+
+- Screen time for each Windows account, a daily limit, extra time for today,
+  allowed hours (bedtime).
+- Warnings before the time runs out, then the PC locks or signs out.
+- An *Ask for more time* button that reaches your phone through Home Assistant.
+- Block games and apps.
+- Works without internet and without a Microsoft account. With one
+  administrator password a child cannot just close it.
+
+**Files and clipboard**
+
+- Send files from your phone or laptop to the PC, download from folders you
+  share. All through the Deskmate page in the Home Assistant sidebar.
+- Copy on the PC, paste on your phone, and the other way round.
+
+**Control your home from the PC**
+
+- Hotkeys that switch lights or start scenes from any app.
+- A small always-on-top panel with the entities you pick.
+- Home Assistant dashboards in their own window, and your own shortcuts in the
+  tray menu.
+- A [Stream Deck plugin](streamdeck-plugin/README.md).
+
+**Everyday**
+
+- Light and dark theme, starts with Windows, tells you when an update is out.
+- Several computers, and several Windows users on one computer; see the
+  [guide](docs/GUIDE.md#10-several-computers-several-windows-users).
+- Windows 10 and 11, x64 and ARM64 (Snapdragon laptops too), a 3 MB installer.
 
 ## Security in short
 

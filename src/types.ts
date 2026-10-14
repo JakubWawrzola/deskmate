@@ -83,6 +83,40 @@ export interface CustomSensor {
   enabled: boolean;
 }
 
+/** Screen time and family rules (family.rs). */
+export interface FamilyConfig {
+  enabled: boolean;
+  rules_on: boolean;
+  daily_limit_min: number;
+  allowed_from: string;
+  allowed_until: string;
+  block_apps: boolean;
+  blocked_apps: string[];
+  /** lock | sign_out */
+  time_up_action: string;
+}
+
+export interface FamilyView {
+  rules: FamilyConfig;
+  protected: boolean;
+  admin_account: boolean;
+  watchdog_installed: boolean;
+  today_min: number;
+  left_min: number | null;
+  bonus_min: number;
+  /** off | ok | time_up | outside_hours */
+  status: string;
+}
+
+/** A file sent to or read from this computer (security log). */
+export interface FileEvent {
+  time: number;
+  /** received | read | cancelled */
+  kind: string;
+  path: string;
+  result: string;
+}
+
 export interface AppConfig {
   configured: boolean;
   transport: TransportKind;
@@ -123,6 +157,7 @@ export interface AppConfig {
   hotkeys: Hotkey[];
   widgets: WidgetItem[];
   tray_actions: TrayAction[];
+  family?: FamilyConfig;
 }
 
 export interface ConfigView {

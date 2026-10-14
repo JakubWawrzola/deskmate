@@ -159,9 +159,10 @@ pub fn status() -> Status {
     }
 }
 
-/// Starts this exe elevated with `arg` (UAC prompt) and waits for it.
+/// Starts this exe elevated with `arg` (UAC prompt) and waits for it. Also
+/// used for the family protection (family.rs).
 #[cfg(windows)]
-fn run_elevated(arg: &str) -> Result<(), String> {
+pub(crate) fn run_elevated(arg: &str) -> Result<(), String> {
     use windows::core::{w, HSTRING};
     use windows::Win32::Foundation::{CloseHandle, WAIT_OBJECT_0};
     use windows::Win32::System::Threading::{GetExitCodeProcess, WaitForSingleObject};
@@ -203,7 +204,7 @@ fn run_elevated(arg: &str) -> Result<(), String> {
 }
 
 #[cfg(not(windows))]
-fn run_elevated(_arg: &str) -> Result<(), String> {
+pub(crate) fn run_elevated(_arg: &str) -> Result<(), String> {
     Err("windows only".into())
 }
 

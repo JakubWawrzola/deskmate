@@ -11,6 +11,21 @@ or delete another agent's entry.
 
 ## Log
 
+## [2026-10-14] Claude — 0.8.1: mikrofon, urzadzenia dzwieku, zasady rodzinne, zakladki
+Zrobione (master, akceptacja Kuby 14.10, commit + push na main): audio.rs (mute i
+glosnosc mikrofonu, wybor domyslnego wyjscia/wejscia przez IPolicyConfig),
+family.rs (czas ekranu, limit, godziny, blokada programow, ochrona konta:
+HKLM + zadanie "Deskmate watchdog" + kopia w Program Files), przycisk Sign out,
+integracja: select.py, DeskmateOwnedEntity (wartosci trzymane przez HA na
+chronionym koncie), fix "Mute audio". UI: Files, Clipboard, Family, panel Sound.
+Docs: GUIDE, SECURITY, LINK, ROADMAP, CHANGELOG, RELEASE-0.8.1, README.
+Dotkniete pliki: src-tauri/src/{audio,family,config,discovery,lib,link,security,
+sensors,sys_commands,transport,cpu_temperature}.rs, Cargo.toml,
+custom_components/deskmate_link/{const,entity,number,sensor,switch,text,select}.py,
+src/{App.tsx,api.ts,types.ts}, src/pages/{Files,Clipboard,Family,Sensors,Settings}Page.tsx,
+docs/*, CHANGELOG.md, README.md, STATUS.md.
+Wdrozone: laptop (ARM64), HAOS (przez Tailscale). Nastepny krok: tag v0.8.1 i release na polecenie Kuby.
+
 ## [2026-10-11 ~23:55] Claude — DeskmateTV (branch feat/deskmate-tv)
 Zrobione: aplikacja Android TV w `tv/` (Link v2 w Kotlinie z testami
 wektorowymi vs crypto.py, usluga dostepnosci: ekran jako tekst, klik, D-pad,

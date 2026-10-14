@@ -14,10 +14,11 @@ release history live in separate documents linked at the end.
 - [8. Files between your phone and the PC](#8-files-between-your-phone-and-the-pc)
 - [9. Automation ideas](#9-automation-ideas)
 - [10. Several computers, several Windows users](#10-several-computers-several-windows-users)
-- [11. Privacy switches](#11-privacy-switches)
-- [12. Updates](#12-updates)
-- [13. Troubleshooting](#13-troubleshooting)
-- [14. Using MQTT instead](#14-using-mqtt-instead)
+- [11. Screen time and family rules](#11-screen-time-and-family-rules)
+- [12. Privacy switches](#12-privacy-switches)
+- [13. Updates](#13-updates)
+- [14. Troubleshooting](#14-troubleshooting)
+- [15. Using MQTT instead](#15-using-mqtt-instead)
 - [Further reading](#further-reading)
 
 ## 1. What you are installing
@@ -112,10 +113,14 @@ One device per PC, with:
 - **CPU temperature**: Windows only lets programs with administrator rights
   read it. Settings → *CPU temperature* sets up a small helper for that, see
   [below](#cpu-temperature). Running LibreHardwareMonitor works too.
-- **Buttons**: Lock, Sleep, Hibernate, Shutdown, Restart, Monitors off, media
-  keys, empty recycle bin. Shutdown and Restart wait 5 seconds.
+- **Buttons**: Lock, Sleep, Hibernate, Shutdown, Restart, Sign out, Monitors
+  off, media keys, empty recycle bin. Shutdown and Restart wait 5 seconds.
 - **Controls**: volume slider, mute, Keep awake (stops sleep and screen-off
   while it is on).
+- **Sound**: *Mute microphone*, a *Microphone volume* slider, and *Sound
+  output* / *Sound input* lists that switch the Windows default device (the
+  speakers, a headset, a USB microphone). Plugging a device in or out updates
+  the lists. See [sound devices](#sound-devices-and-the-microphone).
 - **Privacy-sensitive sensors**, off until you enable them on the Sensors page:
   active window title, Wi-Fi name, what is playing, camera in use, microphone
   in use.
@@ -209,8 +214,45 @@ Besides the built-in buttons:
   Typed text is printable characters only, so it cannot press Enter on its own.
 - **Text to speech** (Settings, off by default): the PC reads out text sent from
   Home Assistant.
-- **Clipboard** (Settings): reading and writing are separate, each *Off*,
-  *Confirm* or *Automatic*. Both pause while Windows is locked.
+- **Clipboard** (Clipboard page): reading and writing are separate, each *Off*,
+  *Ask* or *Automatically*. Both pause while Windows is locked.
+
+### Sound devices and the microphone
+
+*Mute microphone* mutes the default recording device, and the default device
+for calls when that is a different one (a headset next to a webcam
+microphone). *Sound output* and *Sound input* select a device by its Windows
+name and make it the default for apps, media and calls at once, like *Set as
+default device* in the Windows sound settings. The Sensors page → *Sound*
+switches the volume sliders and the device lists off if you do not want them.
+
+Mute the microphone while the radio plays:
+
+```yaml
+triggers:
+  - trigger: state
+    entity_id: media_player.kitchen_radio
+    to: playing
+actions:
+  - action: switch.turn_on
+    target:
+      entity_id: switch.my_pc_mute_microphone
+```
+
+Switch to the headset when it is turned on (any sensor that tells you so):
+
+```yaml
+triggers:
+  - trigger: state
+    entity_id: binary_sensor.headset_power
+    to: "on"
+actions:
+  - action: select.select_option
+    target:
+      entity_id: select.my_pc_sound_output
+    data:
+      option: Headphones (WH-1000XM4)
+```
 
 ## 7. Controlling your home from the PC
 
@@ -238,7 +280,7 @@ profile → Security → Create token) entered under Settings → Home Assistant
 Open **Deskmate** in the Home Assistant sidebar (also in the mobile app). It has
 two tabs: **Files** and **Computers**.
 
-Sending to the PC needs **Receive files** on the PC (Deskmate → Settings):
+Sending to the PC needs **Receive files** on the PC (Deskmate → **Files**):
 
 - *Ask on this computer*: a dialog for every file. Refused while Windows is
   locked.
@@ -248,8 +290,10 @@ Files land in `Downloads\Deskmate` unless you pick another folder, are never
 overwritten (`photo (1).jpg`), and Windows treats them as downloaded from the
 internet. Size limit 256 MB per file by default.
 
-Downloading from the PC needs **File access**: add specific folders there. Home
-Assistant can read only inside them, never write.
+Downloading from the PC needs **Shared folders** on the same page: add
+specific folders there. Home Assistant can read only inside them, never write.
+*Recent transfers* on that page lists what was received or read, from the local
+security log.
 
 For automations there are two actions:
 
@@ -360,7 +404,98 @@ The code contains this computer's pairing key, so give it only to accounts on
 that computer. *Reconfigure → Generate a new pairing key* cuts off every account
 at once; paste the new code on each one you want to keep.
 
-## 11. Privacy switches
+## 11. Screen time and family rules
+
+Microsoft Family Safety needs a Microsoft account and its cloud, and the Home
+Assistant integrations for it run on an unofficial API: people report sign-ins
+that expire after a day, five-minute delays and limits that never reach the PC.
+Deskmate counts screen time on the PC itself and enforces the rules there, also
+while Home Assistant or the internet is down. Home Assistant only changes the
+rules.
+
+**Turn it on** in the child's Windows account: Deskmate → **Family** → *Count
+screen time on this account*. Time counts while the account is unlocked and in
+use (keyboard or mouse in the last 5 minutes, or something playing full
+screen). It starts from zero at midnight.
+
+The computer's device in Home Assistant then gets:
+
+| Entity | What it does |
+|---|---|
+| Screen time today | Minutes in use today |
+| Screen time left | Minutes left of the daily limit; unknown without a limit |
+| Screen time status | `off`, `ok`, `time_up` or `outside_hours` |
+| Screen time rules | Switch: enforce the limit and the allowed hours |
+| Daily screen time limit | Minutes per day, 0 for no limit |
+| Extra time today | Minutes on top of the limit, back to 0 at midnight |
+| Allowed from, Allowed until | `HH:MM`, empty for no schedule; `22:00` to `02:00` works across midnight |
+| When time is up | *Lock* or *Sign out* |
+| Block apps, Blocked apps | Switch and program names separated by commas (`steam, robloxplayerbeta`); they close as soon as they start |
+| Lock with message | Text shown on the PC, which locks 10 seconds later |
+
+A *Sign out* button is there on every PC, family rules or not.
+
+What the child sees: a notification 10, 5 and 1 minute before the limit or the
+end of the allowed hours. When the time is up, a notification with *Ask for
+more time* and one minute to save, then the PC locks (or signs out). Unlocking
+again locks after 20 seconds, until there is time again. Open programs keep
+running behind the lock screen.
+
+**Ask for more time** fires `deskmate_link_notify_action` with `action:
+screen_time_more` (over MQTT: the `notify/action` topic). This automation asks
+you on your phone and adds 15 minutes:
+
+```yaml
+triggers:
+  - trigger: event
+    event_type: deskmate_link_notify_action
+    event_data:
+      action: screen_time_more
+actions:
+  - action: notify.mobile_app_my_phone
+    data:
+      message: The kids' PC asks for more screen time
+      data:
+        actions:
+          - action: GRANT_15
+            title: +15 minutes
+  - wait_for_trigger:
+      - trigger: event
+        event_type: mobile_app_notification_action
+        event_data:
+          action: GRANT_15
+    timeout: "00:10:00"
+    continue_on_timeout: false
+  - action: number.set_value
+    target:
+      entity_id: number.kids_pc_extra_time_today
+    data:
+      value: "{{ states('number.kids_pc_extra_time_today') | int(0) + 15 }}"
+```
+
+**Protect the account.** A child can quit Deskmate or edit its settings file.
+Give the child a standard (not administrator) Windows account, then in that
+account: Family → *Protect this account*, and type an administrator's password
+once. From then on:
+
+- Windows starts Deskmate again within a minute when it is not running (the
+  scheduled task *Deskmate watchdog*);
+- the rules can only be changed in Home Assistant; the Family page shows them
+  read-only;
+- Home Assistant remembers the rules and puts them back when the PC reports
+  something else (Deskmate integration; over MQTT the PC keeps what it has);
+- *Remove protection* needs the administrator password again.
+
+Protection does not stop an administrator account, another Windows account
+without Deskmate, or starting the PC from another system. The *Connection*
+entity in Home Assistant shows when the PC goes offline, and a standard
+account cannot change the clock.
+
+Several children on one PC: each Windows account counts its own time. The rules
+set in Home Assistant apply to the account that is connected, because the
+device in Home Assistant is the computer.
+
+## 12. Privacy switches
 
 Everything that can reveal what you do, or lets Home Assistant act on the PC
 beyond the built-in buttons, is off until you turn it on:
@@ -373,16 +508,17 @@ beyond the built-in buttons, is off until you turn it on:
 | CPU temperature helper (administrator, at sign-in) | Settings → CPU temperature | Not installed |
 | Remote input (typing, presentation, opening pages) | Settings | Off |
 | Text to speech | Settings | Off |
-| Clipboard read / write | Settings | Off |
-| Receive files | Settings | Off |
-| File access (shared folders) | Settings | No folders |
+| Clipboard read / write | Clipboard | Off |
+| Receive files | Files | Off |
+| Shared folders | Files | No folders |
+| Screen time and family rules | Family | Off |
 | Daily update check (asks GitHub only) | Settings → Updates | On |
 
 Every security-relevant action is logged locally in
 `%APPDATA%\Deskmate\security.log`, without contents. The full threat model is in
 [SECURITY.md](SECURITY.md).
 
-## 12. Updates
+## 13. Updates
 
 Deskmate asks GitHub once a day whether a newer release exists. It does not
 download or install anything: a new version shows up in the tray menu, on the
@@ -393,7 +529,7 @@ To update, run the new installer over the old version. Settings and pairing are
 kept. Update the Home Assistant integration through HACS; the release notes say
 when the order matters.
 
-## 13. Troubleshooting
+## 14. Troubleshooting
 
 **The Status page shows a rejection or a clock mismatch.** The message says
 which; [LINK.md](LINK.md#when-the-connection-is-refused) lists every reason and
@@ -419,6 +555,15 @@ vendor; custom commands you define yourself do run PowerShell by design.
 
 **Entities are unavailable after switching Windows users.** The other account
 needs Deskmate as well, paired with *Show the pairing code* (section 10).
+
+**Sound output does not change the device.** The list holds the devices
+Windows has enabled. A device that is disabled in the Windows sound settings
+does not show up. A program that picked a device by itself (some games and
+call apps) keeps using it; change it in that program.
+
+**The family rules lock the PC but the child keeps playing.** Check that the
+child's account is a standard account and protected (Family page). Without
+protection, closing Deskmate stops the rules until it starts again.
 
 **"Connection error ... (os error 10013)".** Windows refused the connection
 before it left the PC. That is almost always a firewall or antivirus blocking
@@ -458,7 +603,7 @@ Still stuck: [open an issue](https://github.com/JakubWawrzola/deskmate/issues)
 with the Status page text and, from Home Assistant, the integration's
 diagnostics download (keys are removed from it).
 
-## 14. Using MQTT instead
+## 15. Using MQTT instead
 
 MQTT remains supported for setups that already run a broker: Settings →
 Transport → MQTT broker. Broker, TLS and ACL setup, and MQTT-specific examples

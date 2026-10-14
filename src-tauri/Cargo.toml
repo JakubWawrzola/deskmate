@@ -96,6 +96,8 @@ features = [
   "Win32_System_Com_StructuredStorage",
   "Win32_System_RemoteDesktop",
   "Win32_Security",
+  # family protection: the account's SID (family.rs)
+  "Win32_Security_Authorization",
   # Credential Manager cleanup on uninstall (uninstall.rs)
   "Win32_Security_Credentials",
   "Win32_Graphics_Dxgi",
