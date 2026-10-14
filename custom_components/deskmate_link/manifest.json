@@ -1,9 +1,9 @@
 {
   "domain": "deskmate_link",
   "name": "Deskmate",
-  "version": "0.8.0",
-  "documentation": "https://github.com/JakubWawrzola/deskmate/blob/main/docs/LINK.md",
-  "issue_tracker": "https://github.com/JakubWawrzola/deskmate/issues",
+  "after_dependencies": [
+    "camera"
+  ],
   "codeowners": [
     "@JakubWawrzola"
   ],
@@ -13,6 +13,9 @@
     "http",
     "panel_custom"
   ],
+  "documentation": "https://github.com/JakubWawrzola/deskmate/blob/main/docs/GUIDE.md",
   "iot_class": "local_push",
-  "requirements": []
+  "issue_tracker": "https://github.com/JakubWawrzola/deskmate/issues",
+  "requirements": [],
+  "version": "0.8.1"
 }

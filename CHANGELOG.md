@@ -3,6 +3,18 @@
 All notable changes to Deskmate are documented here. Release-specific upgrade
 notes and asset names are available in `docs/releases/RELEASE-*.md`.
 
+## 0.8.1 - 2026-10-14
+
+Getting ready for the default HACS list. No changes to the app itself.
+
+### Changed
+
+- The integration's manifest passes hassfest: keys in the required order and
+  `camera` declared as an after-dependency (camera frames for TV
+  notifications). Its documentation link points to the guide.
+- The repository validates itself on every push: the HACS action and hassfest
+  (`.github/workflows/validate.yml`).
+
 ## 0.8.0 - 2026-10-13
 
 Requests from issues, Reddit and Facebook: your own sensors and program
