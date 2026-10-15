@@ -11,6 +11,15 @@ or delete another agent's entry.
 
 ## Log
 
+## [2026-10-15] Claude — manifest wtyczki Stream Deck jako szablon (HACS)
+Zrobione: streamdeck-plugin/com.homeos.homeassistant.sdPlugin/manifest.json
+przeniesiony do streamdeck-plugin/manifest.template.json; rollup (buildStart)
+kopiuje go do folderu .sdPlugin, kopia w .gitignore. Powod: hassfest w PR do
+hacs/default szuka w calym repo dokladnie jednego pliku *manifest.json.
+UWAGA Codex (codex/streamdeck-neo): Twoje zmiany manifestu (wersja 0.2.0,
+akcje Deskmate Copy) przy mergu przenies do manifest.template.json; nie
+commituj manifest.json w folderze .sdPlugin.
+
 ## [2026-10-14] Claude — 0.8.1: mikrofon, urzadzenia dzwieku, zasady rodzinne, zakladki
 Zrobione (master, akceptacja Kuby 14.10, commit + push na main): audio.rs (mute i
 glosnosc mikrofonu, wybor domyslnego wyjscia/wejscia przez IPolicyConfig),

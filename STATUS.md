@@ -11,7 +11,10 @@ Aktualizacja: 2026-10-14 (0.8.1 przetestowane przez Kube, wypchniete na main; ta
 - [x] Docs: GUIDE (sekcja 11 + dzwiek), SECURITY, LINK, ROADMAP (0.9.0 = pliki + serwer), CHANGELOG, RELEASE-0.8.1, README.
 - [x] cargo check (ARM64 + x64) i tsc bez bledow i ostrzezen.
 - [x] Build instalatorow 0.8.1 (hashe w RELEASE-0.8.1.md), testy Kuby OK, commit + push na main (14.10), README z pelna lista funkcji.
-- [ ] CI zielone, tag v0.8.1, release z instalatorami - po zgodzie Kuby.
+- [x] Pliki spolecznosci GitHuba (CoC, CONTRIBUTING, .github/SECURITY.md, szablony issue/PR), prywatne zglaszanie podatnosci wlaczone, community health 100% (15.10).
+- [x] CI zielone (run 38716831064 na fd3fc73), tag v0.8.1, release z instalatorami i SHA256SUMS (15.10).
+- [x] PR do hacs/default: https://github.com/hacs/default/pull/11979 (15.10). Zgloszenia tresci: opcja tylko dla repo organizacji, nic do zrobienia.
+- [ ] Hassfest w PR HACS padl: ich skrypt wymaga dokladnie jednego *manifest.json w repo, a byl tez manifest wtyczki Stream Deck. Poprawka: streamdeck-plugin/manifest.template.json + kopia przy npm run build. Po pushu: zamknac i otworzyc PR (ponowne sprawdzenie).
 - [ ] Testy reczne (lista w raporcie sesji), zwlaszcza watchdog na koncie standardowym i IPolicyConfig na x64/ARM64.
 - [x] 0.8.1 ARM64 zainstalowane na laptopie (14.10), polaczone z HA przez Tailscale.
 - [x] Integracja 0.8.1 na HAOS przez Tailscale (SMB //100.106.86.21/config, poswiadczenie zapisane przez Kube cmdkey), backup 0.8.0 w scratchpadzie, check_config valid, restart, 3 wpisy loaded, encje select dzwieku sa.

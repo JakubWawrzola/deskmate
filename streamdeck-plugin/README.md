@@ -31,7 +31,11 @@ npm install
 npm run build
 ```
 
-Output: `com.homeos.homeassistant.sdPlugin\bin\plugin.js` (rollup bundle).
+Output: `com.homeos.homeassistant.sdPlugin\bin\plugin.js` (rollup bundle) and
+`com.homeos.homeassistant.sdPlugin\manifest.json`, written from
+`manifest.template.json`. The repository keeps only the template, because the
+HACS checks for the Home Assistant integration allow one `manifest.json` per
+repository. Edit the template, not the copy.
 `npm run icons` regenerates the placeholder PNG icons (pure Node, no deps).
 
 ## Installing into Stream Deck
@@ -78,8 +82,9 @@ streamdeck-plugin/
 │       ├── call-service.ts    # any domain.service + entity + JSON data
 │       └── activate-scene.ts  # scene.turn_on
 ├── scripts/generate-icons.mjs # placeholder PNG generator (pure Node)
+├── manifest.template.json     # plugin manifest: SDK v2, Node 20 runtime, 3 actions
 ├── com.homeos.homeassistant.sdPlugin/
-│   ├── manifest.json          # SDK v2, Node 20 runtime, 3 actions
+│   ├── manifest.json          # written by npm run build (not in git)
 │   ├── bin/plugin.js          # npm run build output
 │   ├── ui/*.html              # Property Inspectors (sdpi-components)
 │   └── imgs/                  # icons (placeholders, replace at will)

@@ -1,3 +1,5 @@
 node_modules/
 *.log
 com.homeos.homeassistant.sdPlugin/logs/
+# written by npm run build from manifest.template.json
+com.homeos.homeassistant.sdPlugin/manifest.json

@@ -1,6 +1,7 @@
 import commonjs from "@rollup/plugin-commonjs";
 import nodeResolve from "@rollup/plugin-node-resolve";
 import typescript from "@rollup/plugin-typescript";
+import fs from "node:fs";
 import path from "node:path";
 import url from "node:url";
 
@@ -30,9 +31,13 @@ const config = {
 	},
 	plugins: [
 		{
-			name: "watch-externals",
+			// The repository keeps the plugin manifest as manifest.template.json:
+			// HACS checks need exactly one file named manifest.json in the repo
+			// (the Home Assistant integration's). The build writes the real one.
+			name: "write-manifest",
 			buildStart: function () {
-				this.addWatchFile(`${sdPlugin}/manifest.json`);
+				this.addWatchFile("manifest.template.json");
+				fs.copyFileSync("manifest.template.json", `${sdPlugin}/manifest.json`);
 			}
 		},
 		typescript({
