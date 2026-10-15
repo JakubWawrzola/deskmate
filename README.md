@@ -136,6 +136,8 @@ events, a widget panel, files from the phone).
 - [CHANGELOG.md](CHANGELOG.md) and [docs/releases/](docs/releases/): release history
 - [docs/dev/](docs/dev/) and [HANDOFF.md](HANDOFF.md): architecture and notes
   for contributors
+- [CONTRIBUTING.md](CONTRIBUTING.md): reporting bugs, asking for features,
+  sending changes
 
 ## Building from source
 

@@ -1,0 +1,73 @@
+name: Bug report
+description: Something in Deskmate does not work as described.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Never paste a pairing code, a Home Assistant token or a password.
+        Security problems: use *Report a vulnerability* on the Security tab instead.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What did you do, what did you expect, what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+  - type: input
+    id: app_version
+    attributes:
+      label: Deskmate version on the PC
+      placeholder: "0.8.1"
+    validations:
+      required: true
+  - type: input
+    id: integration_version
+    attributes:
+      label: Integration version in Home Assistant
+      description: HACS shows it. Leave empty if you use MQTT only.
+      placeholder: "0.8.1"
+  - type: input
+    id: ha_version
+    attributes:
+      label: Home Assistant version
+      placeholder: "2026.10.1"
+  - type: dropdown
+    id: windows
+    attributes:
+      label: Windows
+      options:
+        - Windows 11 x64
+        - Windows 11 ARM64
+        - Windows 10 x64
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: transport
+    attributes:
+      label: Connection
+      options:
+        - Deskmate integration (Link)
+        - MQTT
+  - type: textarea
+    id: status
+    attributes:
+      label: Status page text
+      description: The text at the bottom left of Deskmate, or on its Status page.
+      render: text
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or diagnostics
+      description: |
+        Home Assistant: the computer's entry, three dots, Download diagnostics (keys are removed).
+        Attach the file or paste the relevant part.
+      render: text

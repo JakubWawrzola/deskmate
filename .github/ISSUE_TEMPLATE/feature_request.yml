@@ -1,0 +1,22 @@
+name: Feature request
+description: An idea for Deskmate.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: What do you want to do?
+      description: Describe the situation at home or at your desk, not only the setting you imagine.
+      placeholder: When the radio starts in the kitchen, I want my PC's microphone muted.
+    validations:
+      required: true
+  - type: textarea
+    id: today
+    attributes:
+      label: How do you do it today?
+      description: Another tool, a workaround, or not at all.
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Screenshots, links, how HASS.Agent or another tool does it.

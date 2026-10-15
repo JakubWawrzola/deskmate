@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or help with setup
+    url: https://github.com/JakubWawrzola/deskmate/discussions
+    about: Ask in Discussions. The guide answers most setup questions.
+  - name: The Deskmate guide
+    url: https://github.com/JakubWawrzola/deskmate/blob/main/docs/GUIDE.md
+    about: Installing, pairing, every feature and troubleshooting in one place.
+  - name: Security problem
+    url: https://github.com/JakubWawrzola/deskmate/security/advisories/new
+    about: Report vulnerabilities privately, not as an issue.
