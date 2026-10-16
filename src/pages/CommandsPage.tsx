@@ -7,6 +7,28 @@ const ACTION_LABEL: Record<CustomAction, string> = {
   powershell: "PowerShell",
   launch: "start",
   stop: "stop",
+  keys: "keys",
+};
+
+const COMMAND_LABEL: Record<CustomAction, string> = {
+  powershell: "PowerShell command",
+  launch: "Program, file or URL",
+  stop: "Program name",
+  keys: "Keys",
+};
+
+const COMMAND_PLACEHOLDER: Record<CustomAction, string> = {
+  powershell: "notepad",
+  launch: "C:\\Program Files\\Steam\\steam.exe",
+  stop: "steam.exe",
+  keys: "Ctrl+F5",
+};
+
+const NAME_PLACEHOLDER: Record<CustomAction, string> = {
+  powershell: "Studio light",
+  launch: "Start Steam",
+  stop: "Close Steam",
+  keys: "Refresh page",
 };
 
 export default function CommandsPage({
@@ -86,7 +108,9 @@ export default function CommandsPage({
           Buttons, switches and sliders in Home Assistant that act on this computer.
           <span className="text-ink"> Start a program</span> opens a program, file or URL,
           <span className="text-ink"> Stop a program</span> closes every running copy of it,
-          both without PowerShell. A <span className="text-ink">PowerShell</span> control runs
+          <span className="text-ink"> Press keys</span> presses a key combination such as
+          Ctrl+F5 in the window in front (refreshes the page in a browser), all without
+          PowerShell. A <span className="text-ink">PowerShell</span> control runs
           your script; a <span className="mono">switch</span> passes ON/OFF and a{" "}
           <span className="mono">number</span> its value as{" "}
           <span className="mono">$env:DESKMATE_VALUE</span>. Anyone who can trigger the entity
@@ -131,7 +155,7 @@ export default function CommandsPage({
         ))}
 
         <div className="mt-4 grid grid-cols-[150px_150px_1fr] gap-3 items-end">
-          <Field label="Name" value={name} onChange={setName} placeholder={action === "stop" ? "Close Steam" : "Studio light"} />
+          <Field label="Name" value={name} onChange={setName} placeholder={NAME_PLACEHOLDER[action]} />
           <label className="block">
             <span className="microlabel">Action</span>
             <select
@@ -142,18 +166,25 @@ export default function CommandsPage({
               <option value="powershell">PowerShell script</option>
               <option value="launch">Start a program</option>
               <option value="stop">Stop a program</option>
+              <option value="keys">Press keys</option>
             </select>
           </label>
           <Field
-            label={action === "launch" ? "Program, file or URL" : action === "stop" ? "Program name" : "PowerShell command"}
+            label={COMMAND_LABEL[action]}
             value={command}
             onChange={setCommand}
-            placeholder={action === "launch" ? "C:\\Program Files\\Steam\\steam.exe" : action === "stop" ? "steam.exe" : "notepad"}
+            placeholder={COMMAND_PLACEHOLDER[action]}
           />
         </div>
         <div className="mt-3 grid grid-cols-[1fr_120px_auto] gap-3 items-end">
           {action === "launch" ? (
             <Field label="Arguments (optional)" value={args} onChange={setArgs} placeholder="-silent" />
+          ) : action === "keys" ? (
+            <p className="text-[12px] text-muted leading-relaxed">
+              Ctrl, Shift, Alt or Win plus a key: <span className="mono">Ctrl+F5</span>,{" "}
+              <span className="mono">Ctrl+Shift+R</span>, <span className="mono">Win+D</span>, or several in a
+              row: <span className="mono">Ctrl+L, Ctrl+C</span>. Keys go to the window in front.
+            </p>
           ) : (
             <span />
           )}

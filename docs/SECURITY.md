@@ -369,8 +369,11 @@ hand, which standard accounts cannot do for a task an administrator created.
 
 *Start a program* opens the configured target with ShellExecute, *Stop a
 program* terminates processes with the configured executable name that the
-user's account may terminate (never Deskmate). Neither uses a shell, and Home
-Assistant cannot change what they act on: only the press comes from it.
+user's account may terminate (never Deskmate), and *Press keys* sends the
+configured key combination with SendInput to the window in front. None of
+them uses a shell, and Home Assistant cannot change what they act on: only the
+press comes from it. Key presses are refused while Windows is locked, and
+Ctrl+Alt+Delete cannot be configured.
 PowerShell sensors run the configured command on an interval and publish the
 first line of its output; like PowerShell controls they start disabled.
 

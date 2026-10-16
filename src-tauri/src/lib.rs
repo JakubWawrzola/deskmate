@@ -15,6 +15,7 @@ mod family;
 mod ha_api;
 mod hardware;
 mod hotkeys;
+mod keys;
 mod link;
 mod link_files;
 mod media;
@@ -639,7 +640,11 @@ async fn add_custom_command(
             command = processes::normalize_name(&command)
                 .ok_or("give the program's name, e.g. notepad.exe, not a path")?;
         }
-        _ => return Err("action must be powershell|launch|stop".into()),
+        "keys" => {
+            kind = "button".into();
+            keys::parse(&command)?;
+        }
+        _ => return Err("action must be powershell|launch|stop|keys".into()),
     }
     let cfg = {
         let mut cfg = state.config.lock().await;

@@ -771,6 +771,7 @@ fn command_icon(command: &crate::config::CustomCommand) -> &'static str {
     match command.action.as_str() {
         "launch" => "mdi:play-box-outline",
         "stop" => "mdi:stop-circle-outline",
+        "keys" => "mdi:keyboard-outline",
         _ => "mdi:console",
     }
 }

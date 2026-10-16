@@ -203,12 +203,18 @@ Besides the built-in buttons:
     (`steam://...` works), with optional arguments;
   - *Stop a program*: a button that closes every running copy of a program by
     name, e.g. `steam.exe`;
+  - *Press keys*: a button that presses a key combination in the window in
+    front, e.g. `Ctrl+F5` to reload the page in a browser, `Win+D` to show the
+    desktop, or several in a row (`Ctrl+L, Ctrl+C`). You set the keys on the
+    PC; Home Assistant can only press the button;
   - *PowerShell script*: any command as a button, switch or slider. A slider's
     value reaches the script as `$env:DESKMATE_VALUE`, never inside the
     command text.
 
-  Start and stop run without PowerShell. Together with a *Program running*
-  sensor they make a program controllable from Home Assistant.
+  Start, stop and keys run without PowerShell. Together with a *Program
+  running* sensor they make a program controllable from Home Assistant.
+  Keys cannot reach a window running as administrator, nor anything while
+  Windows is locked. With *Confirm* on, the key press waits for your answer.
 - **Remote input** (Settings, off by default): Home Assistant can type text
   into the focused window, drive a presentation and open allowed web pages.
   Typed text is printable characters only, so it cannot press Enter on its own.

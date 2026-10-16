@@ -25,6 +25,8 @@ Ordered by user value. Done items stay for context; release details are in
   screen time and family rules counted and enforced on the PC with an
   administrator's protection (watchdog task, rules owned by Home Assistant),
   Files and Clipboard pages, Sign out button, ready for the default HACS list.
+- **0.8.2** — *Press keys* controls (a key combination such as Ctrl+F5 as a
+  Home Assistant button).
 
 ## In progress
 
@@ -77,6 +79,23 @@ Ordered by user value. Done items stay for context; release details are in
     conflict handling for edits on two computers, Pi storage limits.
 
 ## Next
+
+- **Deskmate as a Windows service** (#8): Home Assistant keeps the PC's
+  machine sensors and power buttons while nobody is signed in.
+  - an optional service, installed with one administrator approval, that
+    reports CPU, memory, disks, network, temperatures and uptime, and accepts
+    only shutdown, restart, sleep and hibernate;
+  - at sign-in the user's Deskmate takes the connection over, the same way it
+    already moves between Windows users (seat.rs); at sign-out the service
+    takes it back;
+  - a headless Link client without the app window (Windows runs services in a
+    session without a desktop, so windows, media, clipboard, input and
+    notifications stay with the signed-in app);
+  - its own copy of the pairing key, readable only by SYSTEM and
+    administrators, handed over during the elevated install;
+  - entities that need a signed-in user show as unavailable instead of being
+    removed, so names, areas and dashboards survive;
+  - the installer's update mode refreshes the service; uninstall removes it.
 
 - **Family rules, second step**: per-child rules on a shared PC (keyed by the
   Windows account), a weekday/weekend schedule, opt-in time per app, and an

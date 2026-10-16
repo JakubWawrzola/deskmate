@@ -59,8 +59,9 @@ pub struct CustomCommand {
     #[serde(default = "default_true")]
     pub require_confirmation: bool,
     /// powershell: `command` is a script | launch: `command` is a program, file
-    /// or URL opened with `args` | stop: `command` is a program name to stop.
-    /// launch and stop never go through PowerShell.
+    /// or URL opened with `args` | stop: `command` is a program name to stop |
+    /// keys: `command` is a key combination such as "Ctrl+F5" (keys.rs).
+    /// launch, stop and keys never go through PowerShell.
     #[serde(default = "default_command_action")]
     pub action: String,
     /// Arguments for launch, passed as typed.

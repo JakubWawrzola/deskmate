@@ -1,6 +1,6 @@
 export type CustomKind = "button" | "switch" | "number";
-/** powershell: a script; launch: open a program, file or URL; stop: stop a program by name */
-export type CustomAction = "powershell" | "launch" | "stop";
+/** powershell: a script; launch: open a program, file or URL; stop: stop a program by name; keys: press a key combination */
+export type CustomAction = "powershell" | "launch" | "stop" | "keys";
 export type CustomSensorKind = "process" | "window" | "service" | "powershell";
 export type ClipboardMode = "off" | "confirm" | "automatic";
 export type MqttTransport = "tls" | "insecure";

@@ -11,6 +11,15 @@ or delete another agent's entry.
 
 ## Log
 
+## [2026-10-16] Claude — 0.8.2: Press keys, #8 na roadmapie
+Zrobione: keys.rs (parsowanie "Ctrl+F5", sekwencje "Ctrl+L, Ctrl+C", SendInput,
+odmowa przy zablokowanym Windows i dla Ctrl+Alt+Delete), akcja "keys" w
+komendach wlasnych (lib.rs, sys_commands.rs, discovery.rs), UI Commands.
+Issue #8 (Deskmate jako usluga Windows) - projekt w ROADMAP (Next), odpowiedz
+na issue. Wersja 0.8.2 wszedzie, docs, release, laptop zainstalowany.
+Dotkniete pliki: src-tauri/src/{keys,lib,sys_commands,discovery,config}.rs,
+src/{types.ts,pages/CommandsPage.tsx}, wersje, docs, CHANGELOG, README.
+
 ## [2026-10-15] Claude — manifest wtyczki Stream Deck jako szablon (HACS)
 Zrobione: streamdeck-plugin/com.homeos.homeassistant.sdPlugin/manifest.json
 przeniesiony do streamdeck-plugin/manifest.template.json; rollup (buildStart)

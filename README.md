@@ -63,8 +63,8 @@ Setting this up with an AI assistant? Point it at
 - Mute the microphone and set its level, for example as soon as the radio
   starts.
 - Choose the speakers, headset or microphone Windows uses.
-- Start or close programs, or run your own scripts as buttons, switches and
-  sliders.
+- Start or close programs, press key combinations (Ctrl+F5 to reload a page),
+  or run your own scripts as buttons, switches and sliders.
 - Type text, move through a presentation, open a web page, read text out loud.
   Off until you turn them on.
 

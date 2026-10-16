@@ -276,7 +276,7 @@ read back through Home Assistant unless you also add it as a shared folder.
 | Toasts and action buttons | Notify/action topics | Encrypted notify/ack and `deskmate_link_notify_action` |
 | Hardware sensors | Dynamic MQTT discovery | Same detected set in `declare` |
 | Your own sensors (program, window, service, PowerShell) | Discovery under `csb_<id>` / `cs_<id>` | Same keys; on/off sensors sent as booleans |
-| Program controls (start, stop) | Button discovery | Buttons, same keys as custom controls |
+| Program controls (start, stop, press keys) | Button discovery | Buttons, same keys as custom controls |
 | Microphone mute and volume | Switch and number discovery | Same keys (`mic_mute`, `mic_volume`); switches sent as booleans |
 | Default sound devices | Select discovery, options re-published when a device comes or goes | `select` entities; a new `declare` carries the new options |
 | Screen time and family rules | Same entities through discovery | Same keys; on a protected account the rule entities are marked `restore` and Home Assistant puts back its values |

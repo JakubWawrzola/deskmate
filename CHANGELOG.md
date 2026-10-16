@@ -3,6 +3,23 @@
 All notable changes to Deskmate are documented here. Release-specific upgrade
 notes and asset names are available in `docs/releases/RELEASE-*.md`.
 
+## 0.8.2 - 2026-10-16
+
+### Added
+
+- **Press keys** controls (Commands page): a Home Assistant button that presses
+  a key combination in the window in front, e.g. `Ctrl+F5` to reload the page
+  in a browser, `Win+D` for the desktop, or several in a row. The keys are set
+  on the PC; Home Assistant only presses the button. No PowerShell.
+
+### Changed
+
+- The Stream Deck plugin keeps its manifest as `manifest.template.json`;
+  `npm run build` writes the real one. The HACS checks allow one
+  `manifest.json` per repository.
+- Roadmap: Deskmate as a Windows service for sensors while nobody is signed
+  in (#8).
+
 ## 0.8.1 - 2026-10-14
 
 Microphone and sound devices, screen time and family rules that work on the PC

@@ -238,6 +238,16 @@ pub fn run_custom(cfg: &crate::config::AppConfig, id: &str, value: &str) -> Resu
             crate::security::audit("custom_command", if result.is_ok() { "launched" } else { "failed" });
             return result;
         }
+        // A key combination set on the PC (keys.rs). After a confirmation
+        // dialog, Windows needs a moment to give the focus back to the window.
+        "keys" => {
+            if cmd.require_confirmation {
+                std::thread::sleep(std::time::Duration::from_millis(250));
+            }
+            let result = crate::keys::press(&cmd.command);
+            crate::security::audit("custom_command", if result.is_ok() { "keys_pressed" } else { "failed" });
+            return result;
+        }
         "stop" => {
             let result = crate::processes::stop_by_name(&cmd.command);
             crate::security::audit(

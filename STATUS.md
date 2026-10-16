@@ -1,5 +1,13 @@
 # STATUS — Deskmate
-Aktualizacja: 2026-10-14 (0.8.1 przetestowane przez Kube, wypchniete na main; tag i release czekaja)
+Aktualizacja: 2026-10-16 (0.8.2: Press keys; #8 na roadmapie)
+
+## Sesja 2026-10-16 — 0.8.2 (polecenie Kuby: nowe issue + komenda Ctrl+F5, pracuj sam)
+
+- [x] Issue #8 (Deskmate jako usluga Windows): to funkcja, nie maly fix - projekt w ROADMAP (Next), odpowiedz na issue.
+- [x] keys.rs + akcja "keys" w komendach (Press keys, np. Ctrl+F5), UI na stronie Commands, docs.
+- [x] Wersja 0.8.2 (Cargo, tauri.conf, package.json, manifest integracji), CHANGELOG, RELEASE-0.8.2.md.
+- [x] Build 0.8.2 (hashe w RELEASE-0.8.2.md), laptop zainstalowany, commit + push.
+- [ ] CI, tag v0.8.2, release, odpowiedz w #8 (w toku).
 
 ## Sesja 2026-10-14 — 0.8.1 (polecenie Kuby: mikrofon i zrodla dzwieku, family safety, zakladki; pliki i serwer na 0.9)
 
