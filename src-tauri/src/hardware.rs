@@ -197,6 +197,7 @@ fn sensor(id: &str, name: &str, unit: Option<&str>, icon: &str) -> OwnedSensorDe
         icon: Some(icon.into()),
         privacy: false,
         default_enabled: true,
+        hardware: true,
     }
 }
 

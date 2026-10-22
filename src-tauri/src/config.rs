@@ -281,6 +281,10 @@ pub struct AppConfig {
     /// screen time and family rules
     #[serde(default)]
     pub family: FamilyConfig,
+    /// "Disconnect" on the Status page or in the tray: no connection to Home
+    /// Assistant until the user connects again, also after a restart.
+    #[serde(default)]
+    pub connection_paused: bool,
 }
 
 fn default_true() -> bool {
@@ -336,6 +340,7 @@ impl Default for AppConfig {
             widgets: Vec::new(),
             tray_actions: Vec::new(),
             family: FamilyConfig::default(),
+            connection_paused: false,
         }
     }
 }

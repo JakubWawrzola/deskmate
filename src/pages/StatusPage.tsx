@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { api } from "../api";
 import { Button, Panel, StatusDot } from "../components";
 import type { AppConfig, Snapshot } from "../types";
@@ -15,9 +16,30 @@ function Readout({ label, value, unit }: { label: string; value: string; unit?: 
   );
 }
 
-export default function StatusPage({ snapshot, config }: { snapshot: Snapshot; config: AppConfig }) {
+export default function StatusPage({
+  snapshot,
+  config,
+  onChanged,
+}: {
+  snapshot: Snapshot;
+  config: AppConfig;
+  onChanged: () => Promise<void>;
+}) {
   const v = snapshot.sensor_values;
   const num = (id: string) => (v[id] !== undefined ? v[id] : "--");
+  const paused = config.connection_paused ?? false;
+  const [busy, setBusy] = useState(false);
+
+  // Disconnect stays until Connect, also after a restart (#10).
+  const setPaused = async (value: boolean) => {
+    setBusy(true);
+    try {
+      await api.setConnectionPaused(value);
+      await onChanged();
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <>
@@ -41,7 +63,20 @@ export default function StatusPage({ snapshot, config }: { snapshot: Snapshot; c
       <Panel
         title="Connection"
         action={
-          <Button onClick={() => void api.restartConnection()}>Reconnect</Button>
+          paused ? (
+            <Button kind="primary" disabled={busy} onClick={() => void setPaused(false)}>
+              Connect
+            </Button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Button disabled={busy} onClick={() => void api.restartConnection()}>
+                Reconnect
+              </Button>
+              <Button disabled={busy} onClick={() => void setPaused(true)}>
+                Disconnect
+              </Button>
+            </div>
+          )
         }
       >
         <dl className="grid grid-cols-[140px_1fr] gap-y-2 text-[13px]">

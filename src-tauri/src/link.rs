@@ -108,7 +108,7 @@ fn classify_reject(reason: &str) -> LinkError {
         ),
         _ => LinkError::new(
             LinkFailure::Auth,
-            "Home Assistant rejected the pairing - the pairing key does not match, or the integration is older than 0.6.0 and needs an update",
+            "Home Assistant rejected the pairing - Deskmate is disabled or deleted there, the pairing key does not match, or the integration is older than 0.6.0. Disconnect on the Status page stops the attempts",
         ),
     }
 }

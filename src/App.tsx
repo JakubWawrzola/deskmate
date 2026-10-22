@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { api, onNotify, onSensors, onStatus } from "./api";
+import { api, onConfigChanged, onNotify, onSensorDefs, onSensors, onStatus } from "./api";
 import { StatusDot } from "./components";
 import type { AppConfig, NotifyRecord, Snapshot, StatusView } from "./types";
 import Wizard from "./pages/Wizard";
@@ -67,6 +67,12 @@ export default function App() {
           prev ? { ...prev, notifications: [n, ...prev.notifications].slice(0, 50) } : prev,
         ),
       ),
+      // Drives and GPU are found after the window has loaded its list (#9).
+      onSensorDefs(() => void reloadSnapshot()),
+      onConfigChanged(() => {
+        void reloadConfig();
+        void reloadSnapshot();
+      }),
     ];
     return () => {
       subs.forEach((p) => p.then((un) => un()));
@@ -120,7 +126,9 @@ export default function App() {
 
       <main className="flex-1 overflow-y-auto">
         <div className="max-w-3xl mx-auto px-6 py-6 space-y-4">
-          {page === "Status" && snapshot && <StatusPage snapshot={snapshot} config={config} />}
+          {page === "Status" && snapshot && (
+            <StatusPage snapshot={snapshot} config={config} onChanged={reloadConfig} />
+          )}
           {page === "Sensors" && snapshot && (
             <SensorsPage snapshot={snapshot} config={config} onChanged={reloadConfig} />
           )}

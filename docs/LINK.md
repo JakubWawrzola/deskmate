@@ -71,9 +71,11 @@ derive fresh session keys on every reconnect.
 Home Assistant answers a failed handshake with a reason, and Deskmate shows it:
 
 - **`Link rejected ... (node "<name>")`**: no paired entry accepted this
-  computer. The pairing key does not match, the entry is bound to a different
-  computer, or the integration is older than 0.6.0. Update the integration,
-  pair again, or open the entry and choose Reconfigure → Unbind.
+  computer. The entry is disabled or deleted in Home Assistant, the pairing
+  key does not match, the entry is bound to a different computer, or the
+  integration is older than 0.6.0. Update the integration, pair again, or open
+  the entry and choose Reconfigure → Unbind. To stop the attempts, press
+  *Disconnect* on the Status page.
 - **`Link clock mismatch ...`**: this computer's clock and Home Assistant's
   differ by more than 90 seconds. Sync the Windows time (*Settings → Time &
   language → Sync now*) or fix the clock on the Home Assistant host. Dual-boot

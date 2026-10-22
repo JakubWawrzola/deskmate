@@ -126,6 +126,10 @@ One device per PC, with:
   in use.
 
 Turning a sensor off in Deskmate removes its entity from Home Assistant.
+Drives, the GPU and temperatures are found when Deskmate starts and have their
+own panel on the Sensors page, **Hardware**, with *All on* and *All off*. Every
+drive is its own set of entities; *Disk usage* in the system sensors is the
+system drive only.
 
 ### Your own sensors
 
@@ -577,6 +581,16 @@ before it left the PC. That is almost always a firewall or antivirus blocking
 changed. Allow Deskmate in it (in Bitdefender: the firewall's application
 rules), then press *Reconnect* on the Status page. Deskmate 0.7.3 and
 newer say this in the status text.
+
+**A sensor I turned off is still in Home Assistant.** Check the *Hardware*
+panel on the Sensors page: each drive, the GPU and the temperatures have their
+own switch there. Versions before 0.8.3 did not list them, so they could not be
+turned off.
+
+**I disabled Deskmate in Home Assistant and the PC keeps trying to connect.**
+Press *Disconnect* on the Status page, or *Disconnect from Home Assistant* in
+the tray menu. Deskmate stays disconnected, also after a restart, until you
+press *Connect*.
 
 **I reinstalled Deskmate and it does not connect.** You do not need a new
 entry in Home Assistant. Open the computer's entry → *Reconfigure* → *Show the

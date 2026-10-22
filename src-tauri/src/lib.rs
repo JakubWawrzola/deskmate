@@ -180,6 +180,7 @@ async fn save_config(
     new_config.start_with_windows = old.start_with_windows;
     new_config.update_notified = old.update_notified.clone();
     new_config.family = old.family.clone();
+    new_config.connection_paused = old.connection_paused;
     let link_key = link_key
         .map(|key| zeroize::Zeroizing::new(key.trim().to_string()))
         .filter(|key| !key.is_empty());
@@ -526,6 +527,20 @@ pub(crate) fn rebuild_tray_menu(app: &AppHandle, cfg: &AppConfig) -> Result<(), 
         .transpose()
         .map_err(|e| e.to_string())?;
     let open = mk("open", "Open Deskmate").map_err(|e| e.to_string())?;
+    let connection = cfg
+        .configured
+        .then(|| {
+            mk(
+                "connection",
+                if cfg.connection_paused {
+                    "Connect to Home Assistant"
+                } else {
+                    "Disconnect from Home Assistant"
+                },
+            )
+        })
+        .transpose()
+        .map_err(|e| e.to_string())?;
     let quit = mk("quit", "Quit").map_err(|e| e.to_string())?;
     let sep = PredefinedMenuItem::separator(app).map_err(|e| e.to_string())?;
     let update = updates::available()
@@ -549,6 +564,9 @@ pub(crate) fn rebuild_tray_menu(app: &AppHandle, cfg: &AppConfig) -> Result<(), 
     }
     refs.push(&widgets);
     refs.push(&open);
+    if let Some(connection) = &connection {
+        refs.push(connection);
+    }
     refs.push(&quit);
     let menu = Menu::with_items(app, &refs).map_err(|e| e.to_string())?;
     if let Some(tray) = app.tray_by_id("main-tray") {
@@ -572,6 +590,49 @@ async fn set_sensor_enabled(
     config::save(&cfg)?;
     // republish discovery (add/remove entity in HA) without a full restart
     transport::refresh_entities(&app).await;
+    Ok(())
+}
+
+/// Several sensors at once ("All on" / "All off" on the Sensors page), with
+/// one declaration to Home Assistant instead of one per sensor.
+#[tauri::command]
+async fn set_sensors_enabled(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    ids: Vec<String>,
+    enabled: bool,
+) -> Result<(), String> {
+    if ids.len() > 500 {
+        return Err("too many sensors".into());
+    }
+    let cfg = {
+        let mut cfg = state.config.lock().await;
+        for id in ids {
+            cfg.sensors_enabled.insert(id, enabled);
+        }
+        cfg.clone()
+    };
+    config::save(&cfg)?;
+    transport::refresh_entities(&app).await;
+    Ok(())
+}
+
+/// Disconnect / Connect (GitHub issue #10). Kept across restarts until the
+/// user connects again.
+#[tauri::command]
+async fn set_connection_paused(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    paused: bool,
+) -> Result<(), String> {
+    let cfg = {
+        let mut cfg = state.config.lock().await;
+        cfg.connection_paused = paused;
+        cfg.clone()
+    };
+    config::save(&cfg)?;
+    let _ = rebuild_tray_menu(&app, &cfg);
+    transport::restart(app).await;
     Ok(())
 }
 
@@ -1037,6 +1098,21 @@ pub fn run() {
                                 }
                             });
                         }
+                        "connection" => {
+                            let app = app.clone();
+                            tauri::async_runtime::spawn(async move {
+                                let paused = {
+                                    let state = app.state::<AppState>();
+                                    let cfg = state.config.lock().await;
+                                    !cfg.connection_paused
+                                };
+                                let state = app.state::<AppState>();
+                                if let Err(e) = set_connection_paused(app.clone(), state, paused).await {
+                                    log::warn!("connection toggle: {e}");
+                                }
+                                let _ = tauri::Emitter::emit(&app, "deskmate://config", ());
+                            });
+                        }
                         "quit" => app.exit(0),
                         _ => {
                             // quick action: qa_<id> -> execute the ActionSpec from config
@@ -1100,6 +1176,8 @@ pub fn run() {
             save_config,
             get_snapshot,
             set_sensor_enabled,
+            set_sensors_enabled,
+            set_connection_paused,
             set_feature_flag,
             add_custom_command,
             update_custom_command_security,

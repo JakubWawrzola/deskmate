@@ -3,6 +3,26 @@
 All notable changes to Deskmate are documented here. Release-specific upgrade
 notes and asset names are available in `docs/releases/RELEASE-*.md`.
 
+## 0.8.3 - 2026-10-22
+
+### Fixed
+
+- Drive, GPU and temperature sensors could not be switched off (#9). They are
+  found after Deskmate starts, and the Sensors page only listed what existed
+  when its window first loaded. They now have their own *Hardware* panel, with
+  *All on* and *All off*, and the list updates when sensors are found.
+
+### Added
+
+- **Disconnect** on the Status page and in the tray menu (#10). Deskmate stops
+  connecting to Home Assistant until you press *Connect*, also after a
+  restart. Useful while the integration is disabled in Home Assistant.
+
+### Changed
+
+- A rejected connection now also names a disabled or deleted Deskmate entry in
+  Home Assistant as a possible cause.
+
 ## 0.8.2 - 2026-10-16
 
 ### Added

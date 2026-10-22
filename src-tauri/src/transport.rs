@@ -26,14 +26,44 @@ pub fn explain_connection_error(message: &str) -> String {
     format!("{hint} ({message})")
 }
 
+/// Shown while the user has disconnected on purpose.
+pub const PAUSED_STATUS: &str = "Disconnected. Press Connect to connect again";
+
+/// Ends the current connection, whichever transport it uses.
+pub async fn stop(app: &AppHandle) {
+    let state = app.state::<AppState>();
+    if let Some(tx) = state.stop_tx.lock().await.take() {
+        let _ = tx.send(true);
+    }
+    *state.link_tx.lock().await = None;
+    let node = state.config.lock().await.node_id.clone();
+    let client = state.client.lock().await.take();
+    if let Some(client) = client {
+        // The broker sends the last will only when a connection breaks, not on
+        // a clean disconnect, so say "offline" first.
+        let _ = client
+            .publish(
+                crate::consts::availability_topic(&node),
+                rumqttc::QoS::AtLeastOnce,
+                true,
+                "offline",
+            )
+            .await;
+        let _ = client.disconnect().await;
+    }
+}
+
 pub async fn restart(app: AppHandle) {
-    let transport = app
-        .state::<AppState>()
-        .config
-        .lock()
-        .await
-        .transport
-        .clone();
+    let (transport, paused) = {
+        let state = app.state::<AppState>();
+        let cfg = state.config.lock().await;
+        (cfg.transport.clone(), cfg.connection_paused)
+    };
+    if paused {
+        stop(&app).await;
+        crate::mqtt::set_status(&app, false, PAUSED_STATUS);
+        return;
+    }
     if transport == "link" {
         crate::link::restart(app).await;
     } else {
@@ -90,6 +120,8 @@ pub async fn update_hardware_defs(app: &AppHandle, defs: Vec<crate::sensors::Own
         }
     };
     if changed {
+        // The Sensors page lists these; it loads its list once, so tell it.
+        let _ = app.emit("deskmate://sensor-defs", ());
         let state = app.state::<AppState>();
         {
             let mut cache = state.sensor_values.lock().await;

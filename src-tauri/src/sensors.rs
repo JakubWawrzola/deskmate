@@ -30,6 +30,10 @@ pub struct OwnedSensorDef {
     pub icon: Option<String>,
     pub privacy: bool,
     pub default_enabled: bool,
+    /// Detected at runtime (drives, GPU, temperatures), listed on the Sensors
+    /// page in their own panel.
+    #[serde(default)]
+    pub hardware: bool,
 }
 
 impl From<&SensorDef> for OwnedSensorDef {
@@ -43,6 +47,7 @@ impl From<&SensorDef> for OwnedSensorDef {
             icon: def.icon.map(str::to_string),
             privacy: def.privacy,
             default_enabled: def.default_enabled,
+            hardware: false,
         }
     }
 }

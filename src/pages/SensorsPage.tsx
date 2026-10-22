@@ -190,15 +190,49 @@ export default function SensorsPage({
   };
 
   const isControl = (d: SensorDef) => d.component === "number" || d.component === "select";
-  const std = snapshot.sensor_defs.filter((d) => !d.privacy && !isControl(d));
+  const std = snapshot.sensor_defs.filter((d) => !d.privacy && !isControl(d) && !d.hardware);
   const priv = snapshot.sensor_defs.filter((d) => d.privacy);
   const sound = snapshot.sensor_defs.filter(isControl);
+  const hardware = snapshot.sensor_defs.filter((d) => d.hardware);
+
+  const setAll = async (ids: string[], v: boolean) => {
+    await api.setSensorsEnabled(ids, v);
+    await onChanged();
+  };
 
   return (
     <>
       <Panel title="System sensors">
         {std.length === 0 && <EmptyState text="No sensors." />}
         {std.map((d) => (
+          <Row
+            key={d.id}
+            def={d}
+            value={snapshot.sensor_values[d.id]}
+            enabled={enabledOf(config, d)}
+            onToggle={(v) => void toggle(d.id, v)}
+          />
+        ))}
+      </Panel>
+
+      <Panel
+        title="Hardware"
+        action={
+          hardware.length > 0 ? (
+            <div className="flex items-center gap-2">
+              <Button onClick={() => void setAll(hardware.map((d) => d.id), true)}>All on</Button>
+              <Button onClick={() => void setAll(hardware.map((d) => d.id), false)}>All off</Button>
+            </div>
+          ) : undefined
+        }
+      >
+        <p className="text-[12px] text-muted mb-2 leading-relaxed">
+          Found on this computer: every drive, the GPU and temperatures. Each one is its own entity in Home
+          Assistant; switch off what you do not need and it disappears there. "Disk usage" above is the
+          system drive only.
+        </p>
+        {hardware.length === 0 && <EmptyState text="Looking for drives and sensors..." />}
+        {hardware.map((d) => (
           <Row
             key={d.id}
             def={d}

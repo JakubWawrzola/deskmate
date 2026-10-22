@@ -27,6 +27,8 @@ Ordered by user value. Done items stay for context; release details are in
   Files and Clipboard pages, Sign out button, ready for the default HACS list.
 - **0.8.2** — *Press keys* controls (a key combination such as Ctrl+F5 as a
   Home Assistant button).
+- **0.8.3** — drive, GPU and temperature sensors can be switched off (#9),
+  Disconnect / Connect on the Status page and in the tray (#10).
 
 ## In progress
 

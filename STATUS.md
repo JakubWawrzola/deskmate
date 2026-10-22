@@ -1,5 +1,13 @@
 # STATUS — Deskmate
-Aktualizacja: 2026-10-16 (0.8.2: Press keys; #8 na roadmapie)
+Aktualizacja: 2026-10-22 (0.8.3: #9 czujniki sprzetowe, #10 Disconnect)
+
+## Sesja 2026-10-22 — 0.8.3 (polecenie Kuby: nowe issues, rozwiaz, odpowiedz, deploy zgodnie z zasadami)
+
+- [x] #9: czujniki dyskow/GPU/temperatur nie byly na stronie Sensors (lista z chwili startu okna) - panel Hardware z All on/off, event deskmate://sensor-defs, flaga hardware w OwnedSensorDef.
+- [x] #10: Disconnect/Connect (Status + tray), config.connection_paused trwale, transport::stop z "offline" dla MQTT, komunikat odrzucenia wspomina wylaczony wpis w HA.
+- [x] Wersja 0.8.3, CHANGELOG, RELEASE-0.8.3.md, GUIDE, LINK, ROADMAP.
+- [x] Build 0.8.3 (hashe w RELEASE-0.8.3.md), laptop zainstalowany, commit + push.
+- [ ] CI, tag v0.8.3, release, odpowiedzi w #9 i #10 (w toku).
 
 ## Sesja 2026-10-16 — 0.8.2 (polecenie Kuby: nowe issue + komenda Ctrl+F5, pracuj sam)
 
@@ -7,7 +15,8 @@ Aktualizacja: 2026-10-16 (0.8.2: Press keys; #8 na roadmapie)
 - [x] keys.rs + akcja "keys" w komendach (Press keys, np. Ctrl+F5), UI na stronie Commands, docs.
 - [x] Wersja 0.8.2 (Cargo, tauri.conf, package.json, manifest integracji), CHANGELOG, RELEASE-0.8.2.md.
 - [x] Build 0.8.2 (hashe w RELEASE-0.8.2.md), laptop zainstalowany, commit + push.
-- [ ] CI, tag v0.8.2, release, odpowiedz w #8 (w toku).
+- [x] CI zielone (run 38895955353), tag v0.8.2, release z instalatorami i SHA256SUMS, odpowiedz w #8 (issue otwarte, enhancement).
+- [ ] Integracja 0.8.2 na HAOS: bez zmian funkcjonalnych, HACS zaproponuje aktualizacje (nie wgrywane recznie).
 
 ## Sesja 2026-10-14 — 0.8.1 (polecenie Kuby: mikrofon i zrodla dzwieku, family safety, zakladki; pliki i serwer na 0.9)
 

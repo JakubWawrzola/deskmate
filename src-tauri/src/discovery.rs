@@ -742,6 +742,7 @@ mod tests {
             icon: Some("mdi:expansion-card".into()),
             privacy: false,
             default_enabled: true,
+            hardware: true,
         }];
         let declared = build_link_declare(&cfg, &hardware);
         assert!(declared["entities"]

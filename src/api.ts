@@ -36,6 +36,9 @@ export const api = {
   getSnapshot: () => invoke<Snapshot>("get_snapshot"),
   setSensorEnabled: (id: string, enabled: boolean) =>
     invoke<void>("set_sensor_enabled", { id, enabled }),
+  setSensorsEnabled: (ids: string[], enabled: boolean) =>
+    invoke<void>("set_sensors_enabled", { ids, enabled }),
+  setConnectionPaused: (paused: boolean) => invoke<void>("set_connection_paused", { paused }),
   setFeatureFlag: (flag: string, enabled: boolean) =>
     invoke<void>("set_feature_flag", { flag, enabled }),
   checkUpdatesNow: () => invoke<UpdateInfo | null>("check_updates_now"),
@@ -129,4 +132,12 @@ export function onSensors(cb: (v: Record<string, string>) => void): Promise<Unli
 }
 export function onNotify(cb: (n: NotifyRecord) => void): Promise<UnlistenFn> {
   return listen<NotifyRecord>("deskmate://notify", (e) => cb(e.payload));
+}
+/** Drives, GPU or temperature sensors were found or went away. */
+export function onSensorDefs(cb: () => void): Promise<UnlistenFn> {
+  return listen("deskmate://sensor-defs", () => cb());
+}
+/** The config changed outside the window (tray: Connect / Disconnect). */
+export function onConfigChanged(cb: () => void): Promise<UnlistenFn> {
+  return listen("deskmate://config", () => cb());
 }

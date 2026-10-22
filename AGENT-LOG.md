@@ -11,6 +11,16 @@ or delete another agent's entry.
 
 ## Log
 
+## [2026-10-22] Claude — 0.8.3: #9 czujniki sprzetowe, #10 Disconnect
+Zrobione: OwnedSensorDef.hardware, event deskmate://sensor-defs, panel Hardware
+(All on/off, set_sensors_enabled) na stronie Sensors; config.connection_paused,
+set_connection_paused, transport::stop (MQTT "offline" przed rozlaczeniem),
+Disconnect/Connect na Status i w trayu, komunikat odrzucenia wspomina
+wylaczony wpis w HA. Wersja 0.8.3, docs, release, odpowiedzi w #9 i #10.
+Dotkniete pliki: src-tauri/src/{config,hardware,discovery,lib,link,sensors,
+transport}.rs, src/{App.tsx,api.ts,types.ts}, src/pages/{Sensors,Status}Page.tsx,
+wersje, docs, CHANGELOG.
+
 ## [2026-10-16] Claude — 0.8.2: Press keys, #8 na roadmapie
 Zrobione: keys.rs (parsowanie "Ctrl+F5", sekwencje "Ctrl+L, Ctrl+C", SendInput,
 odmowa przy zablokowanym Windows i dla Ctrl+Alt+Delete), akcja "keys" w

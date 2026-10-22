@@ -158,6 +158,8 @@ export interface AppConfig {
   widgets: WidgetItem[];
   tray_actions: TrayAction[];
   family?: FamilyConfig;
+  /** Disconnect on the Status page: no connection until Connect */
+  connection_paused?: boolean;
 }
 
 export interface ConfigView {
@@ -181,6 +183,8 @@ export interface SensorDef {
   icon: string | null;
   privacy: boolean;
   default_enabled: boolean;
+  /** detected at runtime: drives, GPU, temperatures */
+  hardware?: boolean;
 }
 
 export interface CommandDef {
