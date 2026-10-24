@@ -218,6 +218,20 @@ type and result such as `approved`, `denied`, `blocked_locked` or `completed`.
 It never contains clipboard data, URL values, MQTT payloads, command scripts or
 credentials. It rotates at 1 MiB to `security.log.1`.
 
+## Computer names from unauthenticated connections
+
+The Link endpoint in Home Assistant is reachable without a login, because the
+handshake is what authenticates. The computer name in the first frame can
+therefore be anything an attacker sends. Since 0.8.4 only a name made of
+`a-z`, `0-9` and `_` (up to 64 characters, the form Deskmate itself creates)
+is accepted, for every protocol version, before anything is counted, logged or
+shown. Any other name is replaced by a fixed `?` and rejected: it never reaches
+the log, the failure counter keys or the *unpaired computer* issue in Repairs.
+Before 0.8.4 a protocol v1 frame with a bad MAC and a crafted name could put
+that name, including markdown such as a link, into the Repairs text after three
+attempts from one address (reported in the HACS review; no report of it being
+used). The address shown in that issue is reduced to address characters too.
+
 ## Deskmate Link transport
 
 Since 0.6.0 Link uses protocol v2 (details in `docs/LINK.md`). Both sides

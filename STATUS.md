@@ -1,5 +1,11 @@
 # STATUS — Deskmate
-Aktualizacja: 2026-10-22 (0.8.3: #9 czujniki sprzetowe, #10 Disconnect)
+Aktualizacja: 2026-10-24 (0.8.4: poprawka z recenzji HACS)
+
+## Sesja 2026-10-24 — 0.8.4 (recenzja frencka w PR hacs/default#11979: CHANGES_REQUESTED)
+
+- [x] Luka: nazwa node z niezalogowanej ramki v1 trafiala do Napraw (markdown). Poprawka w ws_view.py (wzorzec dla kazdej wersji, "?" dla reszty, wpis tylko dla poprawnych nazw).
+- [x] Wersja 0.8.4, instalatory, docs.
+- [ ] Commit, push, CI, tag v0.8.4, release, ponowna prosba o recenzje (frenck) bez komentarza w PR.
 
 ## Sesja 2026-10-22 — 0.8.3 (polecenie Kuby: nowe issues, rozwiaz, odpowiedz, deploy zgodnie z zasadami)
 
@@ -7,7 +13,8 @@ Aktualizacja: 2026-10-22 (0.8.3: #9 czujniki sprzetowe, #10 Disconnect)
 - [x] #10: Disconnect/Connect (Status + tray), config.connection_paused trwale, transport::stop z "offline" dla MQTT, komunikat odrzucenia wspomina wylaczony wpis w HA.
 - [x] Wersja 0.8.3, CHANGELOG, RELEASE-0.8.3.md, GUIDE, LINK, ROADMAP.
 - [x] Build 0.8.3 (hashe w RELEASE-0.8.3.md), laptop zainstalowany, commit + push.
-- [ ] CI, tag v0.8.3, release, odpowiedzi w #9 i #10 (w toku).
+- [x] CI zielone (run 39715216243), tag v0.8.3, release z instalatorami i SHA256SUMS, odpowiedzi w #9 i #10 (otwarte do potwierdzenia przez zglaszajacego).
+- [ ] Integracja 0.8.3 na HAOS: bez zmian funkcjonalnych, HACS zaproponuje aktualizacje.
 
 ## Sesja 2026-10-16 — 0.8.2 (polecenie Kuby: nowe issue + komenda Ctrl+F5, pracuj sam)
 

@@ -29,6 +29,8 @@ Ordered by user value. Done items stay for context; release details are in
   Home Assistant button).
 - **0.8.3** — drive, GPU and temperature sensors can be switched off (#9),
   Disconnect / Connect on the Status page and in the tray (#10).
+- **0.8.4** — security fix from the HACS review: computer names from
+  unauthenticated connections are validated for every protocol version.
 
 ## In progress
 

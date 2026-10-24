@@ -3,6 +3,20 @@
 All notable changes to Deskmate are documented here. Release-specific upgrade
 notes and asset names are available in `docs/releases/RELEASE-*.md`.
 
+## 0.8.4 - 2026-10-24
+
+### Security
+
+- The Home Assistant integration no longer shows a computer name taken from an
+  unauthenticated connection in Repairs. A protocol v1 hello with a wrong MAC
+  and a crafted name could, after three attempts from one address, create the
+  *unpaired computer* issue with that text, and Repairs renders markdown, so
+  the name could carry a link. The name pattern (`a-z`, `0-9`, `_`) is now
+  checked for every protocol version before a failure is counted, logged or
+  raised as an issue; other names become `?` and never reach the issue, its id
+  or the log. Found in the review for the default HACS list. No change for
+  paired computers.
+
 ## 0.8.3 - 2026-10-22
 
 ### Fixed

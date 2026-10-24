@@ -11,6 +11,13 @@ or delete another agent's entry.
 
 ## Log
 
+## [2026-10-24] Claude — 0.8.4: poprawka z recenzji HACS (frenck, PR hacs/default#11979)
+Zrobione: ws_view.py - safe_node przepuszcza tylko NODE_ID_PATTERN dla kazdej
+wersji protokolu (reszta -> "?"), brak licznika/logu/zgloszenia dla nazw
+niezgodnych, druga linia obrony w _raise_unknown_node_issue, safe_ip dla
+placeholdera. Wersja 0.8.4, SECURITY, CHANGELOG, RELEASE-0.8.4.md.
+Nastepny krok: release, ponowna prosba o recenzje dla frencka.
+
 ## [2026-10-22] Claude — 0.8.3: #9 czujniki sprzetowe, #10 Disconnect
 Zrobione: OwnedSensorDef.hardware, event deskmate://sensor-defs, panel Hardware
 (All on/off, set_sensors_enabled) na stronie Sensors; config.connection_paused,

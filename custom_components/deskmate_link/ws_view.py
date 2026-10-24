@@ -31,7 +31,6 @@ from .const import (
     ISSUE_UNKNOWN_NODE,
     LOG_THROTTLE_S,
     NODE_ID_PATTERN,
-    PROTO_V2,
     REJECT_AUTH,
     REJECT_CLOCK,
     REJECT_LOCKED,
@@ -48,10 +47,26 @@ _NODE_RE = re.compile(NODE_ID_PATTERN)
 MAX_TRACKED_KEYS = 512
 
 
+UNTRUSTED_NODE = "?"
+
+
 def safe_node(value: object) -> str:
-    """Node z niezaufanej ramki - do logu i tekstu zgloszenia."""
-    text = str(value)[:32]
-    return "".join(ch for ch in text if ch.isprintable()) or "?"
+    """Node z niezaufanej ramki - do logu, licznika i zgloszenia.
+
+    Tylko nazwa zgodna z NODE_ID_PATTERN ([a-z0-9_]) przechodzi, dla kazdej
+    wersji protokolu. Reszta jest zamieniana na stala "?": nazwa z ramki bez
+    uwierzytelnienia nie moze trafic do logu, klucza zgloszenia w Naprawach
+    ani do jego tekstu (Naprawy renderuja markdown).
+    """
+    if isinstance(value, str) and _NODE_RE.fullmatch(value):
+        return value
+    return UNTRUSTED_NODE
+
+
+def safe_ip(value: object) -> str:
+    """Adres z gniazda do tekstu zgloszenia: tylko znaki adresu IP."""
+    text = str(value)[:64]
+    return "".join(ch for ch in text if ch.isalnum() or ch in ".:%") or "?"
 
 
 class DeskmateLinkWsView(HomeAssistantView):
@@ -118,7 +133,8 @@ class DeskmateLinkWsView(HomeAssistantView):
     def _raise_unknown_node_issue(
         self, hass: HomeAssistant, node: str, ip: str, known: bool
     ) -> None:
-        if known:
+        # Druga linia obrony: zgloszenie tylko dla nazwy w formie z NODE_ID_PATTERN
+        if known or not _NODE_RE.fullmatch(node):
             return
         ir.async_create_issue(
             hass,
@@ -127,7 +143,7 @@ class DeskmateLinkWsView(HomeAssistantView):
             is_fixable=False,
             severity=ir.IssueSeverity.WARNING,
             translation_key=ISSUE_UNKNOWN_NODE,
-            translation_placeholders={"node": node, "ip": ip},
+            translation_placeholders={"node": node, "ip": safe_ip(ip)},
         )
 
     async def _reject(
@@ -167,7 +183,8 @@ class DeskmateLinkWsView(HomeAssistantView):
             self._record_fail("?", ip)
             return await self._reject(ws, REJECT_AUTH)
 
-        node = safe_node(hello.get("node", "?"))
+        node = safe_node(hello.get("node"))
+        node_valid = node != UNTRUSTED_NODE
         if self._locked_node(node, ip):
             return await self._reject(ws, REJECT_LOCKED)
 
@@ -175,12 +192,10 @@ class DeskmateLinkWsView(HomeAssistantView):
         #    oszczedza szukania bledu w kluczu, gdy winny jest zegar.
         version = hello.get("v")
         precheck = None
-        if version not in SUPPORTED_VERSIONS or isinstance(version, bool):
-            precheck = REJECT_VERSION
-        elif version == PROTO_V2 and not (
-            isinstance(hello.get("node"), str) and _NODE_RE.match(hello["node"])
-        ):
+        if not node_valid:
             precheck = REJECT_AUTH
+        elif version not in SUPPORTED_VERSIONS or isinstance(version, bool):
+            precheck = REJECT_VERSION
         else:
             ts = hello.get("ts")
             if (
@@ -208,7 +223,7 @@ class DeskmateLinkWsView(HomeAssistantView):
             reason = result if isinstance(result, str) else REJECT_AUTH
             count = self._record_fail(node, ip)
             self._log_rejected(node, ip, count, reason)
-            if reason == REJECT_AUTH and count >= UNKNOWN_NODE_ISSUE_AFTER:
+            if node_valid and reason == REJECT_AUTH and count >= UNKNOWN_NODE_ISSUE_AFTER:
                 known = any(h.node_id == node for h in hubs.values())
                 self._raise_unknown_node_issue(hass, node, ip, known)
             return await self._reject(ws, reason)
