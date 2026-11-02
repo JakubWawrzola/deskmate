@@ -16,14 +16,12 @@ automations in one place.
 
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=JakubWawrzola&repository=deskmate&category=integration)
 
-The button works once the repository has been added to HACS as a custom
-repository (step 1 below); HACS does not add an unknown repository from a link.
+Deskmate is in the default HACS catalog, so no custom repository is needed.
 
 ## Quick start (about 5 minutes)
 
-1. **Home Assistant:** HACS → three dots → *Custom repositories* → add
-   `https://github.com/JakubWawrzola/deskmate` as *Integration*. Download
-   **Deskmate**, restart Home Assistant.
+1. **Home Assistant:** in HACS search for **Deskmate** (or press the button
+   above), download it and restart Home Assistant.
 2. **Home Assistant:** *Settings → Devices & services → Add integration →
    Deskmate*. Copy the pairing code it shows (`DMP1.…`).
 3. **PC:** install `Deskmate_<version>_x64-setup.exe` or `_arm64-setup.exe`

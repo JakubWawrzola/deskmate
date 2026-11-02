@@ -38,13 +38,15 @@ needed. In the code and in [LINK.md](LINK.md) this connection is called
 
 ## 2. Install the Home Assistant integration
 
-With HACS:
+With HACS (Deskmate is in the default catalog, no custom repository needed):
 
-1. HACS → three-dot menu (top right) → **Custom repositories**.
-2. Repository `https://github.com/JakubWawrzola/deskmate`, type **Integration**,
-   **Add**. HACS does not add an unknown repository from a link, so this step
-   comes first.
-3. Search HACS for **Deskmate**, download it, restart Home Assistant.
+1. Open HACS and search for **Deskmate**.
+2. Download it and restart Home Assistant.
+
+If it does not show up in the search yet, HACS has not refreshed its catalog:
+wait a few hours, or add `https://github.com/JakubWawrzola/deskmate` once under
+the three-dot menu → **Custom repositories** (type **Integration**). The entry
+is replaced by the catalog one on its own.
 
 Without HACS: copy `custom_components/deskmate_link` from this repository into
 `config/custom_components/` on your Home Assistant and restart.

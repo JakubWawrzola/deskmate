@@ -35,14 +35,14 @@ half at a time and wait - the key is displayed once and is easy to lose.
 
 Tell them:
 
-> Open HACS in Home Assistant, use the three-dot menu, choose *Custom
-> repositories*, paste `https://github.com/JakubWawrzola/deskmate`, pick
-> *Integration* as the category and add it. Then find **Deskmate** in HACS,
-> download it, and restart Home Assistant.
+> Open HACS in Home Assistant, search for **Deskmate**, download it, and
+> restart Home Assistant.
 
-The README also carries an "Open in HACS" button, but HACS does not add an
-unknown repository from a link: before the custom repository is added it shows
-"Repository not found". Use the button only to reopen the repository later.
+Deskmate is in the default HACS catalog, so no custom repository is needed. If
+the search does not find it yet (the catalog refreshes about daily), have them
+add `https://github.com/JakubWawrzola/deskmate` once under the three-dot menu →
+*Custom repositories* as an *Integration*. The README's "Open in HACS" button
+opens the same page.
 
 Without HACS, they copy `custom_components/deskmate_link` from the repository
 into their `config/custom_components/` directory and restart Home Assistant.

@@ -11,6 +11,13 @@ or delete another agent's entry.
 
 ## Log
 
+## [2026-11-02] Claude — HACS scalony, instrukcje instalacji
+hacs/default#11979 scalony przez frencka (APPROVED po poprawce 0.8.4). Instrukcje
+instalacji w README, GUIDE, LINK, AI-DEPLOY i docs/dev/HACS.md prowadza przez
+wyszukiwanie w HACS (zalecenie frencka); jedno zdanie o custom repository zostaje
+w GUIDE i AI-DEPLOY do czasu odswiezenia katalogu HACS.
+Dotkniete pliki: README.md, docs/{GUIDE,LINK,AI-DEPLOY}.md, docs/dev/HACS.md, STATUS.md.
+
 ## [2026-10-24] Claude — 0.8.4: poprawka z recenzji HACS (frenck, PR hacs/default#11979)
 Zrobione: ws_view.py - safe_node przepuszcza tylko NODE_ID_PATTERN dla kazdej
 wersji protokolu (reszta -> "?"), brak licznika/logu/zgloszenia dla nazw

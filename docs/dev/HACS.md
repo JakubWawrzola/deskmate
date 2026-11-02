@@ -1,8 +1,24 @@
 # Default HACS list: submission
 
+**Done: merged 2026-11-02 ([hacs/default#11979](https://github.com/hacs/default/pull/11979),
+approved by frenck after one round of changes).** Deskmate is in the default
+catalog; HACS picks it up when its catalog refreshes. Notes for the next
+submission or for keeping the listing:
+
+- The review found a real issue (node names from unauthenticated hello frames
+  reaching Repairs); fixed in 0.8.4. Reviewers read the code, not only the
+  checks.
+- hassfest in their PR check needs exactly one `manifest.json` in the whole
+  repository (the Stream Deck plugin's is `manifest.template.json` for that
+  reason).
+- An author without write access to `hacs/default` cannot re-request a review
+  through the API; the button in the PR does it.
+
+---
+
 Goal: Deskmate shows up in HACS search without adding a custom repository.
 Requirements: <https://www.hacs.xyz/docs/publish/include/>. Reviews take
-months; after the merge HACS picks the repository up on its next scan.
+weeks; after the merge HACS picks the repository up on its next scan.
 
 ## Repository state (done in 0.8.1)
 
@@ -45,6 +61,9 @@ Link to successful hassfest action (if integration): HASSFEST_RUN_URL
 
 ## After the merge
 
-- README: the "Open in HACS" button works without the custom repository step;
-  shorten the install instructions in README, GUIDE and AI-DEPLOY.
+- README, GUIDE, LINK and AI-DEPLOY lead with searching HACS for Deskmate
+  (done). GUIDE and AI-DEPLOY keep one sentence about the custom
+  repository for the first day, until the catalog refresh lists it; drop it
+  once `https://data-v2.hacs.xyz/integration/data.json` contains
+  `JakubWawrzola/deskmate`.
 - Keep the validation green: HACS removes repositories that stop passing.

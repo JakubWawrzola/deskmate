@@ -1,5 +1,12 @@
 # STATUS — Deskmate
-Aktualizacja: 2026-10-24 (0.8.4: poprawka z recenzji HACS)
+Aktualizacja: 2026-11-02 (Deskmate w domyslnym katalogu HACS)
+
+## Sesja 2026-11-02 — HACS: PR scalony
+
+- [x] hacs/default#11979 scalony 2026-11-02 11:59 przez frencka (APPROVED), wpis w pliku integration na master.
+- [x] Instrukcje instalacji (README, GUIDE, LINK, AI-DEPLOY, docs/dev/HACS.md): HACS wyszukiwanie zamiast Custom repositories (uwaga frencka).
+- [ ] Katalog data-v2.hacs.xyz jeszcze bez Deskmate (odswieza sie okresowo): po pojawieniu sie usunac zdanie o custom repository z GUIDE i AI-DEPLOY.
+- [ ] Post followup (Reddit/Facebook) - tekst przygotowany w odpowiedzi, publikuje Kuba.
 
 ## Sesja 2026-10-24 — 0.8.4 (recenzja frencka w PR hacs/default#11979: CHANGES_REQUESTED)
 

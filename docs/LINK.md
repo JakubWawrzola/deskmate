@@ -14,9 +14,8 @@ MQTT stays available and can be selected again without losing its settings.
 Update the integration before Deskmate. Deskmate 0.6 speaks protocol v2 only,
 and an integration older than 0.6.0 refuses it as a wrong key.
 
-1. Install the `deskmate_link` integration. With HACS: *HACS → three dots →
-   Custom repositories*, add `https://github.com/JakubWawrzola/deskmate` as an
-   **Integration**, then download **Deskmate**. Without HACS: copy
+1. Install the `deskmate_link` integration. With HACS: search for **Deskmate**
+   (it is in the default catalog) and download it. Without HACS: copy
    `custom_components/deskmate_link` from this repository into
    `config/custom_components/`. Restart Home Assistant once either way.
 2. **Settings → Devices & services → Add integration**, search for
