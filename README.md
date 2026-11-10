@@ -132,8 +132,7 @@ events, a widget panel, files from the phone).
 - [docs/HA-SETUP.md](docs/HA-SETUP.md) and [docs/MIGRATION.md](docs/MIGRATION.md):
   the MQTT route, and moving from it
 - [CHANGELOG.md](CHANGELOG.md) and [docs/releases/](docs/releases/): release history
-- [docs/dev/](docs/dev/) and [HANDOFF.md](HANDOFF.md): architecture and notes
-  for contributors
+- [docs/dev/](docs/dev/): architecture and notes for contributors
 - [CONTRIBUTING.md](CONTRIBUTING.md): reporting bugs, asking for features,
   sending changes
 

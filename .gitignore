@@ -4,6 +4,26 @@ src-tauri/target
 src-tauri/gen
 *.local
 .env
+.env.*
+!.env.example
+
+# Secrets and signing material: never committed (AGENTS.md section 5)
+*.pem
+*.key
+*.jks
+*.keystore
+keystore.properties
+ha-token*
+pairing*.txt
+_prywatne/
+
+# Agent state and tooling output: private, kept outside the repository
+/STATUS.md
+/HANDOFF.md
+/AGENT-LOG.md
+CLAUDE.local.md
+.claude/settings.local.json
+graphify-out/
 
 # local dev logs (Claude/Codex sessions)
 .app-dev.log
