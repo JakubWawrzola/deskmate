@@ -36,9 +36,36 @@ Ordered by user value. Done items stay for context; release details are in
 
 ## In progress
 
-- Stream Deck: Deskmate Copy (branch `codex/streamdeck-neo`), part of 0.9.0.
+- Deskmate 0.9.0, described below.
 
-## Next update (0.9.0): files and auto-update
+## Next update (0.9.0): Windows service, Linux and auto-update
+
+- **Deskmate as a Windows service** (#8): Home Assistant keeps the PC's
+  machine sensors and power buttons while nobody is signed in.
+  - an optional service, installed with one administrator approval, that
+    reports CPU, memory, disks, network, temperatures and uptime, and accepts
+    only shutdown, restart, sleep and hibernate;
+  - at sign-in the user's Deskmate takes the connection over, the same way it
+    already moves between Windows users (seat.rs); at sign-out the service
+    takes it back;
+  - a headless Link client without the app window (Windows runs services in a
+    session without a desktop, so windows, media, clipboard, input and
+    notifications stay with the signed-in app);
+  - its own copy of the pairing key, readable only by SYSTEM and
+    administrators, handed over during the elevated install;
+  - entities that need a signed-in user show as unavailable instead of being
+    removed, so names, areas and dashboards survive;
+  - an app update refreshes the service with one administrator approval, and
+    uninstall removes it.
+
+- **Deskmate for Linux, preview** (asked for by the community): the Rust core
+  and the Link protocol are portable; sensors, notifications (libnotify /
+  D-Bus), tray and hotkeys need Linux backends.
+  - a client without a window, run by systemd, with the machine sensors and
+    the power buttons;
+  - the desktop app, as far as the Linux desktop allows: global shortcuts
+    need X11, and the tray needs a desktop that shows one;
+  - packaging: .deb and AppImage.
 
 - **Auto-update** (Jakub, 14.10: moved from 0.8.1 to 0.9.0): the daily check
   finds a new release and shows a notification with *Install now* and
@@ -57,6 +84,11 @@ Ordered by user value. Done items stay for context; release details are in
     copy in Program Files is refreshed with the next protection step;
   - the Home Assistant integration keeps updating through HACS; the
     notification says when it needs updating too.
+
+## Next
+
+Sending files to the PC and reading its shared folders already work (0.6 and
+0.7). The two items below are what is still open.
 
 - **File transfer**: the on-demand transfer and the Stream Deck *Deskmate Copy*
   flow (branch `codex/streamdeck-neo`) folded into the Files page; files from
@@ -84,25 +116,6 @@ Ordered by user value. Done items stay for context; release details are in
   - open questions: key rotation and recovery when a computer is lost,
     conflict handling for edits on two computers, Pi storage limits.
 
-## Next
-
-- **Deskmate as a Windows service** (#8): Home Assistant keeps the PC's
-  machine sensors and power buttons while nobody is signed in.
-  - an optional service, installed with one administrator approval, that
-    reports CPU, memory, disks, network, temperatures and uptime, and accepts
-    only shutdown, restart, sleep and hibernate;
-  - at sign-in the user's Deskmate takes the connection over, the same way it
-    already moves between Windows users (seat.rs); at sign-out the service
-    takes it back;
-  - a headless Link client without the app window (Windows runs services in a
-    session without a desktop, so windows, media, clipboard, input and
-    notifications stay with the signed-in app);
-  - its own copy of the pairing key, readable only by SYSTEM and
-    administrators, handed over during the elevated install;
-  - entities that need a signed-in user show as unavailable instead of being
-    removed, so names, areas and dashboards survive;
-  - the installer's update mode refreshes the service; uninstall removes it.
-
 - **Family rules, second step**: per-child rules on a shared PC (keyed by the
   Windows account), a weekday/weekend schedule, opt-in time per app, and an
   MQTT equivalent of the values Home Assistant keeps.
@@ -113,9 +126,6 @@ Ordered by user value. Done items stay for context; release details are in
     entity (doorbell on the TV), not just a still frame — asked for in the
     Reddit thread;
   - a picture-in-picture style overlay that does not take the remote's focus.
-- **Deskmate for Linux** (asked for by the community): the Rust core and the
-  Link protocol are portable; sensors, notifications (libnotify / D-Bus),
-  tray and hotkeys need Linux backends. Packaging: AppImage first, then .deb.
 - Full `media_player` entity for the PC (now play/pause/next buttons and
   sensors).
 - Media artwork as an `image` entity.
