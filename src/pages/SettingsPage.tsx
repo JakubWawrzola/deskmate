@@ -93,15 +93,20 @@ export default function SettingsPage({
     api.getStartWithWindows().then(setAutostart).catch(() => setAutostart(false));
   }, []);
 
-  // opt-ins apply immediately (like sensors) - entities appear without Save
+  // These switches apply immediately (like sensors), without Save; the
+  // entities of an opt-in appear right away.
   const toggleFeature = async (
-    flag: "allow_input" | "tts_enabled" | "toast_branding" | "update_check",
+    flag: "allow_input" | "tts_enabled" | "toast_branding" | "update_check" | "launch_hidden",
     v: boolean,
     setter: (b: boolean) => void,
   ) => {
     setter(v);
     try {
       await api.setFeatureFlag(flag, v);
+      // The window holds its own copy of the config. Left stale, this page
+      // shows the old state when it is opened again, and the next Save from
+      // any page writes that old state back (#11).
+      await onSaved();
     } catch (e) {
       setMsg(String(e));
     }
@@ -289,7 +294,7 @@ export default function SettingsPage({
           </div>
           <div className="flex items-center justify-between h-9">
             <span className="text-[13px]">Start minimized to tray</span>
-            <Toggle on={launchHidden} onChange={setLaunchHidden} />
+            <Toggle on={launchHidden} onChange={(v) => void toggleFeature("launch_hidden", v, setLaunchHidden)} />
           </div>
           <label className="block">
             <span className="microlabel">Appearance</span>

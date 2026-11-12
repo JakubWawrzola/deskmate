@@ -3,6 +3,21 @@
 All notable changes to Deskmate are documented here. Release-specific upgrade
 notes and asset names are available in `docs/releases/RELEASE-*.md`.
 
+## 0.8.5 - 2026-11-12
+
+### Fixed
+
+- *Start minimized to tray* was not saved (#11). The switch only took effect
+  after *Save & reconnect* at the bottom of the Settings page, although *Start
+  with Windows* right above it applies at once. Switched on and left alone, it
+  was off again the next time Settings was opened, and Deskmate kept starting
+  with its window open. It is now stored the moment it is switched.
+- The Settings switches that apply at once (remote input, text-to-speech,
+  branded toasts, update check) could show their previous state after leaving
+  the page and coming back, and a later *Save* on any page stored that
+  previous state again. The window now reads the stored settings back after
+  each change.
+
 ## 0.8.4 - 2026-10-24
 
 ### Security

@@ -31,6 +31,8 @@ Ordered by user value. Done items stay for context; release details are in
   Disconnect / Connect on the Status page and in the tray (#10).
 - **0.8.4** — security fix from the HACS review: computer names from
   unauthenticated connections are validated for every protocol version.
+- **0.8.5** — *Start minimized to tray* is stored as soon as it is switched
+  (#11).
 
 ## In progress
 

@@ -1,6 +1,6 @@
 [package]
 name = "deskmate"
-version = "0.8.4"
+version = "0.8.5"
 description = "Deskmate - a modern Windows companion for Home Assistant"
 authors = ["Jakub Wawrzola"]
 license = "MIT"

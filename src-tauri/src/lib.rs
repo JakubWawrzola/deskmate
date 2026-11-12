@@ -639,6 +639,7 @@ async fn set_connection_paused(
 /// Immediate toggle of an opt-in option (like sensors) - without waiting for Save.
 /// allow_input/tts_enabled: save + republish discovery (entities appear right away).
 /// toast_branding: save + rebuild branding in the background.
+/// launch_hidden: save only, read at the next start (GitHub issue #11).
 #[tauri::command]
 async fn set_feature_flag(
     app: AppHandle,
@@ -648,20 +649,14 @@ async fn set_feature_flag(
 ) -> Result<(), String> {
     let cfg = {
         let mut cfg = state.config.lock().await;
-        match flag.as_str() {
-            "allow_input" => cfg.allow_input = enabled,
-            "tts_enabled" => cfg.tts_enabled = enabled,
-            "toast_branding" => cfg.toast_branding = enabled,
-            "update_check" => cfg.update_check = enabled,
-            _ => return Err(format!("unknown flag: {flag}")),
-        }
+        cfg.set_feature_flag(&flag, enabled)?;
         cfg.clone()
     };
     config::save(&cfg)?;
     if flag == "toast_branding" {
         std::thread::spawn(move || notify::apply_branding(enabled));
-    } else if flag == "update_check" {
-        // picked up by the next daily check
+    } else if flag == "update_check" || flag == "launch_hidden" {
+        // picked up by the next daily check, or by the next start
     } else {
         // republish discovery without a restart (text TTS/type_text + presentation entities)
         transport::refresh_entities(&app).await;

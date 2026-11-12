@@ -345,6 +345,22 @@ impl Default for AppConfig {
     }
 }
 
+impl AppConfig {
+    /// Sets one of the switches that Settings stores the moment it is toggled,
+    /// without the Save button.
+    pub fn set_feature_flag(&mut self, flag: &str, enabled: bool) -> Result<(), String> {
+        match flag {
+            "allow_input" => self.allow_input = enabled,
+            "tts_enabled" => self.tts_enabled = enabled,
+            "toast_branding" => self.toast_branding = enabled,
+            "update_check" => self.update_check = enabled,
+            "launch_hidden" => self.launch_hidden = enabled,
+            _ => return Err(format!("unknown flag: {flag}")),
+        }
+        Ok(())
+    }
+}
+
 pub fn hostname() -> String {
     sysinfo::System::host_name().unwrap_or_else(|| "windows-pc".into())
 }
@@ -496,4 +512,34 @@ pub fn migrate_node_secrets(old: &str, new: &str) -> Result<(), String> {
         move_secret(service, old, new)?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::AppConfig;
+
+    /// GitHub issue #11: "Start minimized to tray" is stored the moment it is
+    /// toggled, and the stored value is what the next start reads.
+    #[test]
+    fn start_minimized_is_stored_as_a_feature_flag() {
+        let mut cfg = AppConfig::default();
+        assert!(!cfg.launch_hidden);
+
+        cfg.set_feature_flag("launch_hidden", true).unwrap();
+        let raw = serde_json::to_string(&cfg).unwrap();
+        let mut stored: AppConfig = serde_json::from_str(&raw).unwrap();
+        assert!(stored.launch_hidden);
+
+        stored.set_feature_flag("launch_hidden", false).unwrap();
+        let raw = serde_json::to_string(&stored).unwrap();
+        let stored: AppConfig = serde_json::from_str(&raw).unwrap();
+        assert!(!stored.launch_hidden);
+    }
+
+    #[test]
+    fn unknown_feature_flag_is_refused() {
+        let mut cfg = AppConfig::default();
+        assert!(cfg.set_feature_flag("launch_hiden", true).is_err());
+        assert!(!cfg.launch_hidden);
+    }
 }

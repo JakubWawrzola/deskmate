@@ -96,7 +96,9 @@ Two things worth doing right away:
   connection if the naming matters; Home Assistant does not rename entities
   later.
 - **Start with Windows** (Settings), so the PC reports after every reboot.
-  The choice survives updates.
+  The choice survives updates. **Start minimized to tray** right below it
+  keeps the window closed when Deskmate starts. Both apply as soon as you
+  switch them, without *Save & reconnect*.
 
 Settings → *Appearance* switches between light, dark and following Windows.
 
