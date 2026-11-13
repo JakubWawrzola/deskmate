@@ -1,0 +1,58 @@
+# Known vulnerabilities in the dependencies. Runs weekly and whenever a
+# lockfile changes. Dependabot (.github/dependabot.yml) proposes the updates.
+name: Dependency audit
+
+on:
+  schedule:
+    - cron: "0 4 * * 1"
+  push:
+    branches: [main]
+    paths:
+      - "**/Cargo.lock"
+      - "**/package-lock.json"
+      - ".github/workflows/audit.yml"
+  pull_request:
+    paths:
+      - "**/Cargo.lock"
+      - "**/package-lock.json"
+      - ".github/workflows/audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rust:
+    name: Rust crates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: cargo install cargo-audit --locked
+      - run: cargo audit --file src-tauri/Cargo.lock
+
+  npm:
+    name: npm packages (${{ matrix.project }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [".", "streamdeck-plugin"]
+    defaults:
+      run:
+        working-directory: ${{ matrix.project }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      # What ships to users: nothing high or critical may be open.
+      - name: Shipped packages
+        run: npm audit --omit=dev --audit-level=high
+      # Build tooling never reaches the user's machine, so only critical
+      # findings fail here; the rest arrive as Dependabot pull requests.
+      - name: Build tooling
+        run: npm audit --audit-level=critical

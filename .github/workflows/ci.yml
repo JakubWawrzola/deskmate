@@ -1,0 +1,136 @@
+# The checks from AGENTS.md section 8, run on every push and pull request.
+# Actions are pinned to a commit and tools to a version; Dependabot proposes
+# the updates (.github/dependabot.yml).
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Pinned so that a new compiler release cannot turn a green tree red.
+  RUST_TOOLCHAIN: "1.95.0"
+  RUFF_VERSION: "0.17.4"
+  GITLEAKS_VERSION: "8.30.1"
+  # gitleaks_8.30.1_linux_x64.tar.gz, from the release's checksums file
+  GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+
+jobs:
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install gitleaks
+        run: |
+          curl -sSfL -o "$RUNNER_TEMP/gitleaks.tar.gz" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  $RUNNER_TEMP/gitleaks.tar.gz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP" gitleaks
+      # Only the commits this push or pull request adds. The rules are in
+      # .gitleaks.toml, which gitleaks reads from the repository root.
+      - name: Scan the new commits
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ "$EVENT" = "pull_request" ]; then
+            range="origin/${BASE_REF}..HEAD"
+          elif [ -n "$BEFORE" ] && git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
+            range="${BEFORE}..HEAD"
+          else
+            range="origin/main..HEAD"
+          fi
+          echo "Scanning ${range}"
+          "$RUNNER_TEMP/gitleaks" git --redact --no-banner --log-opts="${range}" .
+
+  window:
+    name: Window (TypeScript)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm run lint
+
+  streamdeck:
+    name: Stream Deck plugin (TypeScript)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: streamdeck-plugin
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: streamdeck-plugin/package-lock.json
+      - run: npm ci
+      - run: npx tsc --noEmit
+
+  integration:
+    name: Integration (Python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: pipx run "ruff==${RUFF_VERSION}" check custom_components scripts
+      - run: pipx run "ruff==${RUFF_VERSION}" format --check custom_components scripts
+      - run: python3 -m compileall -q custom_components scripts
+
+  app:
+    name: App (Rust)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: src-tauri
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the Rust toolchain
+        run: |
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal --no-self-update \
+            --component rustfmt --component clippy --target aarch64-pc-windows-msvc
+          rustup default "$RUST_TOOLCHAIN"
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: src-tauri
+      # Tauri reads this folder at compile time. What is in it does not matter
+      # for these checks, so the window is not built here.
+      - name: Stand in for the built window
+        run: mkdir -p ../dist && echo '<!doctype html>' > ../dist/index.html
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo test
+      - name: The ARM64 target still compiles
+        run: cargo check --target aarch64-pc-windows-msvc
+      - name: No C toolchain in the dependency tree
+        run: |
+          if cargo tree --prefix none | grep -E '^(ring|openssl|openssl-sys|rustls) '; then
+            echo "::error::ring, openssl and rustls break the ARM64 build (AGENTS.md section 5.5)"
+            exit 1
+          fi

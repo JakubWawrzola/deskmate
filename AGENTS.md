@@ -114,10 +114,13 @@ for the test and used nowhere else.
 
 ### 5.2 Before every commit
 
-- Read the whole of `git diff --cached`. A pattern search finds tokens; only
-  reading finds an address or a name.
-- `git diff --cached --name-only` shows no `.env`, key, keystore or token
-  file.
+- Read the whole of `git diff --cached`. The scanner below knows formats;
+  only reading finds a hostname or an account name.
+- The pre-commit hook in `.githooks/pre-commit` refuses `.env`, key, keystore
+  and token files and runs gitleaks with the rules in `.gitleaks.toml`.
+  Enable it once per clone: `git config core.hooksPath .githooks`.
+- Do not bypass the hook with `--no-verify`. A false positive gets an
+  allowlist entry in `.gitleaks.toml`, in the same commit, with the reason.
 - If a secret was committed, stop and tell Jakub. If it was pushed, it is
   compromised and has to be rotated: deleting it afterwards does not undo
   the leak.
@@ -166,7 +169,10 @@ into logs or into the chat.
   break the ARM64 build.
 - Lockfiles are committed. Nothing is installed through a piped shell script
   or from an unpinned git reference.
-- New GitHub Actions are pinned to a commit SHA.
+- GitHub Actions are pinned to a commit SHA and CI tools to a version. The
+  two validators in `validate.yml` follow their upstream branch on purpose.
+- Dependabot proposes updates as pull requests. They are read and merged like
+  any other change; a green check is not a review.
 
 ## 6. Security invariants of the product
 
@@ -227,8 +233,8 @@ reference implementation.
 - Every `unsafe` block carries a `// SAFETY:` comment naming the invariant it
   relies on. Keep WinAPI and COM calls inside small safe wrappers, and
   release handles through `Drop`.
-- No new clippy warnings in the code you touch. An `#[allow]` needs its
-  reason in a comment.
+- `cargo fmt` formats the code, and clippy reports nothing: CI runs it with
+  `-D warnings`. An `#[allow]` states its `reason`.
 - Nothing blocks the async runtime; blocking work goes to a blocking task.
 - Tauri commands validate their arguments like any other input.
 - The code builds for `x86_64-pc-windows-msvc` and `aarch64-pc-windows-msvc`.
@@ -236,6 +242,8 @@ reference implementation.
 ### TypeScript and React (`src/`, `streamdeck-plugin/`)
 
 - `strict` stays on. No `any`, no `@ts-ignore`, no `dangerouslySetInnerHTML`.
+- Biome formats and lints `src/`: `npm run format`, `npm run lint`. A
+  `biome-ignore` comment says why.
 - Types for Tauri command payloads live in `src/types.ts` and mirror the Rust
   structs.
 - Function components and hooks.
@@ -247,6 +255,8 @@ reference implementation.
 
 - Home Assistant conventions: async throughout, no blocking I/O in the event
   loop, config entries, typed signatures.
+- ruff formats and lints the code with the rules in `ruff.toml`. A `noqa`
+  names the rule and says why.
 - `strings.json` and `translations/` change together.
 - The repository contains exactly one file named `manifest.json`, the
   integration's. Hassfest in the HACS catalog fails otherwise, which is why
@@ -266,12 +276,16 @@ most mistakes.
 
 | You changed | Run | Expect |
 |---|---|---|
-| `src-tauri/` | `cargo check`, `cargo clippy --all-targets`, `cargo test` | no errors, no new warnings, all tests pass |
+| `src-tauri/` | `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test` | formatted, no warnings, all tests pass |
 | Rust dependencies | `cargo tree` | no `ring`, `openssl` or `rustls` |
-| `src/` | `npx tsc --noEmit` | no errors |
+| `src/` | `npx tsc --noEmit`, `npm run lint` | no errors |
 | `streamdeck-plugin/` | `npx tsc --noEmit` in that folder | no errors |
-| The integration | `python -m py_compile` on the changed files | no errors |
+| The integration | `ruff check` and `ruff format --check` on `custom_components scripts`, `python -m py_compile` on the changed files | no errors |
 | Link protocol or crypto | the vector tests in Rust and in `tv/` | all pass |
+
+Run the tests, do not only compile them: `cargo check --tests` passes while a
+test fails. Use the ruff version pinned in `.github/workflows/ci.yml`
+(`uvx ruff@<version>` runs it without installing anything).
 
 These run only when Jakub asks: `tauri dev`, `tauri build`, starting or
 installing the app, anything that talks to Home Assistant, browser or
@@ -328,15 +342,18 @@ tested end to end against a live Home Assistant says so in its notes.
 A rule that a machine can check should not depend on an agent remembering
 it. This is the standard for this repository:
 
-| Guard | How | Status |
-|---|---|---|
-| HACS and hassfest | `.github/workflows/validate.yml` | live |
-| Secret scan | gitleaks as a pre-commit hook and a CI job | not set up yet |
-| Code CI | `cargo check`, clippy, `cargo test` and `tsc` on every push and pull request | not set up yet |
-| Dependency audit | `cargo audit`, `npm audit`, Dependabot | not set up yet |
-| Formatters and linters | rustfmt, clippy configuration, ESLint or Biome, ruff | not set up yet |
+| Guard | Where |
+|---|---|
+| HACS and hassfest | `.github/workflows/validate.yml` |
+| Secret scan | gitleaks with `.gitleaks.toml`: locally in `.githooks/pre-commit`, in CI as the `secrets` job of `ci.yml` |
+| Code CI | `.github/workflows/ci.yml`: the checks from section 8 on every push and pull request, including the ARM64 target and the dependency-tree rule |
+| Dependency audit | `.github/workflows/audit.yml` (`cargo audit`, `npm audit`) and `.github/dependabot.yml` |
+| Formatters and linters | rustfmt and clippy (`src-tauri/`), Biome (`src/`), ruff (the integration and `scripts/`) |
 
-Until a guard is live, its job is done by hand as sections 5.2 and 8
-describe. Setting one up is a task of its own that Jakub approves. When it
-lands, update its status here and tighten the matching rule: "no new clippy
-warnings" becomes "no clippy warnings".
+A guard supports sections 5.2 and 8; it does not replace them. Run the checks
+before you commit instead of waiting for CI, because a secret that reaches
+GitHub is already public.
+
+Not covered yet: Biome for `streamdeck-plugin/`, the Kotlin code in `tv/`,
+and clippy lints for `unwrap` and for `unsafe` without a `SAFETY` comment.
+Extending a guard is a task of its own that Jakub approves.

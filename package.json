@@ -8,7 +8,9 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "biome ci src vite.config.ts",
+    "format": "biome check --write --linter-enabled=false src vite.config.ts"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.5.0",
@@ -17,6 +19,7 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.6.6",
     "@tailwindcss/vite": "^4.1.7",
     "@tauri-apps/cli": "^2.5.0",
     "@types/react": "^18.3.12",

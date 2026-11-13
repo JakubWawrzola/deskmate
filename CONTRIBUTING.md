@@ -44,12 +44,25 @@ npm run tauri dev
 ```
 
 Toolchain: Node 20+, Rust stable, the `x86_64-pc-windows-msvc` or
-`aarch64-pc-windows-msvc` target. Before a pull request:
+`aarch64-pc-windows-msvc` target.
 
-- `npx tsc --noEmit` and `cargo check` without errors or warnings;
-- `cargo test` in `src-tauri` for logic you touched;
-- for the integration: it loads in Home Assistant, and the HACS and hassfest
-  checks of this repository stay green;
+Turn on the pre-commit hook once. It keeps key and token files out of commits
+and scans what you stage with [gitleaks](https://github.com/gitleaks/gitleaks),
+which has to be installed:
+
+```
+git config core.hooksPath .githooks
+```
+
+Before a pull request, the same checks CI runs:
+
+- in `src-tauri`: `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`
+  and `cargo test`;
+- in the root: `npx tsc --noEmit` and `npm run lint` (`npm run format` fixes
+  the formatting);
+- for the integration: `ruff check` and `ruff format --check` on
+  `custom_components scripts`; it loads in Home Assistant, and the HACS and
+  hassfest checks of this repository stay green;
 - user-facing text in plain English, without jargon;
 - docs updated when behaviour changes (`docs/GUIDE.md`, `CHANGELOG.md`).
 

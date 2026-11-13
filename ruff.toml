@@ -1,0 +1,25 @@
+# Lint and format rules for the Python in this repository: the Home Assistant
+# integration and the test-vector script (AGENTS.md section 8).
+#
+#   ruff check custom_components scripts
+#   ruff format --check custom_components scripts
+
+# hacs.json asks for Home Assistant 2024.11, which runs on Python 3.12.
+target-version = "py312"
+
+[lint]
+select = [
+  "E",     # pycodestyle errors
+  "W",     # pycodestyle warnings
+  "F",     # pyflakes
+  "I",     # import order
+  "B",     # likely bugs
+  "UP",    # outdated syntax
+  "S",     # security (bandit)
+  "ASYNC", # blocking calls and other mistakes in async code
+]
+ignore = [
+  "E501",     # line length belongs to the formatter
+  "S101",     # asserts narrow types in config flows, as in Home Assistant itself
+  "ASYNC109", # `timeout` parameters are part of the hub's interface
+]

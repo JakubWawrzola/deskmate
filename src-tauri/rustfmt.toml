@@ -1,0 +1,3 @@
+# The standard Rust style, on purpose: defaults only, so there is nothing to
+# argue about. CI runs `cargo fmt --check`.
+edition = "2021"

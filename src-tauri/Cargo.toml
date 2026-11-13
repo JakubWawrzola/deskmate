@@ -106,6 +106,12 @@ features = [
   "Data_Xml_Dom",
 ]
 
+# CI runs clippy with -D warnings (AGENTS.md section 8). These two are on top
+# of the default set: leftovers that must not reach a release.
+[lints.clippy]
+dbg_macro = "deny"
+todo = "deny"
+
 [profile.release]
 lto = true
 codegen-units = 1

@@ -12,6 +12,9 @@ on:
 permissions:
   contents: read
 
+# The two validators follow their upstream branch on purpose: the point of
+# this workflow, and of its weekly run, is to learn about new requirements as
+# soon as HACS and Home Assistant add them. Everything else is pinned.
 jobs:
   hacs:
     name: HACS
@@ -25,5 +28,7 @@ jobs:
     name: Hassfest
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: home-assistant/actions/hassfest@master

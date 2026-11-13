@@ -23,12 +23,12 @@ coding agent. Read that file first. It is imported here:
 
 `C:\dev\CLAUDE.md` and `C:\dev\web\CLAUDE.md` still apply. For this project:
 
-- Checks: AGENTS.md section 8 replaces "only `tsc` and lint". `cargo check`,
-  clippy, `cargo test`, `tsc` and `py_compile` run without asking. Builds,
-  dev servers and anything live still wait for an instruction.
+- Checks: AGENTS.md section 8 replaces "only `tsc` and lint". The formatters,
+  clippy, `cargo test`, `tsc`, `npm run lint`, ruff and `py_compile` run
+  without asking. Builds, dev servers and anything live still wait for an
+  instruction.
 - Deploys: the rule that Jakub runs every server command covers the ZUT VPS
   and similar machines. For the Home Assistant at home, AGENTS.md section 5.4
   applies: the agent deploys when told to in that session.
 - Stack standards: the Next.js, Laravel, JWT and CORS rules in the web
   CLAUDE.md do not describe this project. AGENTS.md section 7 does.
-- `npm run lint` does not exist here yet; see AGENTS.md section 11.

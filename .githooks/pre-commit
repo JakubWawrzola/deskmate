@@ -1,0 +1,31 @@
+#!/bin/sh
+# Deskmate pre-commit guard (AGENTS.md section 5.2).
+# Enable once per clone:  git config core.hooksPath .githooks
+#
+# It refuses files that must never be committed and runs gitleaks on the
+# staged changes. It does not replace reading `git diff --cached`.
+
+fail() {
+  printf '\npre-commit: %s\n' "$1" >&2
+  exit 1
+}
+
+# 1. Files that must never be committed.
+blocked=$(git diff --cached --name-only --diff-filter=ACMR |
+  grep -iE '(^|/)\.env(\.[^/]*)?$|\.(pem|key|jks|keystore)$|(^|/)keystore\.properties$|(^|/)ha-token[^/]*$|(^|/)pairing[^/]*\.txt$|(^|/)_prywatne/|^(STATUS|HANDOFF|AGENT-LOG)\.md$' |
+  grep -vE '(^|/)\.env\.example$')
+if [ -n "$blocked" ]; then
+  fail "these files must not be committed:
+$blocked"
+fi
+
+# 2. Secrets and private addresses in the staged changes.
+if ! command -v gitleaks >/dev/null 2>&1; then
+  fail "gitleaks is not installed, so the staged changes cannot be scanned.
+Install it (Windows: winget install Gitleaks.Gitleaks) and commit again."
+fi
+
+if ! gitleaks git --pre-commit --staged --redact --no-banner; then
+  fail "gitleaks found a secret or a private address in the staged changes.
+Remove it. For a false positive, add an allowlist entry to .gitleaks.toml."
+fi
