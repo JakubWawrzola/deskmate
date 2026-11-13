@@ -11,7 +11,6 @@ import time
 from typing import Any
 
 from aiohttp import WSMsgType, web
-
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.dispatcher import async_dispatcher_send
@@ -369,7 +368,7 @@ class DeskmateHub:
         if ws is not None and not ws.closed:
             try:
                 await ws.close()
-            except Exception:  # noqa: BLE001 - zamkniecie best-effort
+            except Exception:  # noqa: BLE001, S110 - zamkniecie best-effort
                 pass
 
     @property

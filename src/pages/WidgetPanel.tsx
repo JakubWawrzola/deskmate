@@ -59,6 +59,7 @@ export default function WidgetPanel() {
           Deskmate
         </span>
         <button
+          type="button"
           aria-label="Hide widgets"
           onClick={() => void getCurrentWindow().hide()}
           className="text-muted hover:text-ink text-[14px] leading-none px-1"
@@ -84,6 +85,7 @@ export default function WidgetPanel() {
           const on = s.state === "on" || s.state === "playing" || s.state === "open";
           return (
             <button
+              type="button"
               key={s.entity_id}
               onClick={() => void toggle(s)}
               disabled={!s.togglable}

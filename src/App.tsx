@@ -73,7 +73,9 @@ export default function App() {
       }),
     ];
     return () => {
-      subs.forEach((p) => p.then((un) => un()));
+      for (const sub of subs) {
+        void sub.then((unlisten) => unlisten());
+      }
     };
   }, [reloadConfig, reloadSnapshot]);
 
@@ -105,6 +107,7 @@ export default function App() {
         <div className="flex-1 py-2">
           {PAGES.map((p) => (
             <button
+              type="button"
               key={p}
               onClick={() => setPage(p)}
               className={`w-full text-left px-4 h-9 text-[13px] transition-colors duration-100

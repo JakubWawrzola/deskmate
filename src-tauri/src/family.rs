@@ -1071,7 +1071,7 @@ mod protection {
 
         pub fn user_sid() -> Option<String> {
             let token = token()?;
-            let sid = unsafe {
+            unsafe {
                 let mut len = 0u32;
                 let _ = GetTokenInformation(token, TokenUser, None, 0, &mut len);
                 // u64 buffer: TOKEN_USER holds a pointer and needs its alignment
@@ -1094,8 +1094,7 @@ mod protection {
                 });
                 let _ = CloseHandle(token);
                 sid
-            };
-            sid
+            }
         }
 
         /// An administrator account, even while UAC runs it with standard rights.

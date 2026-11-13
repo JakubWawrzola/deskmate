@@ -328,9 +328,11 @@ fn wmi_temperatures() -> Temperatures {
 
     let hr = unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) };
     let uninitialize = hr.is_ok();
-    let mut result = Temperatures::default();
     // The PawnIO helper, when installed, is the most direct CPU source.
-    result.cpu = crate::cpu_temperature::read_celsius();
+    let mut result = Temperatures {
+        cpu: crate::cpu_temperature::read_celsius(),
+        ..Temperatures::default()
+    };
     let cpu_from_helper = result.cpu.is_some();
     for namespace in ["ROOT\\LibreHardwareMonitor", "ROOT\\OpenHardwareMonitor"] {
         let rows = unsafe {
@@ -526,13 +528,13 @@ mod pdh {
         Some(
             items
                 .iter()
-                .filter_map(|item| {
+                .filter(|item| {
                     matches!(
                         item.FmtValue.CStatus,
                         PDH_CSTATUS_VALID_DATA | PDH_CSTATUS_NEW_DATA
                     )
-                    .then(|| item.FmtValue.Anonymous.doubleValue)
                 })
+                .map(|item| item.FmtValue.Anonymous.doubleValue)
                 .collect(),
         )
     }

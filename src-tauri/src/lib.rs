@@ -673,6 +673,10 @@ async fn set_feature_flag(
 }
 
 #[tauri::command]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "a Tauri command: the arguments mirror the payload sent by the window"
+)]
 async fn add_custom_command(
     app: AppHandle,
     state: State<'_, AppState>,

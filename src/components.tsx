@@ -63,6 +63,7 @@ export function Toggle({
 }) {
   return (
     <button
+      type="button"
       role="switch"
       aria-checked={on}
       disabled={disabled}
@@ -98,6 +99,7 @@ export function Button({
         : "bg-panel text-ink border-hairline-strong hover:border-ink";
   return (
     <button
+      type="button"
       onClick={onClick}
       disabled={disabled}
       className={`h-8 px-3 rounded border text-[13px] font-medium transition-colors duration-100

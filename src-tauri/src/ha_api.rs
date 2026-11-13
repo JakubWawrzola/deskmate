@@ -4,6 +4,11 @@
 //! never in config.json. Local URL + fallback URL (failover, same as the MQTT broker).
 //! ureq + native-tls (schannel) - zero ring/clang, works on ARM64.
 
+#![allow(
+    clippy::result_large_err,
+    reason = "ureq::Error is large by design, and every call here is a single HTTP request"
+)]
+
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use url::Url;

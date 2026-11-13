@@ -662,6 +662,15 @@ pub fn remove_custom(node_id: &str, custom_id: &str) -> Vec<DiscoveryMsg> {
         .collect()
 }
 
+fn command_icon(command: &crate::config::CustomCommand) -> &'static str {
+    match command.action.as_str() {
+        "launch" => "mdi:play-box-outline",
+        "stop" => "mdi:stop-circle-outline",
+        "keys" => "mdi:keyboard-outline",
+        _ => "mdi:console",
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -681,10 +690,12 @@ mod tests {
 
     #[test]
     fn link_declare_adds_text_and_hotkey_event_with_mqtt_names() {
-        let mut cfg = AppConfig::default();
-        cfg.allow_input = true;
-        cfg.tts_enabled = true;
-        cfg.clipboard_write_mode = "automatic".into();
+        let mut cfg = AppConfig {
+            allow_input: true,
+            tts_enabled: true,
+            clipboard_write_mode: "automatic".into(),
+            ..AppConfig::default()
+        };
         cfg.hotkeys.push(Hotkey {
             id: "desk_lamp".into(),
             name: "Desk lamp".into(),
@@ -715,8 +726,10 @@ mod tests {
 
     #[test]
     fn smaller_link_declare_omits_disabled_dynamic_entities() {
-        let mut cfg = AppConfig::default();
-        cfg.allow_input = true;
+        let mut cfg = AppConfig {
+            allow_input: true,
+            ..AppConfig::default()
+        };
         cfg.hotkeys.push(Hotkey {
             id: "temporary".into(),
             name: String::new(),
@@ -772,14 +785,5 @@ mod tests {
             .unwrap()
             .iter()
             .any(|entity| entity["key"] == "gpu_usage"));
-    }
-}
-
-fn command_icon(command: &crate::config::CustomCommand) -> &'static str {
-    match command.action.as_str() {
-        "launch" => "mdi:play-box-outline",
-        "stop" => "mdi:stop-circle-outline",
-        "keys" => "mdi:keyboard-outline",
-        _ => "mdi:console",
     }
 }

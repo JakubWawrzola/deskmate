@@ -17,19 +17,19 @@ from __future__ import annotations
 
 import asyncio
 import base64
-from dataclasses import dataclass, field
 import hashlib
-from http import HTTPStatus
 import logging
 import os
-from pathlib import Path
 import time
+from dataclasses import dataclass, field
+from http import HTTPStatus
+from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
-from aiohttp import web
+import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
-
+from aiohttp import web
 from homeassistant.components import frontend, panel_custom
 from homeassistant.components.http import HomeAssistantView, StaticPathConfig
 from homeassistant.core import (
@@ -40,12 +40,11 @@ from homeassistant.core import (
 )
 from homeassistant.exceptions import HomeAssistantError, Unauthorized
 from homeassistant.helpers import device_registry as dr
-import homeassistant.helpers.config_validation as cv
 
 from .const import (
     DOMAIN,
-    FILES_LINK_CHUNK,
     FILES_HTTP_CHUNK,
+    FILES_LINK_CHUNK,
     FILES_PANEL_ICON,
     FILES_PANEL_TITLE,
     FILES_PANEL_URL,

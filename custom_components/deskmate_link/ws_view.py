@@ -18,7 +18,6 @@ import re
 import time
 
 from aiohttp import WSMsgType, web
-
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import issue_registry as ir
