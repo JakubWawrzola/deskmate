@@ -86,11 +86,13 @@ export default function ActionEditor({
               {c.name}
             </option>
           ))}
-          {customCommands.filter((c) => c.enabled).map((c) => (
-            <option key={c.id} value={`custom_${c.id}`}>
-              {c.name} (custom)
-            </option>
-          ))}
+          {customCommands
+            .filter((c) => c.enabled)
+            .map((c) => (
+              <option key={c.id} value={`custom_${c.id}`}>
+                {c.name} (custom)
+              </option>
+            ))}
         </select>
       )}
 
@@ -105,8 +107,8 @@ export default function ActionEditor({
 
       {value.kind === "mqtt" && (
         <p className="text-[12px] text-muted leading-relaxed">
-          Publishes an event through the selected transport. With MQTT it is a device
-          trigger; with Link it is an event entity and a deskmate_link_trigger bus event.
+          Publishes an event through the selected transport. With MQTT it is a device trigger; with
+          Link it is an event entity and a deskmate_link_trigger bus event.
         </p>
       )}
     </div>

@@ -26,7 +26,9 @@ const TARGET_PLACEHOLDER: Record<CustomSensorKind, string> = {
 
 /** Same keys as custom_sensors.rs: on/off sensors "csb_", the others "cs_". */
 function sensorKey(sensor: CustomSensor): string {
-  return sensor.kind === "process" || sensor.kind === "window" ? `csb_${sensor.id}` : `cs_${sensor.id}`;
+  return sensor.kind === "process" || sensor.kind === "window"
+    ? `csb_${sensor.id}`
+    : `cs_${sensor.id}`;
 }
 
 function YourSensors({
@@ -73,16 +75,19 @@ function YourSensors({
   return (
     <Panel title="Your sensors">
       <p className="text-[12px] text-muted mb-3 leading-relaxed">
-        Extra sensors for Home Assistant: whether a program runs or a window is open (on/off),
-        the state of a Windows service, or the first line a PowerShell command prints.
-        PowerShell sensors run in the background every interval (30 s or more) and start
-        disabled; enable one after checking the command.
+        Extra sensors for Home Assistant: whether a program runs or a window is open (on/off), the
+        state of a Windows service, or the first line a PowerShell command prints. PowerShell
+        sensors run in the background every interval (30 s or more) and start disabled; enable one
+        after checking the command.
       </p>
       {sensors.length === 0 && <EmptyState text="No sensors of your own yet." />}
       {sensors.map((sensor) => {
         const value = snapshot.sensor_values[sensorKey(sensor)];
         return (
-          <div key={sensor.id} className="grid grid-cols-[160px_120px_1fr_90px_auto_auto] items-center gap-3 min-h-11 border-b border-hairline py-1">
+          <div
+            key={sensor.id}
+            className="grid grid-cols-[160px_120px_1fr_90px_auto_auto] items-center gap-3 min-h-11 border-b border-hairline py-1"
+          >
             <span className="text-[13px] font-medium truncate">{sensor.name}</span>
             <span className="microlabel border border-hairline-strong rounded px-1.5 py-0.5 justify-self-start">
               {KIND_LABEL[sensor.kind]}
@@ -92,7 +97,10 @@ function YourSensors({
               {sensor.enabled ? (value ?? "--") : <span className="text-faint">off</span>}
               {sensor.enabled && value !== undefined && sensor.unit ? ` ${sensor.unit}` : ""}
             </span>
-            <Toggle on={sensor.enabled} onChange={(on) => void run(() => api.setCustomSensorEnabled(sensor.id, on))} />
+            <Toggle
+              on={sensor.enabled}
+              onChange={(on) => void run(() => api.setCustomSensorEnabled(sensor.id, on))}
+            />
             <Button kind="danger" onClick={() => void run(() => api.removeCustomSensor(sensor.id))}>
               Remove
             </Button>
@@ -115,13 +123,23 @@ function YourSensors({
             <option value="powershell">PowerShell output</option>
           </select>
         </label>
-        <Field label={TARGET_LABEL[kind]} value={target} onChange={setTarget} placeholder={TARGET_PLACEHOLDER[kind]} />
+        <Field
+          label={TARGET_LABEL[kind]}
+          value={target}
+          onChange={setTarget}
+          placeholder={TARGET_PLACEHOLDER[kind]}
+        />
       </div>
       <div className="mt-3 grid grid-cols-[150px_170px_1fr_auto] gap-3 items-end">
         {kind === "powershell" ? (
           <>
             <Field label="Unit (optional)" value={unit} onChange={setUnit} placeholder="tabs" />
-            <Field label="Every (seconds)" value={interval} onChange={setIntervalS} placeholder="60" />
+            <Field
+              label="Every (seconds)"
+              value={interval}
+              onChange={setIntervalS}
+              placeholder="60"
+            />
           </>
         ) : (
           <>
@@ -220,16 +238,34 @@ export default function SensorsPage({
         action={
           hardware.length > 0 ? (
             <div className="flex items-center gap-2">
-              <Button onClick={() => void setAll(hardware.map((d) => d.id), true)}>All on</Button>
-              <Button onClick={() => void setAll(hardware.map((d) => d.id), false)}>All off</Button>
+              <Button
+                onClick={() =>
+                  void setAll(
+                    hardware.map((d) => d.id),
+                    true,
+                  )
+                }
+              >
+                All on
+              </Button>
+              <Button
+                onClick={() =>
+                  void setAll(
+                    hardware.map((d) => d.id),
+                    false,
+                  )
+                }
+              >
+                All off
+              </Button>
             </div>
           ) : undefined
         }
       >
         <p className="text-[12px] text-muted mb-2 leading-relaxed">
-          Found on this computer: every drive, the GPU and temperatures. Each one is its own entity in Home
-          Assistant; switch off what you do not need and it disappears there. "Disk usage" above is the
-          system drive only.
+          Found on this computer: every drive, the GPU and temperatures. Each one is its own entity
+          in Home Assistant; switch off what you do not need and it disappears there. "Disk usage"
+          above is the system drive only.
         </p>
         {hardware.length === 0 && <EmptyState text="Looking for drives and sensors..." />}
         {hardware.map((d) => (
@@ -245,9 +281,10 @@ export default function SensorsPage({
 
       <Panel title="Sound">
         <p className="text-[12px] text-muted mb-2 leading-relaxed">
-          Controls for Home Assistant: speaker and microphone volume, and which sound devices Windows uses.
-          "Mute audio" and "Mute microphone" switches are always there. An automation can mute the microphone when
-          the radio starts, or switch to the headset when a call comes in.
+          Controls for Home Assistant: speaker and microphone volume, and which sound devices
+          Windows uses. "Mute audio" and "Mute microphone" switches are always there. An automation
+          can mute the microphone when the radio starts, or switch to the headset when a call comes
+          in.
         </p>
         {sound.map((d) => (
           <Row
@@ -262,9 +299,8 @@ export default function SensorsPage({
 
       <Panel title="Privacy-sensitive sensors">
         <p className="text-[12px] text-muted mb-2 leading-relaxed">
-          These expose what you are doing on this computer (window titles, playing
-          media, network name) to Home Assistant. They stay off until you enable
-          them here.
+          These expose what you are doing on this computer (window titles, playing media, network
+          name) to Home Assistant. They stay off until you enable them here.
         </p>
         {priv.map((d) => (
           <Row

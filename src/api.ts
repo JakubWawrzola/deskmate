@@ -2,10 +2,10 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
   AppConfig,
+  ConfigView,
   CpuTemperatureStatus,
   CustomAction,
   CustomSensorKind,
-  ConfigView,
   FamilyConfig,
   FamilyView,
   FileEvent,
@@ -21,12 +21,7 @@ import type {
 
 export const api = {
   getConfig: () => invoke<ConfigView>("get_config"),
-  saveConfig: (
-    newConfig: AppConfig,
-    password?: string,
-    linkKey?: string,
-    cascadeKey?: string,
-  ) =>
+  saveConfig: (newConfig: AppConfig, password?: string, linkKey?: string, cascadeKey?: string) =>
     invoke<void>("save_config", {
       newConfig,
       password: password ?? null,
@@ -95,11 +90,7 @@ export const api = {
     invoke<void>("set_custom_sensor_enabled", { id, enabled }),
   removeCustomSensor: (id: string) => invoke<void>("remove_custom_sensor", { id }),
   removeCustomCommand: (id: string) => invoke<void>("remove_custom_command", { id }),
-  updateCustomCommandSecurity: (
-    id: string,
-    enabled: boolean,
-    requireConfirmation: boolean,
-  ) =>
+  updateCustomCommandSecurity: (id: string, enabled: boolean, requireConfirmation: boolean) =>
     invoke<void>("update_custom_command_security", {
       id,
       enabled,

@@ -1,19 +1,19 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, onConfigChanged, onNotify, onSensorDefs, onSensors, onStatus } from "./api";
 import { StatusDot } from "./components";
-import type { AppConfig, NotifyRecord, Snapshot, StatusView } from "./types";
-import Wizard from "./pages/Wizard";
-import StatusPage from "./pages/StatusPage";
-import SensorsPage from "./pages/SensorsPage";
-import CommandsPage from "./pages/CommandsPage";
-import HotkeysPage from "./pages/HotkeysPage";
-import WidgetsPage from "./pages/WidgetsPage";
-import NotificationsPage from "./pages/NotificationsPage";
-import SettingsPage from "./pages/SettingsPage";
-import FilesPage from "./pages/FilesPage";
 import ClipboardPage from "./pages/ClipboardPage";
+import CommandsPage from "./pages/CommandsPage";
 import FamilyPage from "./pages/FamilyPage";
+import FilesPage from "./pages/FilesPage";
 import GeekyPage from "./pages/GeekyPage";
+import HotkeysPage from "./pages/HotkeysPage";
+import NotificationsPage from "./pages/NotificationsPage";
+import SensorsPage from "./pages/SensorsPage";
+import SettingsPage from "./pages/SettingsPage";
+import StatusPage from "./pages/StatusPage";
+import WidgetsPage from "./pages/WidgetsPage";
+import Wizard from "./pages/Wizard";
+import type { AppConfig, NotifyRecord, Snapshot, StatusView } from "./types";
 
 const PAGES = [
   "Status",
@@ -54,9 +54,7 @@ export default function App() {
     void reloadConfig();
     void reloadSnapshot();
     const subs = [
-      onStatus((s: StatusView) =>
-        setSnapshot((prev) => (prev ? { ...prev, status: s } : prev)),
-      ),
+      onStatus((s: StatusView) => setSnapshot((prev) => (prev ? { ...prev, status: s } : prev))),
       onSensors((values) =>
         setSnapshot((prev) =>
           prev ? { ...prev, sensor_values: { ...prev.sensor_values, ...values } } : prev,

@@ -32,7 +32,9 @@ export default function HotkeysPage({
     try {
       const errors = await api.updateHotkeys(next);
       setHotkeys(next);
-      setMsg(errors.length ? `Registered with issues: ${errors.join("; ")}` : "Hotkeys registered.");
+      setMsg(
+        errors.length ? `Registered with issues: ${errors.join("; ")}` : "Hotkeys registered.",
+      );
       await onChanged();
     } catch (e) {
       setMsg(String(e));
@@ -68,7 +70,12 @@ export default function HotkeysPage({
             onClick={() =>
               setHotkeys([
                 ...hotkeys,
-                { id: `hk_${hotkeys.length + 1}`, name: "", accelerator: "", action: emptyAction() },
+                {
+                  id: `hk_${hotkeys.length + 1}`,
+                  name: "",
+                  accelerator: "",
+                  action: emptyAction(),
+                },
               ])
             }
           >
@@ -77,8 +84,8 @@ export default function HotkeysPage({
         }
       >
         <p className="text-[12px] text-muted mb-3 leading-relaxed">
-          System-wide shortcuts that work while Deskmate sits in the tray — control
-          Home Assistant without a Stream Deck. Format: <span className="mono text-ink">Ctrl+Alt+L</span>,{" "}
+          System-wide shortcuts that work while Deskmate sits in the tray — control Home Assistant
+          without a Stream Deck. Format: <span className="mono text-ink">Ctrl+Alt+L</span>,{" "}
           <span className="mono text-ink">Ctrl+Shift+F5</span>. HA actions need the HA API
           configured in Settings; the HA event trigger works without it over MQTT or Link.
         </p>
@@ -108,7 +115,10 @@ export default function HotkeysPage({
                   }}
                 />
                 <div className="flex justify-end">
-                  <Button kind="danger" onClick={() => setHotkeys(hotkeys.filter((_, j) => j !== i))}>
+                  <Button
+                    kind="danger"
+                    onClick={() => setHotkeys(hotkeys.filter((_, j) => j !== i))}
+                  >
                     Remove
                   </Button>
                 </div>
@@ -157,8 +167,8 @@ export default function HotkeysPage({
         }
       >
         <p className="text-[12px] text-muted mb-3 leading-relaxed">
-          Extra entries in the tray menu (right-click the Deskmate icon) — one click
-          to toggle a light, run a scene or a local command.
+          Extra entries in the tray menu (right-click the Deskmate icon) — one click to toggle a
+          light, run a scene or a local command.
         </p>
         {trayActions.length === 0 && <EmptyState text="No quick actions yet." />}
         <div className="space-y-4">
@@ -175,7 +185,10 @@ export default function HotkeysPage({
                     setTrayActions(next);
                   }}
                 />
-                <Button kind="danger" onClick={() => setTrayActions(trayActions.filter((_, j) => j !== i))}>
+                <Button
+                  kind="danger"
+                  onClick={() => setTrayActions(trayActions.filter((_, j) => j !== i))}
+                >
                   Remove
                 </Button>
               </div>
@@ -198,7 +211,9 @@ export default function HotkeysPage({
             kind="primary"
             disabled={saving}
             onClick={() =>
-              void saveTray(trayActions.map((t) => ({ ...t, id: t.id || slug(t.name) || "action" })))
+              void saveTray(
+                trayActions.map((t) => ({ ...t, id: t.id || slug(t.name) || "action" })),
+              )
             }
           >
             Save tray menu

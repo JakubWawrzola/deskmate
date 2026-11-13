@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
+import { Button, Field, Panel, Toggle } from "../components";
 import { parsePairingCode } from "../pairing";
 import { applyTheme } from "../theme";
+import type { AppConfig, MqttTransport, ThemeMode, TransportKind } from "../types";
 import CpuTemperaturePanel from "./CpuTemperaturePanel";
-import { Button, Field, Panel, Toggle } from "../components";
-import type { AppConfig, MqttTransport, TransportKind, ThemeMode } from "../types";
 
 export default function SettingsPage({
   config,
@@ -59,7 +59,9 @@ export default function SettingsPage({
     setUpdateMsg("Checking...");
     try {
       const found = await api.checkUpdatesNow();
-      setUpdateMsg(found ? `Deskmate ${found.version} is available.` : "You have the latest version.");
+      setUpdateMsg(
+        found ? `Deskmate ${found.version} is available.` : "You have the latest version.",
+      );
     } catch (e) {
       setUpdateMsg(`Could not check: ${String(e)}`);
     }
@@ -90,7 +92,10 @@ export default function SettingsPage({
   };
 
   useEffect(() => {
-    api.getStartWithWindows().then(setAutostart).catch(() => setAutostart(false));
+    api
+      .getStartWithWindows()
+      .then(setAutostart)
+      .catch(() => setAutostart(false));
   }, []);
 
   // These switches apply immediately (like sensors), without Save; the
@@ -189,104 +194,120 @@ export default function SettingsPage({
         </label>
       </Panel>
 
-      {transport === "mqtt" && <Panel title="MQTT broker">
-        <div className="space-y-3">
-          <label className="block">
-            <span className="microlabel">Transport</span>
-            <select
-              value={mqttTransport}
-              onChange={(e) => {
-                const next = e.target.value as MqttTransport;
-                setMqttTransport(next);
-                if (next === "tls" && port === "1883") setPort("8883");
-                if (next === "insecure" && port === "8883") setPort("1883");
-              }}
-              className="mt-1 w-full h-9 px-2 bg-panel border border-hairline-strong rounded text-ink text-[13px] focus-visible:border-ink"
-            >
-              <option value="tls">TLS — verify certificate (recommended)</option>
-              <option value="insecure">Plain MQTT — trusted LAN only</option>
-            </select>
-          </label>
-          {mqttTransport === "insecure" && (
-            <p className="text-[12px] border border-hairline-strong rounded p-2">
-              Plain MQTT exposes credentials, sensor values and commands to anyone able to observe this network.
-            </p>
-          )}
-          <div className="grid grid-cols-[1fr_92px] gap-3">
-            <Field label="Broker address (local)" value={host} onChange={setHost} />
-            <Field label="Port" value={port} onChange={setPort} />
-          </div>
-          <Field
-            label="Fallback address (outside home)"
-            value={hostRemote}
-            onChange={setHostRemote}
-            hint="Optional. If the local address fails, Deskmate tries this one (e.g. a Tailscale IP or public host). Leave empty to use just the local address."
-          />
-          {mqttTransport === "tls" && (
+      {transport === "mqtt" && (
+        <Panel title="MQTT broker">
+          <div className="space-y-3">
+            <label className="block">
+              <span className="microlabel">Transport</span>
+              <select
+                value={mqttTransport}
+                onChange={(e) => {
+                  const next = e.target.value as MqttTransport;
+                  setMqttTransport(next);
+                  if (next === "tls" && port === "1883") setPort("8883");
+                  if (next === "insecure" && port === "8883") setPort("1883");
+                }}
+                className="mt-1 w-full h-9 px-2 bg-panel border border-hairline-strong rounded text-ink text-[13px] focus-visible:border-ink"
+              >
+                <option value="tls">TLS — verify certificate (recommended)</option>
+                <option value="insecure">Plain MQTT — trusted LAN only</option>
+              </select>
+            </label>
+            {mqttTransport === "insecure" && (
+              <p className="text-[12px] border border-hairline-strong rounded p-2">
+                Plain MQTT exposes credentials, sensor values and commands to anyone able to observe
+                this network.
+              </p>
+            )}
+            <div className="grid grid-cols-[1fr_92px] gap-3">
+              <Field label="Broker address (local)" value={host} onChange={setHost} />
+              <Field label="Port" value={port} onChange={setPort} />
+            </div>
             <Field
-              label="Custom CA certificate (PEM path)"
-              value={mqttCaPath}
-              onChange={setMqttCaPath}
-              placeholder="Leave empty to use Windows trusted certificates"
-              hint="For a private/self-signed broker CA. Certificate verification cannot be disabled in TLS mode."
+              label="Fallback address (outside home)"
+              value={hostRemote}
+              onChange={setHostRemote}
+              hint="Optional. If the local address fails, Deskmate tries this one (e.g. a Tailscale IP or public host). Leave empty to use just the local address."
             />
-          )}
-          <Field label="Username" value={username} onChange={setUsername} />
-          <Field
-            label="Password"
-            value={password}
-            onChange={setPassword}
-            type="password"
-            placeholder={hasPassword ? "unchanged (stored in Credential Manager)" : "none"}
-          />
-        </div>
-      </Panel>}
+            {mqttTransport === "tls" && (
+              <Field
+                label="Custom CA certificate (PEM path)"
+                value={mqttCaPath}
+                onChange={setMqttCaPath}
+                placeholder="Leave empty to use Windows trusted certificates"
+                hint="For a private/self-signed broker CA. Certificate verification cannot be disabled in TLS mode."
+              />
+            )}
+            <Field label="Username" value={username} onChange={setUsername} />
+            <Field
+              label="Password"
+              value={password}
+              onChange={setPassword}
+              type="password"
+              placeholder={hasPassword ? "unchanged (stored in Credential Manager)" : "none"}
+            />
+          </div>
+        </Panel>
+      )}
 
-      {transport === "link" && <Panel title="Deskmate integration">
-        <div className="space-y-3">
-          <Field
-            label="Home Assistant WebSocket URL (local)"
-            value={linkUrl}
-            onChange={setLinkUrl}
-            placeholder="ws://homeassistant.local:8123"
-            hint="The /api/deskmate_link/ws path is added automatically."
-          />
-          <Field
-            label="Fallback WebSocket URL"
-            value={linkUrlRemote}
-            onChange={setLinkUrlRemote}
-            placeholder="wss://ha.example.com"
-          />
-          <Field
-            label="Pairing code or key"
-            value={linkKey}
-            onChange={onPairingInput}
-            type="password"
-            placeholder={hasLinkKey ? "unchanged (stored in Credential Manager)" : "DMP1... code from Home Assistant"}
-            hint="Pasting the pairing code fills in the addresses as well."
-          />
-          {pairedNode && pairedNode !== config.node_id && (
+      {transport === "link" && (
+        <Panel title="Deskmate integration">
+          <div className="space-y-3">
+            <Field
+              label="Home Assistant WebSocket URL (local)"
+              value={linkUrl}
+              onChange={setLinkUrl}
+              placeholder="ws://homeassistant.local:8123"
+              hint="The /api/deskmate_link/ws path is added automatically."
+            />
+            <Field
+              label="Fallback WebSocket URL"
+              value={linkUrlRemote}
+              onChange={setLinkUrlRemote}
+              placeholder="wss://ha.example.com"
+            />
+            <Field
+              label="Pairing code or key"
+              value={linkKey}
+              onChange={onPairingInput}
+              type="password"
+              placeholder={
+                hasLinkKey
+                  ? "unchanged (stored in Credential Manager)"
+                  : "DMP1... code from Home Assistant"
+              }
+              hint="Pasting the pairing code fills in the addresses as well."
+            />
+            {pairedNode && pairedNode !== config.node_id && (
+              <p className="text-[12px] text-muted leading-relaxed">
+                This code is for a computer that is already paired. After saving, this Windows
+                account joins it as <span className="mono text-ink">{pairedNode}</span>.
+              </p>
+            )}
             <p className="text-[12px] text-muted leading-relaxed">
-              This code is for a computer that is already paired. After saving, this Windows
-              account joins it as <span className="mono text-ink">{pairedNode}</span>.
+              This computer identifies itself as{" "}
+              <span className="mono text-ink">{config.node_id}</span>. In Home Assistant add the
+              Deskmate integration, paste the pairing code here and save. The entry binds itself to
+              this computer on the first successful connection. Reinstalled Deskmate, or another
+              Windows account on this computer: in Home Assistant open the Deskmate entry, choose
+              Reconfigure, then Show the pairing code.
             </p>
-          )}
-          <p className="text-[12px] text-muted leading-relaxed">
-            This computer identifies itself as <span className="mono text-ink">{config.node_id}</span>.
-            In Home Assistant add the Deskmate integration, paste the pairing code here and save.
-            The entry binds itself to this computer on the first successful connection. Reinstalled
-            Deskmate, or another Windows account on this computer: in Home Assistant open the
-            Deskmate entry, choose Reconfigure, then Show the pairing code.
-          </p>
-          <p className="text-[12px] text-muted leading-relaxed">
-            The connection is encrypted end to end (Deskmate Link protocol). MQTT settings remain saved and can be selected again at any time.
-          </p>
-        </div>
-      </Panel>}
+            <p className="text-[12px] text-muted leading-relaxed">
+              The connection is encrypted end to end (Deskmate Link protocol). MQTT settings remain
+              saved and can be selected again at any time.
+            </p>
+          </div>
+        </Panel>
+      )}
 
       <Panel title="Device">
         <div className="space-y-3">
-          <Field label="Device name" value={deviceName} onChange={setDeviceName} hint="Shown in Home Assistant. Entity ids keep the original node id." />
+          <Field
+            label="Device name"
+            value={deviceName}
+            onChange={setDeviceName}
+            hint="Shown in Home Assistant. Entity ids keep the original node id."
+          />
           <Field label="Publish interval (seconds)" value={interval} onChange={setIntervalS} />
           <div className="flex items-center justify-between h-9">
             <span className="text-[13px]">Start with Windows</span>
@@ -294,7 +315,10 @@ export default function SettingsPage({
           </div>
           <div className="flex items-center justify-between h-9">
             <span className="text-[13px]">Start minimized to tray</span>
-            <Toggle on={launchHidden} onChange={(v) => void toggleFeature("launch_hidden", v, setLaunchHidden)} />
+            <Toggle
+              on={launchHidden}
+              onChange={(v) => void toggleFeature("launch_hidden", v, setLaunchHidden)}
+            />
           </div>
           <label className="block">
             <span className="microlabel">Appearance</span>
@@ -311,7 +335,9 @@ export default function SettingsPage({
               <option value="light">Light</option>
               <option value="dark">Dark</option>
             </select>
-            <span className="block mt-1 text-[12px] text-muted">Applied right away; kept after Save.</span>
+            <span className="block mt-1 text-[12px] text-muted">
+              Applied right away; kept after Save.
+            </span>
           </label>
         </div>
       </Panel>
@@ -321,8 +347,8 @@ export default function SettingsPage({
       <Panel title="Home Assistant dashboard">
         <p className="text-[12px] text-muted mb-2 leading-relaxed">
           Opens a Home Assistant dashboard in a Deskmate window, from the tray menu, a hotkey or a
-          tray quick action. Log in to Home Assistant there once; the session is kept. The page
-          has no access to Deskmate itself.
+          tray quick action. Log in to Home Assistant there once; the session is kept. The page has
+          no access to Deskmate itself.
         </p>
         <div className="space-y-3">
           <Field
@@ -348,17 +374,19 @@ export default function SettingsPage({
             >
               Open now
             </Button>
-            <span className="text-[12px] text-muted">{dashboardMsg ?? "Path and on-top are kept after Save."}</span>
+            <span className="text-[12px] text-muted">
+              {dashboardMsg ?? "Path and on-top are kept after Save."}
+            </span>
           </div>
         </div>
       </Panel>
 
       <Panel title="Home Assistant API (hotkeys, widgets, tray)">
         <p className="text-[12px] text-muted mb-2 leading-relaxed">
-          Optional, and separate from the connection above: only hotkeys, the widget
-          panel and tray quick actions use it. Create a long-lived access token in HA
-          (your profile → Security → Long-lived access tokens). The token is
-          stored in Windows Credential Manager, never in a file.
+          Optional, and separate from the connection above: only hotkeys, the widget panel and tray
+          quick actions use it. Create a long-lived access token in HA (your profile → Security →
+          Long-lived access tokens). The token is stored in Windows Credential Manager, never in a
+          file.
         </p>
         <div className="space-y-3">
           <Field
@@ -393,23 +421,31 @@ export default function SettingsPage({
 
       <Panel title="Remote input (opt-in)">
         <p className="text-[12px] text-muted mb-2 leading-relaxed">
-          These let Home Assistant act on this computer. Off by default and applied
-          immediately (the entities appear in HA right away). Anyone who can reach
-          your broker can trigger them, so enable only on a trusted network.
+          These let Home Assistant act on this computer. Off by default and applied immediately (the
+          entities appear in HA right away). Anyone who can reach your broker can trigger them, so
+          enable only on a trusted network.
         </p>
         <div className="flex items-center justify-between h-9">
           <div>
             <span className="text-[13px]">Type text &amp; presentation control</span>
-            <p className="text-[12px] text-muted">HA sends keystrokes to the active window (text, slide next/prev).</p>
+            <p className="text-[12px] text-muted">
+              HA sends keystrokes to the active window (text, slide next/prev).
+            </p>
           </div>
-          <Toggle on={allowInput} onChange={(v) => void toggleFeature("allow_input", v, setAllowInput)} />
+          <Toggle
+            on={allowInput}
+            onChange={(v) => void toggleFeature("allow_input", v, setAllowInput)}
+          />
         </div>
         <div className="flex items-center justify-between h-9 mt-2">
           <div>
             <span className="text-[13px]">Text-to-speech</span>
             <p className="text-[12px] text-muted">HA sends text and this PC speaks it aloud.</p>
           </div>
-          <Toggle on={ttsEnabled} onChange={(v) => void toggleFeature("tts_enabled", v, setTtsEnabled)} />
+          <Toggle
+            on={ttsEnabled}
+            onChange={(v) => void toggleFeature("tts_enabled", v, setTtsEnabled)}
+          />
         </div>
         <label className="block mt-3">
           <span className="microlabel">Allowed URL origins</span>
@@ -421,7 +457,8 @@ export default function SettingsPage({
             className="mt-1 w-full px-3 py-2 bg-panel border border-hairline-strong rounded text-ink mono text-[13px] placeholder:text-faint focus-visible:border-ink"
           />
           <span className="block mt-1 text-[12px] text-muted">
-            Exact scheme + host + port only. Applies to open_url and notification images. Configured HA API origins are allowed automatically.
+            Exact scheme + host + port only. Applies to open_url and notification images. Configured
+            HA API origins are allowed automatically.
           </span>
         </label>
       </Panel>
@@ -431,11 +468,14 @@ export default function SettingsPage({
           <div>
             <span className="text-[13px]">Branded toasts (show as “Deskmate”)</span>
             <p className="text-[12px] text-muted">
-              On = notifications show as “Deskmate”. Off = they show as “Windows PowerShell”.
-              No PowerShell is started either way. If toasts stop appearing, turn this off.
+              On = notifications show as “Deskmate”. Off = they show as “Windows PowerShell”. No
+              PowerShell is started either way. If toasts stop appearing, turn this off.
             </p>
           </div>
-          <Toggle on={branding} onChange={(v) => void toggleFeature("toast_branding", v, setBranding)} />
+          <Toggle
+            on={branding}
+            onChange={(v) => void toggleFeature("toast_branding", v, setBranding)}
+          />
         </div>
       </Panel>
 
@@ -444,11 +484,14 @@ export default function SettingsPage({
           <div>
             <span className="text-[13px]">Check for updates once a day</span>
             <p className="text-[12px] text-muted">
-              Asks GitHub for the latest release. Nothing is downloaded or installed: a new
-              version shows up in the tray menu and on the Status page.
+              Asks GitHub for the latest release. Nothing is downloaded or installed: a new version
+              shows up in the tray menu and on the Status page.
             </p>
           </div>
-          <Toggle on={updateCheck} onChange={(v) => void toggleFeature("update_check", v, setUpdateCheck)} />
+          <Toggle
+            on={updateCheck}
+            onChange={(v) => void toggleFeature("update_check", v, setUpdateCheck)}
+          />
         </div>
         <div className="mt-3 flex items-center gap-3">
           <Button onClick={() => void checkUpdates()}>Check now</Button>

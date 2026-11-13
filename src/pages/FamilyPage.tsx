@@ -82,9 +82,10 @@ export default function FamilyPage() {
     <>
       <Panel title="Screen time">
         <p className="text-[12px] text-muted mb-3 leading-relaxed">
-          Deskmate counts how long this Windows account is in use today: unlocked, with keyboard or mouse input in the
-          last 5 minutes, or something playing full screen. It resets at midnight. Turned on, Home Assistant gets the
-          screen time and can set the rules below. Nothing goes to Microsoft or any other cloud.
+          Deskmate counts how long this Windows account is in use today: unlocked, with keyboard or
+          mouse input in the last 5 minutes, or something playing full screen. It resets at
+          midnight. Turned on, Home Assistant gets the screen time and can set the rules below.
+          Nothing goes to Microsoft or any other cloud.
         </p>
         <div className="flex items-center justify-between h-9">
           <span className="text-[13px]">Count screen time on this account</span>
@@ -102,7 +103,9 @@ export default function FamilyPage() {
             </div>
             <div>
               <span className="microlabel">Left</span>
-              <p className="mono mt-1">{view.left_min === null ? "no limit" : `${view.left_min} min`}</p>
+              <p className="mono mt-1">
+                {view.left_min === null ? "no limit" : `${view.left_min} min`}
+              </p>
             </div>
             <div>
               <span className="microlabel">Extra today</span>
@@ -120,15 +123,25 @@ export default function FamilyPage() {
         <Panel title="Rules">
           {locked && (
             <p className="text-[12px] border border-hairline-strong rounded p-2 mb-3 leading-relaxed">
-              An administrator protected this account. The rules can only be changed in Home Assistant.
+              An administrator protected this account. The rules can only be changed in Home
+              Assistant.
             </p>
           )}
           <div className="flex items-center justify-between h-9">
             <span className="text-[13px]">Enforce the limit and the allowed hours</span>
-            <Toggle on={draft.rules_on} disabled={locked} onChange={(v) => setDraft({ ...draft, rules_on: v })} />
+            <Toggle
+              on={draft.rules_on}
+              disabled={locked}
+              onChange={(v) => setDraft({ ...draft, rules_on: v })}
+            />
           </div>
           <div className="mt-2 grid grid-cols-3 gap-3">
-            <Field label="Daily limit (minutes)" value={limit} onChange={setLimit} placeholder="0 = no limit" />
+            <Field
+              label="Daily limit (minutes)"
+              value={limit}
+              onChange={setLimit}
+              placeholder="0 = no limit"
+            />
             <Field
               label="Allowed from"
               value={draft.allowed_from}
@@ -158,13 +171,18 @@ export default function FamilyPage() {
             </select>
           </label>
           <p className="mt-1 text-[12px] text-muted">
-            Warnings come 10, 5 and 1 minute before. When the time is up there is a minute to save, with a button to
-            ask Home Assistant for more time. Unlocking again locks after 20 seconds.
+            Warnings come 10, 5 and 1 minute before. When the time is up there is a minute to save,
+            with a button to ask Home Assistant for more time. Unlocking again locks after 20
+            seconds.
           </p>
 
           <div className="mt-4 flex items-center justify-between h-9">
             <span className="text-[13px]">Block these programs</span>
-            <Toggle on={draft.block_apps} disabled={locked} onChange={(v) => setDraft({ ...draft, block_apps: v })} />
+            <Toggle
+              on={draft.block_apps}
+              disabled={locked}
+              onChange={(v) => setDraft({ ...draft, block_apps: v })}
+            />
           </div>
           <Field
             label="Programs"
@@ -188,15 +206,16 @@ export default function FamilyPage() {
       {active && (
         <Panel title="Protection">
           <p className="text-[12px] text-muted mb-3 leading-relaxed">
-            A child can close Deskmate or edit its settings. Protecting this account needs an administrator password
-            once. Then Windows starts Deskmate again within a minute when it is closed, the rules can only be changed
-            in Home Assistant, and Home Assistant puts back any rule changed on this computer. Use a standard
-            (not administrator) Windows account for the child.
+            A child can close Deskmate or edit its settings. Protecting this account needs an
+            administrator password once. Then Windows starts Deskmate again within a minute when it
+            is closed, the rules can only be changed in Home Assistant, and Home Assistant puts back
+            any rule changed on this computer. Use a standard (not administrator) Windows account
+            for the child.
           </p>
           {view.admin_account && (
             <p className="text-[12px] border border-hairline-strong rounded p-2 mb-3 leading-relaxed">
-              This Windows account is an administrator, so it could remove the protection again. It only holds on a
-              standard account.
+              This Windows account is an administrator, so it could remove the protection again. It
+              only holds on a standard account.
             </p>
           )}
           <div className="flex items-center justify-between gap-3 min-h-9 text-[13px]">
@@ -216,7 +235,9 @@ export default function FamilyPage() {
               <Button
                 kind="primary"
                 disabled={busy}
-                onClick={() => void elevated(api.protectFamilyAccount, "This account is protected.")}
+                onClick={() =>
+                  void elevated(api.protectFamilyAccount, "This account is protected.")
+                }
               >
                 Protect this account
               </Button>
@@ -230,24 +251,31 @@ export default function FamilyPage() {
         <Panel title="In Home Assistant">
           <ul className="text-[12px] text-muted space-y-1.5 leading-relaxed">
             <li>
-              <span className="text-ink">Screen time today</span>, <span className="text-ink">Screen time left</span>{" "}
-              and <span className="text-ink">Screen time status</span> sensors.
+              <span className="text-ink">Screen time today</span>,{" "}
+              <span className="text-ink">Screen time left</span> and{" "}
+              <span className="text-ink">Screen time status</span> sensors.
             </li>
             <li>
-              <span className="text-ink">Screen time rules</span>, <span className="text-ink">Daily screen time limit</span>,{" "}
-              <span className="text-ink">Allowed from</span> / <span className="text-ink">until</span>,{" "}
-              <span className="text-ink">Block apps</span>, <span className="text-ink">Blocked apps</span> and{" "}
+              <span className="text-ink">Screen time rules</span>,{" "}
+              <span className="text-ink">Daily screen time limit</span>,{" "}
+              <span className="text-ink">Allowed from</span> /{" "}
+              <span className="text-ink">until</span>, <span className="text-ink">Block apps</span>,{" "}
+              <span className="text-ink">Blocked apps</span> and{" "}
               <span className="text-ink">When time is up</span> to change the rules.
             </li>
             <li>
-              <span className="text-ink">Extra time today</span>: minutes on top of the limit, back to 0 at midnight.
+              <span className="text-ink">Extra time today</span>: minutes on top of the limit, back
+              to 0 at midnight.
             </li>
             <li>
-              <span className="text-ink">Lock with message</span>: shows the text, then locks 10 seconds later.
+              <span className="text-ink">Lock with message</span>: shows the text, then locks 10
+              seconds later.
             </li>
             <li>
-              "Ask for more time" fires the <span className="mono">deskmate_link_notify_action</span> event with action{" "}
-              <span className="mono">screen_time_more</span>, ready for an automation that asks you on your phone.
+              "Ask for more time" fires the{" "}
+              <span className="mono">deskmate_link_notify_action</span> event with action{" "}
+              <span className="mono">screen_time_more</span>, ready for an automation that asks you
+              on your phone.
             </li>
           </ul>
         </Panel>

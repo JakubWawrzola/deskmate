@@ -1,6 +1,14 @@
 import type { ReactNode } from "react";
 
-export function Panel({ title, children, action }: { title: string; children: ReactNode; action?: ReactNode }) {
+export function Panel({
+  title,
+  children,
+  action,
+}: {
+  title: string;
+  children: ReactNode;
+  action?: ReactNode;
+}) {
   return (
     <section className="bg-panel border border-hairline rounded-md">
       <header className="flex items-center justify-between px-4 h-10 border-b border-hairline">
@@ -44,7 +52,15 @@ export function Field({
   );
 }
 
-export function Toggle({ on, onChange, disabled }: { on: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
+export function Toggle({
+  on,
+  onChange,
+  disabled,
+}: {
+  on: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+}) {
   return (
     <button
       role="switch"

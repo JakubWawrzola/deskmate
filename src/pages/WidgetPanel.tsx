@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import type { WidgetState } from "../types";
 

@@ -33,15 +33,19 @@ export default function WidgetsPage({
   return (
     <Panel
       title="Widget panel"
-      action={<Button onClick={() => setItems([...items, { entity_id: "", label: "" }])}>Add tile</Button>}
+      action={
+        <Button onClick={() => setItems([...items, { entity_id: "", label: "" }])}>Add tile</Button>
+      }
     >
       <p className="text-[12px] text-muted mb-3 leading-relaxed">
-        A small always-on-top window with tiles for your Home Assistant entities:
-        click a tile to toggle it, sensors are read-only. Show/hide it from the tray
-        menu or a hotkey. Needs the HA API configured in Settings
+        A small always-on-top window with tiles for your Home Assistant entities: click a tile to
+        toggle it, sensors are read-only. Show/hide it from the tray menu or a hotkey. Needs the HA
+        API configured in Settings
         {snapshot.ha_configured ? "" : " (not configured yet!)"}.
       </p>
-      {items.length === 0 && <EmptyState text="No tiles yet. Add light.xxx, switch.xxx, sensor.xxx..." />}
+      {items.length === 0 && (
+        <EmptyState text="No tiles yet. Add light.xxx, switch.xxx, sensor.xxx..." />
+      )}
       <div className="space-y-2">
         {items.map((w, i) => (
           <div key={i} className="grid grid-cols-[1fr_1fr_auto] gap-2">

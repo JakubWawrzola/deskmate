@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { api } from "../api";
-import { parsePairingCode } from "../pairing";
 import { Button, Field, StatusDot } from "../components";
+import { parsePairingCode } from "../pairing";
 import type { AppConfig, MqttTransport, StatusView, TransportKind } from "../types";
 
 /** First run: the minimum fields needed to connect to the MQTT broker. */
@@ -98,7 +98,8 @@ export default function Wizard({
         <p className="font-semibold tracking-[0.14em] text-[13px] mb-1">DESKMATE</p>
         <h1 className="text-lg font-semibold mb-1">Connect to Home Assistant</h1>
         <p className="text-[13px] text-muted mb-5 leading-relaxed">
-          Add the Deskmate integration in Home Assistant and paste the pairing code it shows. No broker needed. MQTT stays available.
+          Add the Deskmate integration in Home Assistant and paste the pairing code it shows. No
+          broker needed. MQTT stays available.
         </p>
 
         <div className="space-y-3">
@@ -113,69 +114,102 @@ export default function Wizard({
               <option value="mqtt">MQTT broker</option>
             </select>
             <span className="block mt-1 text-[12px] text-muted leading-relaxed">
-              The Deskmate integration is one encrypted connection to Home Assistant, set
-              up with a single pairing code and no broker to install. MQTT stays supported
-              for setups that already run one.
+              The Deskmate integration is one encrypted connection to Home Assistant, set up with a
+              single pairing code and no broker to install. MQTT stays supported for setups that
+              already run one.
             </span>
           </label>
-          {selectedTransport === "mqtt" && <>
-          <label className="block">
-            <span className="microlabel">MQTT security</span>
-            <select
-              value={mqttTransport}
-              onChange={(e) => {
-                const next = e.target.value as MqttTransport;
-                setMqttTransport(next);
-                if (next === "tls" && port === "1883") setPort("8883");
-                if (next === "insecure" && port === "8883") setPort("1883");
-              }}
-              className="mt-1 w-full h-9 px-2 bg-panel border border-hairline-strong rounded text-ink text-[13px] focus-visible:border-ink"
-            >
-              <option value="tls">TLS — verify certificate (recommended)</option>
-              <option value="insecure">Plain MQTT — trusted LAN only</option>
-            </select>
-          </label>
-          {mqttTransport === "insecure" && (
-            <p className="text-[12px] border border-hairline-strong rounded p-2">
-              Plain MQTT exposes credentials, sensor values and commands on the network.
-            </p>
+          {selectedTransport === "mqtt" && (
+            <>
+              <label className="block">
+                <span className="microlabel">MQTT security</span>
+                <select
+                  value={mqttTransport}
+                  onChange={(e) => {
+                    const next = e.target.value as MqttTransport;
+                    setMqttTransport(next);
+                    if (next === "tls" && port === "1883") setPort("8883");
+                    if (next === "insecure" && port === "8883") setPort("1883");
+                  }}
+                  className="mt-1 w-full h-9 px-2 bg-panel border border-hairline-strong rounded text-ink text-[13px] focus-visible:border-ink"
+                >
+                  <option value="tls">TLS — verify certificate (recommended)</option>
+                  <option value="insecure">Plain MQTT — trusted LAN only</option>
+                </select>
+              </label>
+              {mqttTransport === "insecure" && (
+                <p className="text-[12px] border border-hairline-strong rounded p-2">
+                  Plain MQTT exposes credentials, sensor values and commands on the network.
+                </p>
+              )}
+              <div className="grid grid-cols-[1fr_92px] gap-3">
+                <Field
+                  label="Broker address"
+                  value={host}
+                  onChange={setHost}
+                  placeholder="192.168.1.10"
+                />
+                <Field label="Port" value={port} onChange={setPort} placeholder="1883" />
+              </div>
+              {mqttTransport === "tls" && (
+                <Field
+                  label="Custom CA certificate (PEM path)"
+                  value={caPath}
+                  onChange={setCaPath}
+                  placeholder="Optional — Windows trust store is used by default"
+                />
+              )}
+              <Field
+                label="Username"
+                value={username}
+                onChange={setUsername}
+                placeholder="dedicated Deskmate MQTT user"
+              />
+              <Field
+                label="Password"
+                value={password}
+                onChange={setPassword}
+                type="password"
+                placeholder="stored in Windows Credential Manager"
+              />
+            </>
           )}
-          <div className="grid grid-cols-[1fr_92px] gap-3">
-            <Field label="Broker address" value={host} onChange={setHost} placeholder="192.168.1.10" />
-            <Field label="Port" value={port} onChange={setPort} placeholder="1883" />
-          </div>
-          {mqttTransport === "tls" && (
-            <Field
-              label="Custom CA certificate (PEM path)"
-              value={caPath}
-              onChange={setCaPath}
-              placeholder="Optional — Windows trust store is used by default"
-            />
+          {selectedTransport === "link" && (
+            <>
+              <Field
+                label="Pairing code"
+                value={linkKey}
+                onChange={onPairingInput}
+                type="password"
+                placeholder={
+                  hasLinkKey
+                    ? "unchanged (stored in Credential Manager)"
+                    : "DMP1... from Home Assistant"
+                }
+                hint="Home Assistant: Settings > Devices & services > Add integration > Deskmate. The code fills in the address too."
+              />
+              {pairedNode && (
+                <p className="text-[12px] text-muted leading-relaxed">
+                  This code is for a computer that is already paired. This Windows account will join
+                  it as <span className="mono text-ink">{pairedNode}</span> and share its device in
+                  Home Assistant.
+                </p>
+              )}
+              <Field
+                label="Home Assistant WebSocket URL"
+                value={linkUrl}
+                onChange={setLinkUrl}
+                placeholder="ws://homeassistant.local:8123"
+              />
+              {linkUrlRemote && (
+                <Field
+                  label="Fallback WebSocket URL"
+                  value={linkUrlRemote}
+                  onChange={setLinkUrlRemote}
+                />
+              )}
+            </>
           )}
-          <Field label="Username" value={username} onChange={setUsername} placeholder="dedicated Deskmate MQTT user" />
-          <Field label="Password" value={password} onChange={setPassword} type="password" placeholder="stored in Windows Credential Manager" />
-          </>}
-          {selectedTransport === "link" && <>
-            <Field
-              label="Pairing code"
-              value={linkKey}
-              onChange={onPairingInput}
-              type="password"
-              placeholder={hasLinkKey ? "unchanged (stored in Credential Manager)" : "DMP1... from Home Assistant"}
-              hint="Home Assistant: Settings > Devices & services > Add integration > Deskmate. The code fills in the address too."
-            />
-            {pairedNode && (
-              <p className="text-[12px] text-muted leading-relaxed">
-                This code is for a computer that is already paired. This Windows account will
-                join it as <span className="mono text-ink">{pairedNode}</span> and share its
-                device in Home Assistant.
-              </p>
-            )}
-            <Field label="Home Assistant WebSocket URL" value={linkUrl} onChange={setLinkUrl} placeholder="ws://homeassistant.local:8123" />
-            {linkUrlRemote && (
-              <Field label="Fallback WebSocket URL" value={linkUrlRemote} onChange={setLinkUrlRemote} />
-            )}
-          </>}
           <Field
             label="Device name"
             value={deviceName}
@@ -184,7 +218,11 @@ export default function Wizard({
           />
         </div>
 
-        {error && <p className="mt-3 text-[13px] text-ink border border-hairline-strong rounded px-3 py-2">{error}</p>}
+        {error && (
+          <p className="mt-3 text-[13px] text-ink border border-hairline-strong rounded px-3 py-2">
+            {error}
+          </p>
+        )}
 
         <div className="mt-5 flex items-center justify-between">
           <span className="flex items-center gap-2 text-[12px] text-muted">

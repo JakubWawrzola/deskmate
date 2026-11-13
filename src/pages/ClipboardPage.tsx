@@ -22,7 +22,11 @@ export default function ClipboardPage({
     setSaving(true);
     setMsg(null);
     try {
-      await api.saveConfig({ ...config, clipboard_read_mode: readMode, clipboard_write_mode: writeMode });
+      await api.saveConfig({
+        ...config,
+        clipboard_read_mode: readMode,
+        clipboard_write_mode: writeMode,
+      });
       setMsg("Saved. Reconnecting...");
       await onSaved();
     } catch (e) {
@@ -36,9 +40,10 @@ export default function ClipboardPage({
     <>
       <Panel title="Clipboard">
         <p className="text-[12px] text-muted mb-3 leading-relaxed">
-          Copy text on this computer and paste it on your phone, or the other way round. Reading and writing are
-          separate permissions. Both are blocked while Windows is locked. Asking first means a question on this
-          computer for every changed value (read) or every incoming text (write).
+          Copy text on this computer and paste it on your phone, or the other way round. Reading and
+          writing are separate permissions. Both are blocked while Windows is locked. Asking first
+          means a question on this computer for every changed value (read) or every incoming text
+          (write).
         </p>
         <div className="grid grid-cols-2 gap-3">
           <label className="block">
@@ -77,13 +82,16 @@ export default function ClipboardPage({
       <Panel title="In Home Assistant">
         <ul className="text-[12px] text-muted space-y-1.5 leading-relaxed">
           <li>
-            <span className="text-ink">Clipboard</span> sensor: the text copied on this computer, when sending is on.
+            <span className="text-ink">Clipboard</span> sensor: the text copied on this computer,
+            when sending is on.
           </li>
           <li>
-            <span className="text-ink">Set clipboard</span> text entity: type or automate text that lands in this
-            computer's clipboard, when setting is on.
+            <span className="text-ink">Set clipboard</span> text entity: type or automate text that
+            lands in this computer's clipboard, when setting is on.
           </li>
-          <li>Values sent to Home Assistant can stay in its history after you switch sending off.</li>
+          <li>
+            Values sent to Home Assistant can stay in its history after you switch sending off.
+          </li>
         </ul>
         {config.clipboard_read_mode !== "off" && (
           <p className="mt-3 text-[12px]">

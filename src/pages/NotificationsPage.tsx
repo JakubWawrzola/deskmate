@@ -40,14 +40,14 @@ export default function NotificationsPage({
         action={<Button onClick={() => void handleTest()}>Send test toast</Button>}
       >
         <p className="text-[13px] text-muted leading-relaxed">
-          Publish a JSON payload to <span className="mono text-ink">{topic}</span> and
-          it shows up as a Windows toast, with an optional image and action buttons.
+          Publish a JSON payload to <span className="mono text-ink">{topic}</span> and it shows up
+          as a Windows toast, with an optional image and action buttons.
         </p>
         {testResult === "ok" && (
           <p className="text-[12px] text-muted mt-2 leading-relaxed">
             Toast sent. If nothing appeared, Windows is suppressing it — check{" "}
-            <span className="text-ink">Settings → System → Notifications</span> (turn them on,
-            and turn off <span className="text-ink">Do not disturb / Focus</span>).
+            <span className="text-ink">Settings → System → Notifications</span> (turn them on, and
+            turn off <span className="text-ink">Do not disturb / Focus</span>).
           </p>
         )}
         {testResult && testResult !== "ok" && (
@@ -59,9 +59,9 @@ export default function NotificationsPage({
           {example}
         </pre>
         <p className="text-[12px] text-muted mt-2 leading-relaxed">
-          Clicking a button publishes <span className="mono text-ink">{`{"action":"done"}`}</span> to{" "}
-          <span className="mono text-ink">{actionTopic}</span> — catch it with an
-          automation in HA. See docs/HA-SETUP.md for a ready-made script.
+          Clicking a button publishes <span className="mono text-ink">{`{"action":"done"}`}</span>{" "}
+          to <span className="mono text-ink">{actionTopic}</span> — catch it with an automation in
+          HA. See docs/HA-SETUP.md for a ready-made script.
         </p>
       </Panel>
 

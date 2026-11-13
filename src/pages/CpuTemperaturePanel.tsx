@@ -12,7 +12,8 @@ const ERRORS: Record<string, string> = {
 
 function describe(error: string): string {
   if (ERRORS[error]) return ERRORS[error];
-  if (error.startsWith("module_rejected")) return `PawnIO refused the sensor module (${error}). Update PawnIO.`;
+  if (error.startsWith("module_rejected"))
+    return `PawnIO refused the sensor module (${error}). Update PawnIO.`;
   return `The helper could not read the sensor (${error}).`;
 }
 
@@ -22,7 +23,11 @@ export default function CpuTemperaturePanel() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
-  const refresh = () => api.cpuTemperatureStatus().then(setStatus).catch((e) => setMsg(String(e)));
+  const refresh = () =>
+    api
+      .cpuTemperatureStatus()
+      .then(setStatus)
+      .catch((e) => setMsg(String(e)));
   useEffect(() => {
     void refresh();
   }, []);
@@ -64,18 +69,29 @@ export default function CpuTemperaturePanel() {
           <div className="flex items-center justify-between gap-3 min-h-9">
             <span>
               2. Deskmate helper:{" "}
-              {status.helper_running ? "running" : status.helper_installed ? "installed, not running" : "not installed"}
+              {status.helper_running
+                ? "running"
+                : status.helper_installed
+                  ? "installed, not running"
+                  : "not installed"}
             </span>
             <div className="flex gap-2">
               <Button
                 kind="primary"
                 disabled={busy || !status.pawnio_installed}
-                onClick={() => void run(() => api.installCpuTemperatureHelper(), "Helper installed.")}
+                onClick={() =>
+                  void run(() => api.installCpuTemperatureHelper(), "Helper installed.")
+                }
               >
                 {status.helper_installed ? "Reinstall" : "Install helper"}
               </Button>
               {status.helper_installed && (
-                <Button disabled={busy} onClick={() => void run(() => api.removeCpuTemperatureHelper(), "Helper removed.")}>
+                <Button
+                  disabled={busy}
+                  onClick={() =>
+                    void run(() => api.removeCpuTemperatureHelper(), "Helper removed.")
+                  }
+                >
                   Remove
                 </Button>
               )}

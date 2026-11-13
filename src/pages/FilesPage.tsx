@@ -14,7 +14,13 @@ function when(seconds: number): string {
 }
 
 /** Files from Home Assistant and read-only folders, moved out of Settings in 0.8.1. */
-export default function FilesPage({ config, onSaved }: { config: AppConfig; onSaved: () => Promise<void> }) {
+export default function FilesPage({
+  config,
+  onSaved,
+}: {
+  config: AppConfig;
+  onSaved: () => Promise<void>;
+}) {
   const [fileRoots, setFileRoots] = useState(config.link_file_roots);
   const [inboxMode, setInboxMode] = useState<ClipboardMode>(config.link_inbox_mode ?? "off");
   const [inboxDir, setInboxDir] = useState(config.link_inbox_dir ?? "");
@@ -25,12 +31,16 @@ export default function FilesPage({ config, onSaved }: { config: AppConfig; onSa
   const [events, setEvents] = useState<FileEvent[] | null>(null);
 
   useEffect(() => {
-    api.recentFileTransfers().then(setEvents).catch(() => setEvents([]));
+    api
+      .recentFileTransfers()
+      .then(setEvents)
+      .catch(() => setEvents([]));
   }, []);
 
   const addFileRoot = () => {
     const root = fileRootDraft.trim();
-    if (!root || fileRoots.some((item) => item.toLocaleLowerCase() === root.toLocaleLowerCase())) return;
+    if (!root || fileRoots.some((item) => item.toLocaleLowerCase() === root.toLocaleLowerCase()))
+      return;
     setFileRoots((items) => [...items, root]);
     setFileRootDraft("");
   };
@@ -59,10 +69,11 @@ export default function FilesPage({ config, onSaved }: { config: AppConfig; onSa
     <>
       <Panel title="Receive files">
         <p className="text-[12px] text-muted mb-3 leading-relaxed">
-          Send files from your phone or laptop to this computer through the Deskmate page in the Home Assistant
-          sidebar. Files only ever land in the folder below. Home Assistant cannot overwrite, rename, delete or read
-          anything through it; a name that already exists gets a number. Received files are marked as downloaded from
-          another computer, so Windows treats them like browser downloads.
+          Send files from your phone or laptop to this computer through the Deskmate page in the
+          Home Assistant sidebar. Files only ever land in the folder below. Home Assistant cannot
+          overwrite, rename, delete or read anything through it; a name that already exists gets a
+          number. Received files are marked as downloaded from another computer, so Windows treats
+          them like browser downloads.
         </p>
         <div className="grid grid-cols-[1fr_120px] gap-3">
           <label className="block">
@@ -77,7 +88,12 @@ export default function FilesPage({ config, onSaved }: { config: AppConfig; onSa
               <option value="automatic">Accept automatically</option>
             </select>
           </label>
-          <Field label="Max size (MB)" value={filesMaxMb} onChange={setFilesMaxMb} placeholder="256" />
+          <Field
+            label="Max size (MB)"
+            value={filesMaxMb}
+            onChange={setFilesMaxMb}
+            placeholder="256"
+          />
         </div>
         <div className="mt-3">
           <Field
@@ -95,16 +111,20 @@ export default function FilesPage({ config, onSaved }: { config: AppConfig; onSa
         )}
         {inboxMode === "automatic" && (
           <p className="mt-2 text-[12px] border border-hairline-strong rounded p-2">
-            Anyone with an admin account in Home Assistant can put files on this computer without asking.
+            Anyone with an admin account in Home Assistant can put files on this computer without
+            asking.
           </p>
         )}
-        <p className="mt-2 text-[12px] text-muted">The size limit also applies to files Home Assistant reads from the folders below.</p>
+        <p className="mt-2 text-[12px] text-muted">
+          The size limit also applies to files Home Assistant reads from the folders below.
+        </p>
       </Panel>
 
       <Panel title="Shared folders (read-only)">
         <p className="text-[12px] border border-hairline-strong rounded p-2 mb-3 leading-relaxed">
-          Home Assistant can list, inspect and download files inside the folders below, never change them. Leave the
-          list empty to keep this off. Never add a folder with secrets you do not want in Home Assistant.
+          Home Assistant can list, inspect and download files inside the folders below, never change
+          them. Leave the list empty to keep this off. Never add a folder with secrets you do not
+          want in Home Assistant.
         </p>
         <div className="flex items-end gap-2">
           <div className="flex-1">
@@ -116,16 +136,24 @@ export default function FilesPage({ config, onSaved }: { config: AppConfig; onSa
               hint="Absolute local path only. UNC shares, symbolic links and alternate data streams are rejected."
             />
           </div>
-          <Button onClick={addFileRoot} disabled={!fileRootDraft.trim()}>Add folder</Button>
+          <Button onClick={addFileRoot} disabled={!fileRootDraft.trim()}>
+            Add folder
+          </Button>
         </div>
         {fileRoots.length === 0 ? (
           <p className="mt-3 text-[12px] text-muted">Off: no folders are shared.</p>
         ) : (
           <div className="mt-3 space-y-2">
             {fileRoots.map((root) => (
-              <div key={root.toLocaleLowerCase()} className="flex items-center gap-2 border-b border-hairline pb-2 last:border-b-0">
+              <div
+                key={root.toLocaleLowerCase()}
+                className="flex items-center gap-2 border-b border-hairline pb-2 last:border-b-0"
+              >
                 <span className="flex-1 mono text-[12px] break-all">{root}</span>
-                <Button kind="danger" onClick={() => setFileRoots((items) => items.filter((item) => item !== root))}>
+                <Button
+                  kind="danger"
+                  onClick={() => setFileRoots((items) => items.filter((item) => item !== root))}
+                >
                   Remove
                 </Button>
               </div>
@@ -159,7 +187,9 @@ export default function FilesPage({ config, onSaved }: { config: AppConfig; onSa
             ))}
           </div>
         )}
-        <p className="mt-2 text-[12px] text-muted">From the local security log. File contents are never logged.</p>
+        <p className="mt-2 text-[12px] text-muted">
+          From the local security log. File contents are never logged.
+        </p>
       </Panel>
     </>
   );
