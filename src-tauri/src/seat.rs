@@ -78,7 +78,9 @@ mod imp {
         WTSActive, WTSConnectState, WTSFreeMemory, WTSQuerySessionInformationW,
         WTS_CONNECTSTATE_CLASS, WTS_CURRENT_SESSION,
     };
-    use windows::Win32::System::Threading::{CreateEventW, CreateMutexW, OpenEventW, SYNCHRONIZATION_SYNCHRONIZE};
+    use windows::Win32::System::Threading::{
+        CreateEventW, CreateMutexW, OpenEventW, SYNCHRONIZATION_SYNCHRONIZE,
+    };
 
     /// Raw handles kept as integers: HANDLE wraps a pointer and is not Send.
     struct Held {
@@ -112,7 +114,14 @@ mod imp {
         unsafe {
             let mut buffer = windows::core::PWSTR::null();
             let mut bytes = 0u32;
-            if WTSQuerySessionInformationW(None, WTS_CURRENT_SESSION, WTSConnectState, &mut buffer, &mut bytes).is_err()
+            if WTSQuerySessionInformationW(
+                None,
+                WTS_CURRENT_SESSION,
+                WTSConnectState,
+                &mut buffer,
+                &mut bytes,
+            )
+            .is_err()
                 || buffer.is_null()
             {
                 return true;
@@ -164,7 +173,9 @@ mod imp {
         if let Some(held) = seat.as_ref() {
             if held.node == node {
                 if !active && someone_waiting(node) {
-                    log::info!("seat: another Windows user is active on this computer, handing over");
+                    log::info!(
+                        "seat: another Windows user is active on this computer, handing over"
+                    );
                     close(held.handle);
                     *seat = None;
                     return false;

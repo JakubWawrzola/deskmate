@@ -22,7 +22,10 @@ pub fn audit(event: &str, result: &str) {
         return;
     }
     let path = dir.join("security.log");
-    if fs::metadata(&path).map(|m| m.len() >= MAX_AUDIT_BYTES).unwrap_or(false) {
+    if fs::metadata(&path)
+        .map(|m| m.len() >= MAX_AUDIT_BYTES)
+        .unwrap_or(false)
+    {
         let previous = dir.join("security.log.1");
         let _ = fs::remove_file(&previous);
         let _ = fs::rename(&path, previous);
@@ -47,7 +50,10 @@ pub fn audit_file(op: &str, path: &str, result: &str) {
     let safe_op = safe_preview(op, 24).replace(' ', "_");
     let safe_path = safe_preview(path, 512);
     let safe_result = safe_preview(result, 160);
-    audit("link_fs", &format!("op={safe_op} path={safe_path} result={safe_result}"));
+    audit(
+        "link_fs",
+        &format!("op={safe_op} path={safe_path} result={safe_result}"),
+    );
 }
 
 /// A file sent to or read from this computer, for the Files page.
@@ -132,12 +138,14 @@ mod tests {
 
     #[test]
     fn reads_file_events_from_the_log() {
-        let event = parse_file_event("1760400000 link_fs op=put_end path=My photo.jpg result=ok").unwrap();
+        let event =
+            parse_file_event("1760400000 link_fs op=put_end path=My photo.jpg result=ok").unwrap();
         assert_eq!(event.kind, "received");
         assert_eq!(event.path, "My photo.jpg");
         assert_eq!(event.result, "ok");
         let denied =
-            parse_file_event("1760400000 link_fs op=put_begin path=a.exe result=denied: refused").unwrap();
+            parse_file_event("1760400000 link_fs op=put_begin path=a.exe result=denied: refused")
+                .unwrap();
         assert_eq!(denied.result, "denied: refused");
         assert!(parse_file_event("1760400000 link_fs op=list path=C:\\ result=ok").is_none());
         assert!(parse_file_event("1760400000 custom_command started").is_none());

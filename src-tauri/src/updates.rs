@@ -52,7 +52,10 @@ fn fetch_latest_tag() -> Result<String, String> {
         .build();
     let body = agent
         .get(LATEST_API)
-        .set("User-Agent", concat!("Deskmate/", env!("CARGO_PKG_VERSION")))
+        .set(
+            "User-Agent",
+            concat!("Deskmate/", env!("CARGO_PKG_VERSION")),
+        )
         .set("Accept", "application/vnd.github+json")
         .call()
         .map_err(|e| e.to_string())?
@@ -125,7 +128,9 @@ pub async fn announce(app: &AppHandle, info: &UpdateInfo) {
     if first_time {
         let toast = crate::notify::NotifyPayload {
             title: format!("Deskmate {} is available", info.version),
-            message: "Download it from the tray menu or the Status page. Settings and pairing are kept.".into(),
+            message:
+                "Download it from the tray menu or the Status page. Settings and pairing are kept."
+                    .into(),
             image: None,
             actions: Vec::new(),
         };

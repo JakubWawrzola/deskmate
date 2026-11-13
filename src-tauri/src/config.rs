@@ -373,7 +373,11 @@ pub fn sanitize_id(s: &str) -> String {
         .map(|c| if c.is_ascii_alphanumeric() { c } else { '_' })
         .collect();
     let trimmed = out.trim_matches('_');
-    if trimmed.is_empty() { "windows_pc".into() } else { trimmed.into() }
+    if trimmed.is_empty() {
+        "windows_pc".into()
+    } else {
+        trimmed.into()
+    }
 }
 
 pub fn config_path() -> PathBuf {
@@ -389,7 +393,11 @@ pub fn load() -> AppConfig {
         Ok(raw) => {
             let legacy_without_transport = serde_json::from_str::<serde_json::Value>(&raw)
                 .ok()
-                .and_then(|value| value.as_object().map(|object| !object.contains_key("mqtt_transport")))
+                .and_then(|value| {
+                    value
+                        .as_object()
+                        .map(|object| !object.contains_key("mqtt_transport"))
+                })
                 .unwrap_or(false);
             let mut cfg = serde_json::from_str::<AppConfig>(&raw).unwrap_or_default();
             if legacy_without_transport {

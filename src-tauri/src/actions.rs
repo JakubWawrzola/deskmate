@@ -43,7 +43,11 @@ pub async fn execute(app: &AppHandle, spec: &ActionSpec, source_id: &str) {
             let (d, s) = (domain.to_string(), service.to_string());
             let entity = spec.entity_id.trim().to_string();
             let r = tokio::task::spawn_blocking(move || {
-                let ent = if entity.is_empty() { None } else { Some(entity.as_str()) };
+                let ent = if entity.is_empty() {
+                    None
+                } else {
+                    Some(entity.as_str())
+                };
                 crate::ha_api::call_service(&cfg, &d, &s, ent, &data)
             })
             .await

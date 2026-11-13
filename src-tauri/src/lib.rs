@@ -102,7 +102,10 @@ async fn save_config(
     new_config.link_url = link::normalize_url(&new_config.link_url)?;
     new_config.link_url_remote = link::normalize_url(&new_config.link_url_remote)?;
     new_config.link_file_roots = link_files::normalize_roots(&new_config.link_file_roots)?;
-    if !matches!(new_config.link_inbox_mode.as_str(), "off" | "confirm" | "automatic") {
+    if !matches!(
+        new_config.link_inbox_mode.as_str(),
+        "off" | "confirm" | "automatic"
+    ) {
         return Err("receiving files must be off, confirm or automatic".into());
     }
     new_config.link_inbox_dir = link_files::normalize_inbox_dir(&new_config.link_inbox_dir)?;
@@ -544,7 +547,12 @@ pub(crate) fn rebuild_tray_menu(app: &AppHandle, cfg: &AppConfig) -> Result<(), 
     let quit = mk("quit", "Quit").map_err(|e| e.to_string())?;
     let sep = PredefinedMenuItem::separator(app).map_err(|e| e.to_string())?;
     let update = updates::available()
-        .map(|info| mk("update", &format!("Update available: Deskmate {}", info.version)))
+        .map(|info| {
+            mk(
+                "update",
+                &format!("Update available: Deskmate {}", info.version),
+            )
+        })
         .transpose()
         .map_err(|e| e.to_string())?;
     let update_sep = PredefinedMenuItem::separator(app).map_err(|e| e.to_string())?;
@@ -917,23 +925,21 @@ async fn restart_connection(app: AppHandle) -> Result<(), String> {
 #[tauri::command]
 fn test_toast() -> Result<(), String> {
     // example with buttons: a click publishes to deskmate/<node>/notify/action
-    notify::show_toast(
-        &notify::NotifyPayload {
-            title: consts::TOAST_DISPLAY_NAME.into(),
-            message: "Notifications work. Try the buttons below.".into(),
-            image: None,
-            actions: vec![
-                notify::NotifyAction {
-                    title: "OK".into(),
-                    action: "test_ok".into(),
-                },
-                notify::NotifyAction {
-                    title: "Snooze".into(),
-                    action: "test_snooze".into(),
-                },
-            ],
-        },
-    )
+    notify::show_toast(&notify::NotifyPayload {
+        title: consts::TOAST_DISPLAY_NAME.into(),
+        message: "Notifications work. Try the buttons below.".into(),
+        image: None,
+        actions: vec![
+            notify::NotifyAction {
+                title: "OK".into(),
+                action: "test_ok".into(),
+            },
+            notify::NotifyAction {
+                title: "Snooze".into(),
+                action: "test_snooze".into(),
+            },
+        ],
+    })
 }
 
 #[tauri::command]
@@ -962,10 +968,18 @@ pub fn run() {
         return;
     }
     if std::env::args().any(|arg| arg == cpu_temperature::INSTALL_ARG) {
-        std::process::exit(if cpu_temperature::install().is_ok() { 0 } else { 1 });
+        std::process::exit(if cpu_temperature::install().is_ok() {
+            0
+        } else {
+            1
+        });
     }
     if std::env::args().any(|arg| arg == cpu_temperature::REMOVE_ARG) {
-        std::process::exit(if cpu_temperature::remove().is_ok() { 0 } else { 1 });
+        std::process::exit(if cpu_temperature::remove().is_ok() {
+            0
+        } else {
+            1
+        });
     }
     // Family protection (family.rs): the elevated steps from the Family page
     // and the scheduled task that starts Deskmate again.
@@ -980,7 +994,8 @@ pub fn run() {
     // notification is activated. Deskmate handles button clicks over its URL
     // protocol instead, so such a launch must not turn into a second app window.
     if std::env::args().any(|arg| {
-        arg.eq_ignore_ascii_case(consts::TOAST_ACTIVATED_ARG) || arg.eq_ignore_ascii_case("-Embedding")
+        arg.eq_ignore_ascii_case(consts::TOAST_ACTIVATED_ARG)
+            || arg.eq_ignore_ascii_case("-Embedding")
     }) && !std::env::args().any(|arg| notify::is_action_url(&arg))
     {
         return;
@@ -988,8 +1003,7 @@ pub fn run() {
 
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
     let cfg = config::load();
-    let launch_hidden =
-        cfg.launch_hidden || std::env::args().any(|arg| arg == family::HIDDEN_ARG);
+    let launch_hidden = cfg.launch_hidden || std::env::args().any(|arg| arg == family::HIDDEN_ARG);
     let toast_branding = cfg.toast_branding;
 
     tauri::Builder::default()
@@ -1102,7 +1116,9 @@ pub fn run() {
                                     !cfg.connection_paused
                                 };
                                 let state = app.state::<AppState>();
-                                if let Err(e) = set_connection_paused(app.clone(), state, paused).await {
+                                if let Err(e) =
+                                    set_connection_paused(app.clone(), state, paused).await
+                                {
                                     log::warn!("connection toggle: {e}");
                                 }
                                 let _ = tauri::Emitter::emit(&app, "deskmate://config", ());

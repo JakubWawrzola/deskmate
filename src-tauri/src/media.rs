@@ -35,7 +35,10 @@ pub fn current() -> Option<MediaInfo> {
     Some(MediaInfo {
         title: props.Title().map(|s| s.to_string()).unwrap_or_default(),
         artist: props.Artist().map(|s| s.to_string()).unwrap_or_default(),
-        app: s.SourceAppUserModelId().map(|s| s.to_string()).unwrap_or_default(),
+        app: s
+            .SourceAppUserModelId()
+            .map(|s| s.to_string())
+            .unwrap_or_default(),
         status: status.into(),
     })
 }

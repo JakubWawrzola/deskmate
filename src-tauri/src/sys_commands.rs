@@ -15,26 +15,90 @@ pub struct CommandDef {
 }
 
 pub const COMMAND_DEFS: &[CommandDef] = &[
-    CommandDef { id: "lock", name: "Lock", icon: "mdi:lock" },
-    CommandDef { id: "sleep", name: "Sleep", icon: "mdi:power-sleep" },
-    CommandDef { id: "hibernate", name: "Hibernate", icon: "mdi:power-sleep" },
-    CommandDef { id: "shutdown", name: "Shutdown", icon: "mdi:power" },
-    CommandDef { id: "restart", name: "Restart", icon: "mdi:restart" },
-    CommandDef { id: "sign_out", name: "Sign out", icon: "mdi:logout" },
-    CommandDef { id: "monitor_off", name: "Monitors off", icon: "mdi:monitor-off" },
-    CommandDef { id: "media_play_pause", name: "Media play/pause", icon: "mdi:play-pause" },
-    CommandDef { id: "media_next", name: "Media next", icon: "mdi:skip-next" },
-    CommandDef { id: "media_prev", name: "Media previous", icon: "mdi:skip-previous" },
-    CommandDef { id: "empty_recycle_bin", name: "Empty recycle bin", icon: "mdi:delete-empty" },
+    CommandDef {
+        id: "lock",
+        name: "Lock",
+        icon: "mdi:lock",
+    },
+    CommandDef {
+        id: "sleep",
+        name: "Sleep",
+        icon: "mdi:power-sleep",
+    },
+    CommandDef {
+        id: "hibernate",
+        name: "Hibernate",
+        icon: "mdi:power-sleep",
+    },
+    CommandDef {
+        id: "shutdown",
+        name: "Shutdown",
+        icon: "mdi:power",
+    },
+    CommandDef {
+        id: "restart",
+        name: "Restart",
+        icon: "mdi:restart",
+    },
+    CommandDef {
+        id: "sign_out",
+        name: "Sign out",
+        icon: "mdi:logout",
+    },
+    CommandDef {
+        id: "monitor_off",
+        name: "Monitors off",
+        icon: "mdi:monitor-off",
+    },
+    CommandDef {
+        id: "media_play_pause",
+        name: "Media play/pause",
+        icon: "mdi:play-pause",
+    },
+    CommandDef {
+        id: "media_next",
+        name: "Media next",
+        icon: "mdi:skip-next",
+    },
+    CommandDef {
+        id: "media_prev",
+        name: "Media previous",
+        icon: "mdi:skip-previous",
+    },
+    CommandDef {
+        id: "empty_recycle_bin",
+        name: "Empty recycle bin",
+        icon: "mdi:delete-empty",
+    },
 ];
 
 /// Presentation commands - shown in discovery ONLY when allow_input=true.
 pub const PRESENT_DEFS: &[CommandDef] = &[
-    CommandDef { id: "present_next", name: "Presentation next", icon: "mdi:arrow-right-bold" },
-    CommandDef { id: "present_prev", name: "Presentation previous", icon: "mdi:arrow-left-bold" },
-    CommandDef { id: "present_start", name: "Presentation start", icon: "mdi:play-box" },
-    CommandDef { id: "present_black", name: "Presentation black", icon: "mdi:square" },
-    CommandDef { id: "present_end", name: "Presentation end", icon: "mdi:stop" },
+    CommandDef {
+        id: "present_next",
+        name: "Presentation next",
+        icon: "mdi:arrow-right-bold",
+    },
+    CommandDef {
+        id: "present_prev",
+        name: "Presentation previous",
+        icon: "mdi:arrow-left-bold",
+    },
+    CommandDef {
+        id: "present_start",
+        name: "Presentation start",
+        icon: "mdi:play-box",
+    },
+    CommandDef {
+        id: "present_black",
+        name: "Presentation black",
+        icon: "mdi:square",
+    },
+    CommandDef {
+        id: "present_end",
+        name: "Presentation end",
+        icon: "mdi:stop",
+    },
 ];
 
 /// Runs a predefined action. Returns Err for an unknown key.
@@ -55,11 +119,11 @@ pub fn run_builtin(key: &str, payload: &str) -> Result<(), String> {
         "audio_output" | "audio_input" => crate::audio::select(key, payload),
         // text input + presentation (allow_input gate checked in MQTT routing)
         "type_text" => type_text(payload),
-        "present_next" => tap_vk(0x27),   // VK_RIGHT
-        "present_prev" => tap_vk(0x25),   // VK_LEFT
-        "present_start" => tap_vk(0x74),  // VK_F5
-        "present_black" => tap_vk(0x42),  // 'B'
-        "present_end" => tap_vk(0x1B),    // VK_ESCAPE
+        "present_next" => tap_vk(0x27),  // VK_RIGHT
+        "present_prev" => tap_vk(0x25),  // VK_LEFT
+        "present_start" => tap_vk(0x74), // VK_F5
+        "present_black" => tap_vk(0x42), // 'B'
+        "present_end" => tap_vk(0x1B),   // VK_ESCAPE
         "empty_recycle_bin" => empty_recycle_bin(),
         // URL from HA (allow_input gate in MQTT routing); http/https ONLY
         "open_url" => open_url(payload),
@@ -94,10 +158,7 @@ pub fn normalize_allowed_origin(input: &str) -> Result<String, String> {
     Ok(url.origin().ascii_serialization())
 }
 
-pub fn parse_allowed_web_url(
-    cfg: &crate::config::AppConfig,
-    input: &str,
-) -> Result<Url, String> {
+pub fn parse_allowed_web_url(cfg: &crate::config::AppConfig, input: &str) -> Result<Url, String> {
     let url = parse_web_url(input)?;
     let origin = url.origin().ascii_serialization();
     let explicitly_allowed = cfg
@@ -127,7 +188,14 @@ pub fn open_url(url: &str) -> Result<(), String> {
         use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
         let wide: Vec<u16> = u.encode_utf16().chain(std::iter::once(0)).collect();
         let r = unsafe {
-            ShellExecuteW(None, w!("open"), PCWSTR(wide.as_ptr()), PCWSTR::null(), PCWSTR::null(), SW_SHOWNORMAL)
+            ShellExecuteW(
+                None,
+                w!("open"),
+                PCWSTR(wide.as_ptr()),
+                PCWSTR::null(),
+                PCWSTR::null(),
+                SW_SHOWNORMAL,
+            )
         };
         // ShellExecuteW returns HINSTANCE > 32 on success
         if r.0 as usize > 32 {
@@ -150,9 +218,15 @@ pub fn open_allowed_url(cfg: &crate::config::AppConfig, input: &str) -> Result<(
 /// Empties the recycle bin (no confirmation dialog, sound, or progress bar).
 #[cfg(windows)]
 fn empty_recycle_bin() -> Result<(), String> {
-    use windows::Win32::UI::Shell::{SHEmptyRecycleBinW, SHERB_NOCONFIRMATION, SHERB_NOPROGRESSUI, SHERB_NOSOUND};
+    use windows::Win32::UI::Shell::{
+        SHEmptyRecycleBinW, SHERB_NOCONFIRMATION, SHERB_NOPROGRESSUI, SHERB_NOSOUND,
+    };
     let r = unsafe {
-        SHEmptyRecycleBinW(None, windows::core::PCWSTR::null(), SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND)
+        SHEmptyRecycleBinW(
+            None,
+            windows::core::PCWSTR::null(),
+            SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND,
+        )
     };
     // S_OK or the bin is already empty (E_UNEXPECTED is sometimes returned when empty) - both OK
     match r {
@@ -182,7 +256,9 @@ pub fn spawn_keep_awake() -> std::sync::mpsc::Sender<bool> {
             while let Ok(on) = rx.recv() {
                 unsafe {
                     if on {
-                        SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED);
+                        SetThreadExecutionState(
+                            ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED,
+                        );
                     } else {
                         SetThreadExecutionState(ES_CONTINUOUS);
                     }
@@ -235,7 +311,10 @@ pub fn run_custom(cfg: &crate::config::AppConfig, id: &str, value: &str) -> Resu
         // Program controls: a fixed program or name from the config, no shell.
         "launch" => {
             let result = launch(&cmd.command, &cmd.args);
-            crate::security::audit("custom_command", if result.is_ok() { "launched" } else { "failed" });
+            crate::security::audit(
+                "custom_command",
+                if result.is_ok() { "launched" } else { "failed" },
+            );
             return result;
         }
         // A key combination set on the PC (keys.rs). After a confirmation
@@ -245,7 +324,14 @@ pub fn run_custom(cfg: &crate::config::AppConfig, id: &str, value: &str) -> Resu
                 std::thread::sleep(std::time::Duration::from_millis(250));
             }
             let result = crate::keys::press(&cmd.command);
-            crate::security::audit("custom_command", if result.is_ok() { "keys_pressed" } else { "failed" });
+            crate::security::audit(
+                "custom_command",
+                if result.is_ok() {
+                    "keys_pressed"
+                } else {
+                    "failed"
+                },
+            );
             return result;
         }
         "stop" => {
@@ -270,7 +356,13 @@ pub fn run_custom(cfg: &crate::config::AppConfig, id: &str, value: &str) -> Resu
         .collect();
     let mut command = Command::new("powershell");
     command
-        .args(["-NoProfile", "-WindowStyle", "Hidden", "-Command", &cmd.command])
+        .args([
+            "-NoProfile",
+            "-WindowStyle",
+            "Hidden",
+            "-Command",
+            &cmd.command,
+        ])
         .env("DESKMATE_VALUE", safe);
     // CREATE_NO_WINDOW - without this, the custom PS flashes a black console window
     #[cfg(windows)]
@@ -308,7 +400,11 @@ pub fn launch(target: &str, args: &str) -> Result<(), String> {
             None,
             w!("open"),
             &file,
-            if args.trim().is_empty() { PCWSTR::null() } else { PCWSTR(params.as_ptr()) },
+            if args.trim().is_empty() {
+                PCWSTR::null()
+            } else {
+                PCWSTR(params.as_ptr())
+            },
             PCWSTR::null(),
             SW_SHOWNORMAL,
         )
@@ -316,7 +412,10 @@ pub fn launch(target: &str, args: &str) -> Result<(), String> {
     if result.0 as usize > 32 {
         Ok(())
     } else {
-        Err(format!("cannot start {target} (ShellExecute {})", result.0 as usize))
+        Err(format!(
+            "cannot start {target} (ShellExecute {})",
+            result.0 as usize
+        ))
     }
 }
 
@@ -416,10 +515,7 @@ fn spawn(program: &str, args: &[&str]) -> Result<(), String> {
 
 #[cfg(windows)]
 fn lock() -> Result<(), String> {
-    unsafe {
-        windows::Win32::System::Shutdown::LockWorkStation()
-            .map_err(|e| e.to_string())
-    }
+    unsafe { windows::Win32::System::Shutdown::LockWorkStation().map_err(|e| e.to_string()) }
 }
 #[cfg(not(windows))]
 fn lock() -> Result<(), String> {
@@ -469,10 +565,18 @@ fn monitor_off() -> Result<(), String> {
 // ---------- volume (WASAPI IAudioEndpointVolume) ----------
 
 #[cfg(windows)]
-fn with_endpoint<T>(f: impl FnOnce(&windows::Win32::Media::Audio::Endpoints::IAudioEndpointVolume) -> windows::core::Result<T>) -> Result<T, String> {
+fn with_endpoint<T>(
+    f: impl FnOnce(
+        &windows::Win32::Media::Audio::Endpoints::IAudioEndpointVolume,
+    ) -> windows::core::Result<T>,
+) -> Result<T, String> {
     use windows::Win32::Media::Audio::Endpoints::IAudioEndpointVolume;
-    use windows::Win32::Media::Audio::{eMultimedia, eRender, IMMDeviceEnumerator, MMDeviceEnumerator};
-    use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_MULTITHREADED};
+    use windows::Win32::Media::Audio::{
+        eMultimedia, eRender, IMMDeviceEnumerator, MMDeviceEnumerator,
+    };
+    use windows::Win32::System::Com::{
+        CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_MULTITHREADED,
+    };
     unsafe {
         // COM per-thread; re-initialization returns S_FALSE - we ignore it
         let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
@@ -481,7 +585,9 @@ fn with_endpoint<T>(f: impl FnOnce(&windows::Win32::Media::Audio::Endpoints::IAu
         let device = enumerator
             .GetDefaultAudioEndpoint(eRender, eMultimedia)
             .map_err(|e| e.to_string())?;
-        let vol: IAudioEndpointVolume = device.Activate(CLSCTX_ALL, None).map_err(|e| e.to_string())?;
+        let vol: IAudioEndpointVolume = device
+            .Activate(CLSCTX_ALL, None)
+            .map_err(|e| e.to_string())?;
         f(&vol).map_err(|e| e.to_string())
     }
 }
@@ -519,7 +625,10 @@ pub fn set_audio_muted(_muted: bool) -> Result<(), String> {
 
 #[cfg(windows)]
 fn set_volume(payload: &str) -> Result<(), String> {
-    let pct: f32 = payload.trim().parse::<f32>().map_err(|_| "volume: not a number".to_string())?;
+    let pct: f32 = payload
+        .trim()
+        .parse::<f32>()
+        .map_err(|_| "volume: not a number".to_string())?;
     let scalar = (pct / 100.0).clamp(0.0, 1.0);
     with_endpoint(|v| unsafe { v.SetMasterVolumeLevelScalar(scalar, std::ptr::null()) })
 }

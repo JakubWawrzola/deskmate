@@ -69,7 +69,11 @@ fn unique_names(devices: Vec<(String, String)>) -> Vec<Device> {
         .map(|(id, name)| {
             let count = seen.entry(name.to_lowercase()).or_insert(0);
             *count += 1;
-            let name = if *count == 1 { name } else { format!("{name} ({count})") };
+            let name = if *count == 1 {
+                name
+            } else {
+                format!("{name} ({count})")
+            };
             Device { id, name }
         })
         .collect()
@@ -157,9 +161,12 @@ mod win {
         eCapture, eCommunications, eConsole, eMultimedia, eRender, EDataFlow, ERole, IMMDevice,
         IMMDeviceEnumerator, MMDeviceEnumerator, DEVICE_STATE_ACTIVE,
     };
-    use windows::Win32::System::Com::StructuredStorage::{PropVariantClear, PropVariantToStringAlloc};
+    use windows::Win32::System::Com::StructuredStorage::{
+        PropVariantClear, PropVariantToStringAlloc,
+    };
     use windows::Win32::System::Com::{
-        CoCreateInstance, CoInitializeEx, CoTaskMemFree, CLSCTX_ALL, COINIT_MULTITHREADED, STGM_READ,
+        CoCreateInstance, CoInitializeEx, CoTaskMemFree, CLSCTX_ALL, COINIT_MULTITHREADED,
+        STGM_READ,
     };
     use windows_core::{IUnknown, IUnknown_Vtbl};
 
@@ -176,15 +183,43 @@ mod win {
     #[windows_core::interface("f8679f50-850a-41cf-9c72-430f290290c8")]
     unsafe trait IPolicyConfig: IUnknown {
         fn GetMixFormat(&self, device: PCWSTR, format: *mut *mut c_void) -> HRESULT;
-        fn GetDeviceFormat(&self, device: PCWSTR, default: i32, format: *mut *mut c_void) -> HRESULT;
+        fn GetDeviceFormat(
+            &self,
+            device: PCWSTR,
+            default: i32,
+            format: *mut *mut c_void,
+        ) -> HRESULT;
         fn ResetDeviceFormat(&self, device: PCWSTR) -> HRESULT;
-        fn SetDeviceFormat(&self, device: PCWSTR, endpoint: *mut c_void, mix: *mut c_void) -> HRESULT;
-        fn GetProcessingPeriod(&self, device: PCWSTR, default: i32, period: *mut i64, minimum: *mut i64) -> HRESULT;
+        fn SetDeviceFormat(
+            &self,
+            device: PCWSTR,
+            endpoint: *mut c_void,
+            mix: *mut c_void,
+        ) -> HRESULT;
+        fn GetProcessingPeriod(
+            &self,
+            device: PCWSTR,
+            default: i32,
+            period: *mut i64,
+            minimum: *mut i64,
+        ) -> HRESULT;
         fn SetProcessingPeriod(&self, device: PCWSTR, period: *mut i64) -> HRESULT;
         fn GetShareMode(&self, device: PCWSTR, mode: *mut c_void) -> HRESULT;
         fn SetShareMode(&self, device: PCWSTR, mode: *mut c_void) -> HRESULT;
-        fn GetPropertyValue(&self, device: PCWSTR, store: i32, key: *const c_void, value: *mut c_void) -> HRESULT;
-        fn SetPropertyValue(&self, device: PCWSTR, store: i32, key: *const c_void, value: *mut c_void) -> HRESULT;
+        fn GetPropertyValue(
+            &self,
+            device: PCWSTR,
+            store: i32,
+            key: *const c_void,
+            value: *mut c_void,
+        ) -> HRESULT;
+        fn SetPropertyValue(
+            &self,
+            device: PCWSTR,
+            store: i32,
+            key: *const c_void,
+            value: *mut c_void,
+        ) -> HRESULT;
         fn SetDefaultEndpoint(&self, device: PCWSTR, role: ERole) -> HRESULT;
         fn SetEndpointVisibility(&self, device: PCWSTR, visible: i32) -> HRESULT;
     }
@@ -234,7 +269,9 @@ mod win {
             return out;
         };
         unsafe {
-            let Ok(collection) = enumerator.EnumAudioEndpoints(data_flow(flow), DEVICE_STATE_ACTIVE) else {
+            let Ok(collection) =
+                enumerator.EnumAudioEndpoints(data_flow(flow), DEVICE_STATE_ACTIVE)
+            else {
                 return out;
             };
             let count = collection.GetCount().unwrap_or(0);
@@ -252,15 +289,17 @@ mod win {
 
     pub fn default_endpoint_id(flow: Flow) -> Option<String> {
         let enumerator = enumerator().ok()?;
-        let device = unsafe { enumerator.GetDefaultAudioEndpoint(data_flow(flow), eConsole) }.ok()?;
+        let device =
+            unsafe { enumerator.GetDefaultAudioEndpoint(data_flow(flow), eConsole) }.ok()?;
         device_id(&device)
     }
 
     pub fn set_default(id: &str) -> Result<(), String> {
         unsafe {
             let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
-            let policy: IPolicyConfig = CoCreateInstance(&POLICY_CONFIG_CLIENT, None, CLSCTX_ALL)
-                .map_err(|e| format!("cannot change the sound device: {e}"))?;
+            let policy: IPolicyConfig =
+                CoCreateInstance(&POLICY_CONFIG_CLIENT, None, CLSCTX_ALL)
+                    .map_err(|e| format!("cannot change the sound device: {e}"))?;
             let id = HSTRING::from(id);
             for role in [eConsole, eMultimedia, eCommunications] {
                 policy
@@ -290,7 +329,8 @@ mod win {
                 continue;
             }
             seen.push(id);
-            if let Ok(volume) = unsafe { device.Activate::<IAudioEndpointVolume>(CLSCTX_ALL, None) } {
+            if let Ok(volume) = unsafe { device.Activate::<IAudioEndpointVolume>(CLSCTX_ALL, None) }
+            {
                 out.push(volume);
             }
         }

@@ -308,12 +308,7 @@ struct FrameCodec {
 }
 
 impl FrameCodec {
-    fn new(
-        key: &[u8; 32],
-        node: &str,
-        direction: &str,
-        cascade_key: Option<&[u8; 32]>,
-    ) -> Self {
+    fn new(key: &[u8; 32], node: &str, direction: &str, cascade_key: Option<&[u8; 32]>) -> Self {
         let prefix = if direction == "c2s" {
             [1, 0, 0, 0]
         } else {
@@ -542,10 +537,16 @@ pub async fn restart(app: AppHandle) {
                             error.message, cfg_connection.node_id
                         ),
                         LinkFailure::Locked => {
-                            format!("Home Assistant locked this computer out{label}: {}", error.message)
+                            format!(
+                                "Home Assistant locked this computer out{label}: {}",
+                                error.message
+                            )
                         }
                         LinkFailure::Clock => {
-                            format!("Clock mismatch with Home Assistant{label}: {}", error.message)
+                            format!(
+                                "Clock mismatch with Home Assistant{label}: {}",
+                                error.message
+                            )
                         }
                         LinkFailure::Transport => {
                             format!(
@@ -663,7 +664,10 @@ async fn run_session(
         // bylo zerwane polaczenie i zgadywanie po stronie uzytkownika.
         Some("reject") => {
             return Err(classify_reject(
-                welcome.get("reason").and_then(Value::as_str).unwrap_or("auth"),
+                welcome
+                    .get("reason")
+                    .and_then(Value::as_str)
+                    .unwrap_or("auth"),
             ));
         }
         _ => return Err("expected welcome".into()),
@@ -690,7 +694,13 @@ async fn run_session(
     if !shared.was_contributory() {
         return Err("server sent a low-order X25519 key".into());
     }
-    let (c2s, s2c) = derive_keys(psk, shared.as_bytes(), &hello_data, &welcome_data, PRIMARY_LABELS)?;
+    let (c2s, s2c) = derive_keys(
+        psk,
+        shared.as_bytes(),
+        &hello_data,
+        &welcome_data,
+        PRIMARY_LABELS,
+    )?;
     let cascade_keys = match cascade {
         Some(key) => Some(derive_keys(
             key,
@@ -838,8 +848,16 @@ async fn handle_incoming(app: &AppHandle, tx: &mpsc::UnboundedSender<Value>, pay
 
 async fn handle_file_request(app: AppHandle, tx: mpsc::UnboundedSender<Value>, payload: Value) {
     let id = payload.get("id").cloned().unwrap_or(Value::Null);
-    let op = payload.get("op").and_then(Value::as_str).unwrap_or("").to_string();
-    let path = payload.get("path").and_then(Value::as_str).unwrap_or("").to_string();
+    let op = payload
+        .get("op")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let path = payload
+        .get("path")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
     let cfg = app.state::<AppState>().config.lock().await.clone();
     let response = match tokio::task::spawn_blocking(move || {
         crate::link_files::handle_request(&cfg, &payload)
@@ -854,7 +872,10 @@ async fn handle_file_request(app: AppHandle, tx: mpsc::UnboundedSender<Value>, p
     };
     let received = op == "put_end" && response.get("ok") == Some(&Value::Bool(true));
     let notice = received.then(|| {
-        let name = response.get("name").and_then(Value::as_str).unwrap_or("file");
+        let name = response
+            .get("name")
+            .and_then(Value::as_str)
+            .unwrap_or("file");
         let dir = response.get("dir").and_then(Value::as_str).unwrap_or("");
         let size = response.get("size").and_then(Value::as_u64).unwrap_or(0);
         json!({
@@ -981,22 +1002,56 @@ mod tests {
         assert_eq!(client_epk, b64::<32>(&vector, "client_epk_b64"));
         let server_epk: [u8; 32] = b64(&vector, "server_epk_b64");
 
-        let hello = hello_bytes(node, &cn, vector["hello_ts"].as_i64().unwrap(), &client_epk, true);
-        assert_eq!(B64.encode(mac(&psk, &hello)), vector["hello_mac_b64"].as_str().unwrap());
-        let welcome = welcome_bytes(&hello, &sn, vector["welcome_ts"].as_i64().unwrap(), &server_epk);
+        let hello = hello_bytes(
+            node,
+            &cn,
+            vector["hello_ts"].as_i64().unwrap(),
+            &client_epk,
+            true,
+        );
+        assert_eq!(
+            B64.encode(mac(&psk, &hello)),
+            vector["hello_mac_b64"].as_str().unwrap()
+        );
+        let welcome = welcome_bytes(
+            &hello,
+            &sn,
+            vector["welcome_ts"].as_i64().unwrap(),
+            &server_epk,
+        );
         verify_mac(&psk, &welcome, vector["welcome_mac_b64"].as_str().unwrap()).unwrap();
 
         // Flipping the cascade flag must invalidate the MAC chain.
-        let tampered = hello_bytes(node, &cn, vector["hello_ts"].as_i64().unwrap(), &client_epk, false);
+        let tampered = hello_bytes(
+            node,
+            &cn,
+            vector["hello_ts"].as_i64().unwrap(),
+            &client_epk,
+            false,
+        );
         assert_ne!(mac(&psk, &tampered), mac(&psk, &hello));
 
         let shared = client_esk.diffie_hellman(&PublicKey::from(server_epk));
-        let (c2s, s2c) = derive_keys(&psk, shared.as_bytes(), &hello, &welcome, PRIMARY_LABELS).unwrap();
-        let (cc2s, cs2c) = derive_keys(&cascade, shared.as_bytes(), &hello, &welcome, CASCADE_LABELS).unwrap();
+        let (c2s, s2c) =
+            derive_keys(&psk, shared.as_bytes(), &hello, &welcome, PRIMARY_LABELS).unwrap();
+        let (cc2s, cs2c) = derive_keys(
+            &cascade,
+            shared.as_bytes(),
+            &hello,
+            &welcome,
+            CASCADE_LABELS,
+        )
+        .unwrap();
         assert_eq!(B64.encode(*c2s), vector["c2s_key_b64"].as_str().unwrap());
         assert_eq!(B64.encode(*s2c), vector["s2c_key_b64"].as_str().unwrap());
-        assert_eq!(B64.encode(*cc2s), vector["cascade_c2s_key_b64"].as_str().unwrap());
-        assert_eq!(B64.encode(*cs2c), vector["cascade_s2c_key_b64"].as_str().unwrap());
+        assert_eq!(
+            B64.encode(*cc2s),
+            vector["cascade_c2s_key_b64"].as_str().unwrap()
+        );
+        assert_eq!(
+            B64.encode(*cs2c),
+            vector["cascade_s2c_key_b64"].as_str().unwrap()
+        );
 
         let mut decoder = FrameCodec::new(&c2s, node, "c2s", Some(&cc2s));
         let frame = vector["python_c2s_frame"].to_string();

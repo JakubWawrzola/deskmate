@@ -131,7 +131,9 @@ fn fetch_image(url: &str) -> Option<std::path::PathBuf> {
     if buf.is_empty() {
         return None;
     }
-    let ext = if parsed.path().to_ascii_lowercase().ends_with(".jpg") || parsed.path().to_ascii_lowercase().ends_with(".jpeg") {
+    let ext = if parsed.path().to_ascii_lowercase().ends_with(".jpg")
+        || parsed.path().to_ascii_lowercase().ends_with(".jpeg")
+    {
         "jpg"
     } else {
         "png"
@@ -178,7 +180,10 @@ pub fn ensure_aumid_registered() {
     use winreg::enums::HKEY_CURRENT_USER;
     use winreg::RegKey;
     let hkcu = RegKey::predef(HKEY_CURRENT_USER);
-    let path = format!("Software\\Classes\\AppUserModelId\\{}", crate::consts::TOAST_AUMID);
+    let path = format!(
+        "Software\\Classes\\AppUserModelId\\{}",
+        crate::consts::TOAST_AUMID
+    );
     let exe = std::env::current_exe().ok();
     if let Ok((key, _)) = hkcu.create_subkey(&path) {
         let _ = key.set_value("DisplayName", &crate::consts::TOAST_DISPLAY_NAME);
@@ -240,9 +245,8 @@ pub fn apply_branding(_enabled: bool) {}
 
 #[cfg(windows)]
 fn start_menu_programs(base_var: &str) -> Option<std::path::PathBuf> {
-    std::env::var_os(base_var).map(|base| {
-        std::path::PathBuf::from(base).join("Microsoft\\Windows\\Start Menu\\Programs")
-    })
+    std::env::var_os(base_var)
+        .map(|base| std::path::PathBuf::from(base).join("Microsoft\\Windows\\Start Menu\\Programs"))
 }
 
 /// Makes sure `Deskmate.lnk` in the user's Start Menu carries the AUMID and the
@@ -357,10 +361,16 @@ mod shell {
 
     const APP_MODEL: GUID = GUID::from_u128(0x9f4c2855_9f79_4b39_a8d0_e1d42de1d5f3);
     /// System.AppUserModel.ID - ties the shortcut to the AUMID used for toasts.
-    const PKEY_APP_USER_MODEL_ID: PROPERTYKEY = PROPERTYKEY { fmtid: APP_MODEL, pid: 5 };
+    const PKEY_APP_USER_MODEL_ID: PROPERTYKEY = PROPERTYKEY {
+        fmtid: APP_MODEL,
+        pid: 5,
+    };
     /// System.AppUserModel.ToastActivatorCLSID - without it Windows drops the
     /// action buttons of an unpackaged app's toast.
-    const PKEY_TOAST_ACTIVATOR: PROPERTYKEY = PROPERTYKEY { fmtid: APP_MODEL, pid: 26 };
+    const PKEY_TOAST_ACTIVATOR: PROPERTYKEY = PROPERTYKEY {
+        fmtid: APP_MODEL,
+        pid: 26,
+    };
 
     pub fn write_shortcut(
         lnk: &Path,
@@ -516,7 +526,10 @@ pub fn register_protocol() {
     let hkcu = RegKey::predef(HKEY_CURRENT_USER);
     let base = format!("Software\\Classes\\{}", crate::consts::PROTOCOL_SCHEME);
     if let Ok((k, _)) = hkcu.create_subkey(&base) {
-        let _ = k.set_value("", &format!("URL:{} protocol", crate::consts::TOAST_DISPLAY_NAME));
+        let _ = k.set_value(
+            "",
+            &format!("URL:{} protocol", crate::consts::TOAST_DISPLAY_NAME),
+        );
         let _ = k.set_value("URL Protocol", &"");
     }
     if let Ok((k, _)) = hkcu.create_subkey(format!("{}\\shell\\open\\command", base)) {

@@ -124,14 +124,15 @@ fn parse_combo(text: &str) -> Result<Combo, String> {
     let (last, rest) = parts.split_last().ok_or("no key given")?;
     let mut modifiers = Vec::new();
     for name in rest {
-        let vk = modifier(name).ok_or_else(|| format!("\"{name}\" is not Ctrl, Shift, Alt or Win"))?;
+        let vk =
+            modifier(name).ok_or_else(|| format!("\"{name}\" is not Ctrl, Shift, Alt or Win"))?;
         if !modifiers.contains(&vk) {
             modifiers.push(vk);
         }
     }
-    let key = key(last)
-        .or_else(|| modifier(last))
-        .ok_or_else(|| format!("unknown key \"{last}\" (examples: F5, R, Enter, Tab, Up, PageDown)"))?;
+    let key = key(last).or_else(|| modifier(last)).ok_or_else(|| {
+        format!("unknown key \"{last}\" (examples: F5, R, Enter, Tab, Up, PageDown)")
+    })?;
     if modifiers.contains(&VK_CONTROL) && modifiers.contains(&VK_MENU) && key == VK_DELETE {
         return Err("Windows does not let programs press Ctrl+Alt+Delete".into());
     }
@@ -237,9 +238,24 @@ mod tests {
 
     #[test]
     fn parses_common_combinations() {
-        assert_eq!(parse("Ctrl+F5").unwrap(), vec![Combo { modifiers: vec![VK_CONTROL], key: 0x74 }]);
-        assert_eq!(parse(" ctrl + shift + r ").unwrap()[0].modifiers, vec![VK_CONTROL, VK_SHIFT]);
-        assert_eq!(parse("Win+D").unwrap()[0], Combo { modifiers: vec![VK_LWIN], key: u16::from(b'D') });
+        assert_eq!(
+            parse("Ctrl+F5").unwrap(),
+            vec![Combo {
+                modifiers: vec![VK_CONTROL],
+                key: 0x74
+            }]
+        );
+        assert_eq!(
+            parse(" ctrl + shift + r ").unwrap()[0].modifiers,
+            vec![VK_CONTROL, VK_SHIFT]
+        );
+        assert_eq!(
+            parse("Win+D").unwrap()[0],
+            Combo {
+                modifiers: vec![VK_LWIN],
+                key: u16::from(b'D')
+            }
+        );
         assert_eq!(parse("F5").unwrap()[0].modifiers, Vec::<u16>::new());
         assert_eq!(parse("Ctrl+L, Ctrl+C").unwrap().len(), 2);
         assert_eq!(parse("Ctrl++").unwrap()[0].key, 0xBB);

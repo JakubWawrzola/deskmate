@@ -483,7 +483,8 @@ pub fn build_link_declare(cfg: &AppConfig, hardware_defs: &[OwnedSensorDef]) -> 
         });
         if sensor.kind == "process" {
             entity["device_class"] = json!("running");
-        } else if !crate::custom_sensors::is_binary(&sensor.kind) && !sensor.unit.trim().is_empty() {
+        } else if !crate::custom_sensors::is_binary(&sensor.kind) && !sensor.unit.trim().is_empty()
+        {
             entity["unit"] = json!(sensor.unit.trim());
         }
         entities.push(entity);
@@ -641,8 +642,14 @@ pub fn remove_hotkey(node_id: &str, hotkey_id: &str) -> DiscoveryMsg {
 /// Messages that remove a deleted custom sensor (both possible components).
 pub fn remove_custom_sensor(node_id: &str, sensor_id: &str) -> Vec<DiscoveryMsg> {
     vec![
-        (cfg_topic("binary_sensor", node_id, &format!("csb_{sensor_id}")), String::new()),
-        (cfg_topic("sensor", node_id, &format!("cs_{sensor_id}")), String::new()),
+        (
+            cfg_topic("binary_sensor", node_id, &format!("csb_{sensor_id}")),
+            String::new(),
+        ),
+        (
+            cfg_topic("sensor", node_id, &format!("cs_{sensor_id}")),
+            String::new(),
+        ),
     ]
 }
 

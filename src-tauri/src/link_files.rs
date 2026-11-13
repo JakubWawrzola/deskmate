@@ -28,15 +28,23 @@ pub fn normalize_roots(roots: &[String]) -> Result<Vec<String>, String> {
     let mut normalized = Vec::new();
     for raw in roots {
         let raw = raw.trim();
-        if raw.is_empty() { continue; }
-        let path = validate_windows_path(raw).map_err(|error| format!("invalid Link Files root '{raw}': {error}"))?;
-        reject_reparse_components(&path).map_err(|error| format!("invalid Link Files root '{raw}': {error}"))?;
-        let canonical = fs::canonicalize(&path).map_err(|_| format!("Link Files root does not exist: {raw}"))?;
+        if raw.is_empty() {
+            continue;
+        }
+        let path = validate_windows_path(raw)
+            .map_err(|error| format!("invalid Link Files root '{raw}': {error}"))?;
+        reject_reparse_components(&path)
+            .map_err(|error| format!("invalid Link Files root '{raw}': {error}"))?;
+        let canonical = fs::canonicalize(&path)
+            .map_err(|_| format!("Link Files root does not exist: {raw}"))?;
         if !canonical.is_dir() {
             return Err(format!("Link Files root is not a directory: {raw}"));
         }
         let display = friendly_canonical_path(&canonical);
-        if !normalized.iter().any(|existing: &String| existing.eq_ignore_ascii_case(&display)) {
+        if !normalized
+            .iter()
+            .any(|existing: &String| existing.eq_ignore_ascii_case(&display))
+        {
             normalized.push(display);
         }
     }
@@ -51,10 +59,12 @@ pub fn normalize_inbox_dir(raw: &str) -> Result<String, String> {
     if raw.is_empty() {
         return Ok(String::new());
     }
-    let path = validate_windows_path(raw).map_err(|error| format!("invalid inbox folder: {error}"))?;
+    let path =
+        validate_windows_path(raw).map_err(|error| format!("invalid inbox folder: {error}"))?;
     fs::create_dir_all(&path).map_err(|_| format!("cannot create inbox folder: {raw}"))?;
     reject_reparse_components(&path).map_err(|error| format!("invalid inbox folder: {error}"))?;
-    let canonical = fs::canonicalize(&path).map_err(|_| format!("inbox folder is unavailable: {raw}"))?;
+    let canonical =
+        fs::canonicalize(&path).map_err(|_| format!("inbox folder is unavailable: {raw}"))?;
     Ok(friendly_canonical_path(&canonical))
 }
 
@@ -76,7 +86,10 @@ pub fn handle_request(cfg: &crate::config::AppConfig, request: &Value) -> Value 
     match result {
         Ok(fields) => {
             if log {
-                let subject = fields.get("name").and_then(Value::as_str).unwrap_or(raw_path);
+                let subject = fields
+                    .get("name")
+                    .and_then(Value::as_str)
+                    .unwrap_or(raw_path);
                 crate::security::audit_file(op, subject, "ok");
             }
             let mut response = Map::from_iter([
@@ -128,7 +141,9 @@ fn roots(cfg: &crate::config::AppConfig) -> Result<Map<String, Value>, String> {
     let inbox_dir = if cfg.link_inbox_mode == "off" {
         String::new()
     } else {
-        inbox_dir(cfg).map(|dir| friendly_canonical_path(&dir)).unwrap_or_default()
+        inbox_dir(cfg)
+            .map(|dir| friendly_canonical_path(&dir))
+            .unwrap_or_default()
     };
     Ok(Map::from_iter([
         ("roots".into(), json!(cfg.link_file_roots)),
@@ -145,19 +160,30 @@ fn roots(cfg: &crate::config::AppConfig) -> Result<Map<String, Value>, String> {
 }
 
 fn list(path: &Path) -> Result<Map<String, Value>, String> {
-    if !path.is_dir() { return Err("path is not a directory".into()); }
+    if !path.is_dir() {
+        return Err("path is not a directory".into());
+    }
     let mut entries = Vec::new();
     for entry in fs::read_dir(path).map_err(|_| "cannot list directory")? {
         let entry = entry.map_err(|_| "cannot read directory entry")?;
-        let metadata = fs::symlink_metadata(entry.path()).map_err(|_| "cannot stat directory entry")?;
-        if is_reparse(&metadata) { continue; }
-        entries.push(metadata_json(&entry.file_name().to_string_lossy(), &metadata));
+        let metadata =
+            fs::symlink_metadata(entry.path()).map_err(|_| "cannot stat directory entry")?;
+        if is_reparse(&metadata) {
+            continue;
+        }
+        entries.push(metadata_json(
+            &entry.file_name().to_string_lossy(),
+            &metadata,
+        ));
         if entries.len() > MAX_LIST_ENTRIES {
             return Err("directory contains too many entries".into());
         }
     }
     entries.sort_by(|left, right| {
-        left["name"].as_str().unwrap_or("").to_ascii_lowercase()
+        left["name"]
+            .as_str()
+            .unwrap_or("")
+            .to_ascii_lowercase()
             .cmp(&right["name"].as_str().unwrap_or("").to_ascii_lowercase())
     });
     Ok(Map::from_iter([("entries".into(), Value::Array(entries))]))
@@ -165,26 +191,51 @@ fn list(path: &Path) -> Result<Map<String, Value>, String> {
 
 fn stat(path: &Path) -> Result<Map<String, Value>, String> {
     let metadata = fs::metadata(path).map_err(|_| "cannot stat path")?;
-    let name = path.file_name().map(|name| name.to_string_lossy()).unwrap_or_default();
-    Ok(Map::from_iter([("stat".into(), metadata_json(&name, &metadata))]))
+    let name = path
+        .file_name()
+        .map(|name| name.to_string_lossy())
+        .unwrap_or_default();
+    Ok(Map::from_iter([(
+        "stat".into(),
+        metadata_json(&name, &metadata),
+    )]))
 }
 
-fn read(cfg: &crate::config::AppConfig, path: &Path, request: &Value) -> Result<Map<String, Value>, String> {
+fn read(
+    cfg: &crate::config::AppConfig,
+    path: &Path,
+    request: &Value,
+) -> Result<Map<String, Value>, String> {
     let metadata = fs::metadata(path).map_err(|_| "cannot stat file")?;
-    if !metadata.is_file() { return Err("path is not a file".into()); }
+    if !metadata.is_file() {
+        return Err("path is not a file".into());
+    }
     let max = max_file_bytes(cfg);
     if metadata.len() > max {
-        return Err(format!("file exceeds the {} MiB limit set on the computer", max / MIB));
+        return Err(format!(
+            "file exceeds the {} MiB limit set on the computer",
+            max / MIB
+        ));
     }
     let offset = request.get("offset").and_then(Value::as_u64).unwrap_or(0);
-    let len = request.get("len").and_then(Value::as_u64).unwrap_or(MAX_CHUNK_BYTES);
-    if len > MAX_CHUNK_BYTES { return Err("read chunk exceeds 256 KiB limit".into()); }
-    if offset > metadata.len() { return Err("read offset is past end of file".into()); }
+    let len = request
+        .get("len")
+        .and_then(Value::as_u64)
+        .unwrap_or(MAX_CHUNK_BYTES);
+    if len > MAX_CHUNK_BYTES {
+        return Err("read chunk exceeds 256 KiB limit".into());
+    }
+    if offset > metadata.len() {
+        return Err("read offset is past end of file".into());
+    }
 
     let mut file = File::open(path).map_err(|_| "cannot open file")?;
-    file.seek(SeekFrom::Start(offset)).map_err(|_| "cannot seek file")?;
+    file.seek(SeekFrom::Start(offset))
+        .map_err(|_| "cannot seek file")?;
     let mut data = Vec::with_capacity(len as usize);
-    file.take(len).read_to_end(&mut data).map_err(|_| "cannot read file")?;
+    file.take(len)
+        .read_to_end(&mut data)
+        .map_err(|_| "cannot read file")?;
     throttle(data.len());
     let eof = offset.saturating_add(data.len() as u64) >= metadata.len();
     Ok(Map::from_iter([
@@ -245,7 +296,8 @@ pub fn abort_all() {
 fn inbox_dir(cfg: &crate::config::AppConfig) -> Result<PathBuf, String> {
     let configured = cfg.link_inbox_dir.trim();
     let path = if configured.is_empty() {
-        let profile = std::env::var("USERPROFILE").map_err(|_| "cannot resolve the Downloads folder")?;
+        let profile =
+            std::env::var("USERPROFILE").map_err(|_| "cannot resolve the Downloads folder")?;
         Path::new(&profile).join("Downloads").join("Deskmate")
     } else {
         validate_windows_path(configured)?
@@ -265,7 +317,10 @@ fn human_size(bytes: u64) -> String {
     }
 }
 
-fn put_begin(cfg: &crate::config::AppConfig, request: &Value) -> Result<Map<String, Value>, String> {
+fn put_begin(
+    cfg: &crate::config::AppConfig,
+    request: &Value,
+) -> Result<Map<String, Value>, String> {
     let mode = cfg.link_inbox_mode.as_str();
     if !matches!(mode, "confirm" | "automatic") {
         return Err("receiving files is turned off on this computer".into());
@@ -277,7 +332,10 @@ fn put_begin(cfg: &crate::config::AppConfig, request: &Value) -> Result<Map<Stri
         .ok_or("missing file size")?;
     let max = max_file_bytes(cfg);
     if size > max {
-        return Err(format!("file is larger than the {} MiB limit set on the computer", max / MIB));
+        return Err(format!(
+            "file is larger than the {} MiB limit set on the computer",
+            max / MIB
+        ));
     }
     let name = sanitize_file_name(raw_name);
     let dir = inbox_dir(cfg)?;
@@ -293,7 +351,10 @@ fn put_begin(cfg: &crate::config::AppConfig, request: &Value) -> Result<Map<Stri
             return Err("the computer is locked, nobody can accept the file".into());
         }
         let by = crate::security::safe_preview(
-            request.get("by").and_then(Value::as_str).unwrap_or("Home Assistant"),
+            request
+                .get("by")
+                .and_then(Value::as_str)
+                .unwrap_or("Home Assistant"),
             60,
         );
         let approved = crate::security::confirm(
@@ -347,9 +408,17 @@ fn upload_token(request: &Value) -> Result<String, String> {
 
 fn put_chunk(request: &Value) -> Result<Map<String, Value>, String> {
     let token = upload_token(request)?;
-    let offset = request.get("offset").and_then(Value::as_u64).ok_or("missing offset")?;
+    let offset = request
+        .get("offset")
+        .and_then(Value::as_u64)
+        .ok_or("missing offset")?;
     let data = B64
-        .decode(request.get("data").and_then(Value::as_str).ok_or("missing data")?)
+        .decode(
+            request
+                .get("data")
+                .and_then(Value::as_str)
+                .ok_or("missing data")?,
+        )
         .map_err(|_| "invalid chunk data")?;
     if data.len() as u64 > MAX_CHUNK_BYTES {
         return Err("chunk exceeds 256 KiB limit".into());
@@ -363,7 +432,10 @@ fn put_chunk(request: &Value) -> Result<Map<String, Value>, String> {
         if upload.written + data.len() as u64 > upload.size {
             return Err("more data than announced".to_string());
         }
-        upload.file.write_all(&data).map_err(|_| "cannot write to disk".to_string())?;
+        upload
+            .file
+            .write_all(&data)
+            .map_err(|_| "cannot write to disk".to_string())?;
         upload.hasher.update(&data);
         upload.written += data.len() as u64;
         upload.last = Instant::now();
@@ -392,8 +464,20 @@ fn put_end(request: &Value) -> Result<Map<String, Value>, String> {
         discard(upload);
         return Err(format!("{name}: transfer incomplete"));
     }
-    let Upload { dir, part, name, size, hasher, file, .. } = upload;
-    let digest: String = hasher.finalize().iter().map(|b| format!("{b:02x}")).collect();
+    let Upload {
+        dir,
+        part,
+        name,
+        size,
+        hasher,
+        file,
+        ..
+    } = upload;
+    let digest: String = hasher
+        .finalize()
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect();
     if let Some(expected) = request.get("sha256").and_then(Value::as_str) {
         if !expected.eq_ignore_ascii_case(&digest) {
             drop(file);
@@ -452,7 +536,13 @@ pub fn sanitize_file_name(raw: &str) -> String {
     let base = raw.rsplit(['\\', '/']).next().unwrap_or("");
     let cleaned: String = base
         .chars()
-        .map(|c| if c.is_control() || "<>:\"/\\|?*".contains(c) { '_' } else { c })
+        .map(|c| {
+            if c.is_control() || "<>:\"/\\|?*".contains(c) {
+                '_'
+            } else {
+                c
+            }
+        })
         .collect();
     let mut name = cleaned.trim().trim_end_matches(['.', ' ']).to_string();
     if name.is_empty() || name.chars().all(|c| c == '.') {
@@ -510,7 +600,12 @@ fn mark_of_the_web(path: &Path) {
 // ---------- shared path checks ----------
 
 fn metadata_json(name: &str, metadata: &fs::Metadata) -> Value {
-    let mtime = metadata.modified().ok().and_then(|value| value.duration_since(UNIX_EPOCH).ok()).map(|value| value.as_secs()).unwrap_or(0);
+    let mtime = metadata
+        .modified()
+        .ok()
+        .and_then(|value| value.duration_since(UNIX_EPOCH).ok())
+        .map(|value| value.as_secs())
+        .unwrap_or(0);
     json!({
         "name": name,
         "dir": metadata.is_dir(),
@@ -524,8 +619,10 @@ fn authorized_path(raw: &str, roots: &[String]) -> Result<PathBuf, String> {
     reject_reparse_components(&requested)?;
     let canonical = fs::canonicalize(&requested).map_err(|_| "path does not exist")?;
     for raw_root in roots {
-        let root_path = validate_windows_path(raw_root).map_err(|_| "configured root is invalid")?;
-        reject_reparse_components(&root_path).map_err(|_| "configured root contains a reparse point")?;
+        let root_path =
+            validate_windows_path(raw_root).map_err(|_| "configured root is invalid")?;
+        reject_reparse_components(&root_path)
+            .map_err(|_| "configured root contains a reparse point")?;
         let root = fs::canonicalize(root_path).map_err(|_| "configured root is unavailable")?;
         if root.is_dir() && path_is_within(&root, &canonical) {
             return Ok(canonical);
@@ -546,8 +643,13 @@ fn validate_windows_path(raw: &str) -> Result<PathBuf, String> {
     {
         return Err("path must be an absolute local drive path".into());
     }
-    if raw[2..].contains(':') { return Err("alternate data streams are not allowed".into()); }
-    if raw.split(['\\', '/']).any(|component| matches!(component, "." | "..")) {
+    if raw[2..].contains(':') {
+        return Err("alternate data streams are not allowed".into());
+    }
+    if raw
+        .split(['\\', '/'])
+        .any(|component| matches!(component, "." | ".."))
+    {
         return Err("relative path components are not allowed".into());
     }
     Ok(PathBuf::from(raw))
@@ -556,21 +658,30 @@ fn validate_windows_path(raw: &str) -> Result<PathBuf, String> {
 fn path_is_within(root: &Path, target: &Path) -> bool {
     let mut target_components = target.components();
     root.components().all(|root_component| {
-        target_components.next().map(|target_component| component_eq(root_component, target_component)).unwrap_or(false)
+        target_components
+            .next()
+            .map(|target_component| component_eq(root_component, target_component))
+            .unwrap_or(false)
     })
 }
 
 fn component_eq(left: Component<'_>, right: Component<'_>) -> bool {
-    left.as_os_str().to_string_lossy().eq_ignore_ascii_case(&right.as_os_str().to_string_lossy())
+    left.as_os_str()
+        .to_string_lossy()
+        .eq_ignore_ascii_case(&right.as_os_str().to_string_lossy())
 }
 
 fn reject_reparse_components(path: &Path) -> Result<(), String> {
     let mut current = PathBuf::new();
     for component in path.components() {
         current.push(component.as_os_str());
-        if !current.is_absolute() { continue; }
+        if !current.is_absolute() {
+            continue;
+        }
         match fs::symlink_metadata(&current) {
-            Ok(metadata) if is_reparse(&metadata) => return Err("symbolic links and reparse points are not allowed".into()),
+            Ok(metadata) if is_reparse(&metadata) => {
+                return Err("symbolic links and reparse points are not allowed".into())
+            }
             Ok(_) => {}
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
             Err(_) => return Err("cannot validate path metadata".into()),
@@ -587,28 +698,43 @@ fn is_reparse(metadata: &fs::Metadata) -> bool {
 }
 
 #[cfg(not(windows))]
-fn is_reparse(metadata: &fs::Metadata) -> bool { metadata.file_type().is_symlink() }
+fn is_reparse(metadata: &fs::Metadata) -> bool {
+    metadata.file_type().is_symlink()
+}
 
 fn friendly_canonical_path(path: &Path) -> String {
     let display = path.to_string_lossy();
     let display = display.strip_prefix(r"\\?\").unwrap_or(&display);
-    if display.len() == 3 && display.as_bytes()[1] == b':' && matches!(display.as_bytes()[2], b'\\' | b'/') {
+    if display.len() == 3
+        && display.as_bytes()[1] == b':'
+        && matches!(display.as_bytes()[2], b'\\' | b'/')
+    {
         display.to_string()
     } else {
         display.trim_end_matches(['\\', '/']).to_string()
     }
 }
 
-struct RateGate { next: Instant }
+struct RateGate {
+    next: Instant,
+}
 static RATE_GATE: OnceLock<Mutex<RateGate>> = OnceLock::new();
 
 fn throttle(bytes: usize) {
-    if bytes == 0 { return; }
+    if bytes == 0 {
+        return;
+    }
     let duration = Duration::from_secs_f64(bytes as f64 / RATE_BYTES_PER_SEC);
-    let gate = RATE_GATE.get_or_init(|| Mutex::new(RateGate { next: Instant::now() }));
+    let gate = RATE_GATE.get_or_init(|| {
+        Mutex::new(RateGate {
+            next: Instant::now(),
+        })
+    });
     let Ok(mut gate) = gate.lock() else { return };
     let now = Instant::now();
-    if gate.next > now { std::thread::sleep(gate.next - now); }
+    if gate.next > now {
+        std::thread::sleep(gate.next - now);
+    }
     gate.next = std::cmp::max(gate.next, Instant::now()) + duration;
 }
 
@@ -643,14 +769,23 @@ mod tests {
 
     #[test]
     fn containment_is_case_insensitive_and_component_aware() {
-        assert!(path_is_within(Path::new(r"C:\Allowed"), Path::new(r"c:\allowed\child\file.txt")));
-        assert!(!path_is_within(Path::new(r"C:\Allowed"), Path::new(r"C:\AllowedElsewhere\file.txt")));
+        assert!(path_is_within(
+            Path::new(r"C:\Allowed"),
+            Path::new(r"c:\allowed\child\file.txt")
+        ));
+        assert!(!path_is_within(
+            Path::new(r"C:\Allowed"),
+            Path::new(r"C:\AllowedElsewhere\file.txt")
+        ));
     }
 
     #[test]
     fn preserves_drive_root_when_formatting_canonical_path() {
         assert_eq!(friendly_canonical_path(Path::new(r"\\?\C:\")), r"C:\");
-        assert_eq!(friendly_canonical_path(Path::new(r"\\?\C:\Data\")), r"C:\Data");
+        assert_eq!(
+            friendly_canonical_path(Path::new(r"\\?\C:\Data\")),
+            r"C:\Data"
+        );
     }
 
     #[test]
@@ -662,7 +797,10 @@ mod tests {
 
     #[test]
     fn sanitizes_incoming_file_names() {
-        assert_eq!(sanitize_file_name(r"..\..\Windows\System32\evil.dll"), "evil.dll");
+        assert_eq!(
+            sanitize_file_name(r"..\..\Windows\System32\evil.dll"),
+            "evil.dll"
+        );
         assert_eq!(sanitize_file_name("/etc/passwd"), "passwd");
         assert_eq!(sanitize_file_name("report.pdf:hidden"), "report.pdf_hidden");
         assert_eq!(sanitize_file_name("a<b>c|d?.txt"), "a_b_c_d_.txt");
@@ -699,18 +837,39 @@ mod tests {
         fs::write(dir.join("photo.jpg"), b"old").unwrap();
         let cfg = test_config(&dir, "automatic");
         let body = b"hello from the phone";
-        let begin = handle_request(&cfg, &json!({"t": "fs", "id": 1, "op": "put_begin", "name": "..\\photo.jpg", "size": body.len()}));
+        let begin = handle_request(
+            &cfg,
+            &json!({"t": "fs", "id": 1, "op": "put_begin", "name": "..\\photo.jpg", "size": body.len()}),
+        );
         assert_eq!(begin["ok"], true, "{begin}");
         let token = begin["upload"].as_str().unwrap().to_string();
-        let chunk = handle_request(&cfg, &json!({"t": "fs", "id": 2, "op": "put_chunk", "upload": token, "offset": 0, "data": B64.encode(body)}));
+        let chunk = handle_request(
+            &cfg,
+            &json!({"t": "fs", "id": 2, "op": "put_chunk", "upload": token, "offset": 0, "data": B64.encode(body)}),
+        );
         assert_eq!(chunk["ok"], true, "{chunk}");
-        let digest: String = Sha256::digest(body).iter().map(|b| format!("{b:02x}")).collect();
-        let end = handle_request(&cfg, &json!({"t": "fs", "id": 3, "op": "put_end", "upload": token, "sha256": digest}));
+        let digest: String = Sha256::digest(body)
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect();
+        let end = handle_request(
+            &cfg,
+            &json!({"t": "fs", "id": 3, "op": "put_end", "upload": token, "sha256": digest}),
+        );
         assert_eq!(end["ok"], true, "{end}");
         assert_eq!(end["name"], "photo (1).jpg");
         assert_eq!(fs::read(dir.join("photo (1).jpg")).unwrap(), body);
         assert_eq!(fs::read(dir.join("photo.jpg")).unwrap(), b"old");
-        let leftovers = fs::read_dir(&dir).unwrap().filter(|e| e.as_ref().unwrap().file_name().to_string_lossy().ends_with(".part")).count();
+        let leftovers = fs::read_dir(&dir)
+            .unwrap()
+            .filter(|e| {
+                e.as_ref()
+                    .unwrap()
+                    .file_name()
+                    .to_string_lossy()
+                    .ends_with(".part")
+            })
+            .count();
         assert_eq!(leftovers, 0);
         let _ = fs::remove_dir_all(&dir);
     }
@@ -719,23 +878,50 @@ mod tests {
     fn inbox_rejects_bad_transfers() {
         let dir = scratch_dir("reject");
         let off = test_config(&dir, "off");
-        assert_eq!(handle_request(&off, &json!({"op": "put_begin", "name": "a.txt", "size": 3}))["ok"], false);
+        assert_eq!(
+            handle_request(
+                &off,
+                &json!({"op": "put_begin", "name": "a.txt", "size": 3})
+            )["ok"],
+            false
+        );
 
         let cfg = test_config(&dir, "automatic");
-        let too_big = handle_request(&cfg, &json!({"op": "put_begin", "name": "a.txt", "size": 2 * MIB}));
+        let too_big = handle_request(
+            &cfg,
+            &json!({"op": "put_begin", "name": "a.txt", "size": 2 * MIB}),
+        );
         assert_eq!(too_big["ok"], false);
 
-        let begin = handle_request(&cfg, &json!({"op": "put_begin", "name": "a.txt", "size": 3}));
+        let begin = handle_request(
+            &cfg,
+            &json!({"op": "put_begin", "name": "a.txt", "size": 3}),
+        );
         let token = begin["upload"].as_str().unwrap().to_string();
-        let wrong_offset = handle_request(&cfg, &json!({"op": "put_chunk", "upload": token, "offset": 1, "data": B64.encode(b"abc")}));
+        let wrong_offset = handle_request(
+            &cfg,
+            &json!({"op": "put_chunk", "upload": token, "offset": 1, "data": B64.encode(b"abc")}),
+        );
         assert_eq!(wrong_offset["ok"], false);
         // the failed upload is gone, including its .part file
-        assert_eq!(handle_request(&cfg, &json!({"op": "put_end", "upload": token}))["ok"], false);
+        assert_eq!(
+            handle_request(&cfg, &json!({"op": "put_end", "upload": token}))["ok"],
+            false
+        );
 
-        let begin = handle_request(&cfg, &json!({"op": "put_begin", "name": "b.txt", "size": 3}));
+        let begin = handle_request(
+            &cfg,
+            &json!({"op": "put_begin", "name": "b.txt", "size": 3}),
+        );
         let token = begin["upload"].as_str().unwrap().to_string();
-        handle_request(&cfg, &json!({"op": "put_chunk", "upload": token, "offset": 0, "data": B64.encode(b"abc")}));
-        let bad_hash = handle_request(&cfg, &json!({"op": "put_end", "upload": token, "sha256": "00"}));
+        handle_request(
+            &cfg,
+            &json!({"op": "put_chunk", "upload": token, "offset": 0, "data": B64.encode(b"abc")}),
+        );
+        let bad_hash = handle_request(
+            &cfg,
+            &json!({"op": "put_end", "upload": token, "sha256": "00"}),
+        );
         assert_eq!(bad_hash["ok"], false);
         assert!(!dir.join("b.txt").exists());
         assert_eq!(fs::read_dir(&dir).unwrap().count(), 0);
@@ -745,7 +931,10 @@ mod tests {
     #[test]
     fn read_ops_stay_disabled_without_roots() {
         let cfg = crate::config::AppConfig::default();
-        assert_eq!(handle_request(&cfg, &json!({"op": "list", "path": r"C:\"}))["ok"], false);
+        assert_eq!(
+            handle_request(&cfg, &json!({"op": "list", "path": r"C:\"}))["ok"],
+            false
+        );
         assert_eq!(handle_request(&cfg, &json!({"op": "roots"}))["ok"], true);
     }
 }

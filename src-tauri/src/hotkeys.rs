@@ -10,7 +10,11 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
 /// (letter -> KeyX, digit -> DigitN; modifiers left unchanged).
 /// "Ctrl+Alt+L" -> "Ctrl+Alt+KeyL", "Ctrl+Shift+2" -> "Ctrl+Shift+Digit2".
 pub fn normalize(accel: &str) -> String {
-    let parts: Vec<&str> = accel.split('+').map(|p| p.trim()).filter(|p| !p.is_empty()).collect();
+    let parts: Vec<&str> = accel
+        .split('+')
+        .map(|p| p.trim())
+        .filter(|p| !p.is_empty())
+        .collect();
     if parts.is_empty() {
         return String::new();
     }
@@ -45,7 +49,12 @@ pub fn parse(accel: &str) -> Result<Shortcut, String> {
 pub async fn register_all(app: &AppHandle) -> Vec<String> {
     let gs = app.global_shortcut();
     let _ = gs.unregister_all();
-    let cfg = app.state::<crate::state::AppState>().config.lock().await.clone();
+    let cfg = app
+        .state::<crate::state::AppState>()
+        .config
+        .lock()
+        .await
+        .clone();
     let mut errors = Vec::new();
     for h in &cfg.hotkeys {
         if h.accelerator.trim().is_empty() {

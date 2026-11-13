@@ -135,22 +135,36 @@ pub fn link_entities(cfg: &AppConfig) -> Vec<Value> {
                "unit": "min", "device_class": "duration", "icon": "mdi:timer-sand-complete"}),
         json!({"key": "screen_time_status", "kind": "sensor", "name": "Screen time status",
                "icon": "mdi:account-clock"}),
-        owned(json!({"key": "family_rules", "kind": "switch", "name": "Screen time rules",
-                     "icon": "mdi:account-child"})),
-        owned(json!({"key": "screen_time_limit", "kind": "number", "name": "Daily screen time limit",
-                     "unit": "min", "min": 0, "max": MAX_LIMIT_MIN, "step": 5, "icon": "mdi:timer-cog"})),
+        owned(
+            json!({"key": "family_rules", "kind": "switch", "name": "Screen time rules",
+                     "icon": "mdi:account-child"}),
+        ),
+        owned(
+            json!({"key": "screen_time_limit", "kind": "number", "name": "Daily screen time limit",
+                     "unit": "min", "min": 0, "max": MAX_LIMIT_MIN, "step": 5, "icon": "mdi:timer-cog"}),
+        ),
         json!({"key": "screen_time_bonus", "kind": "number", "name": "Extra time today",
                "unit": "min", "min": 0, "max": MAX_BONUS_MIN, "step": 5, "icon": "mdi:timer-plus"}),
-        owned(json!({"key": "allowed_from", "kind": "text", "name": "Allowed from", "mode": "text",
-                     "max": 5, "pattern": TIME_PATTERN, "icon": "mdi:clock-start"})),
-        owned(json!({"key": "allowed_until", "kind": "text", "name": "Allowed until", "mode": "text",
-                     "max": 5, "pattern": TIME_PATTERN, "icon": "mdi:clock-end"})),
-        owned(json!({"key": "block_apps", "kind": "switch", "name": "Block apps",
-                     "icon": "mdi:application-cog"})),
-        owned(json!({"key": "blocked_apps", "kind": "text", "name": "Blocked apps", "mode": "text",
-                     "max": 255, "icon": "mdi:application-remove"})),
-        owned(json!({"key": "time_up_action", "kind": "select", "name": "When time is up",
-                     "options": ["Lock", "Sign out"], "icon": "mdi:lock-clock"})),
+        owned(
+            json!({"key": "allowed_from", "kind": "text", "name": "Allowed from", "mode": "text",
+                     "max": 5, "pattern": TIME_PATTERN, "icon": "mdi:clock-start"}),
+        ),
+        owned(
+            json!({"key": "allowed_until", "kind": "text", "name": "Allowed until", "mode": "text",
+                     "max": 5, "pattern": TIME_PATTERN, "icon": "mdi:clock-end"}),
+        ),
+        owned(
+            json!({"key": "block_apps", "kind": "switch", "name": "Block apps",
+                     "icon": "mdi:application-cog"}),
+        ),
+        owned(
+            json!({"key": "blocked_apps", "kind": "text", "name": "Blocked apps", "mode": "text",
+                     "max": 255, "icon": "mdi:application-remove"}),
+        ),
+        owned(
+            json!({"key": "time_up_action", "kind": "select", "name": "When time is up",
+                     "options": ["Lock", "Sign out"], "icon": "mdi:lock-clock"}),
+        ),
         json!({"key": "lock_message", "kind": "text", "name": "Lock with message", "mode": "text",
                "max": 200, "icon": "mdi:message-lock"}),
     ]
@@ -172,12 +186,18 @@ fn action_label(action: &str) -> &'static str {
 fn rule_values(rules: &FamilyConfig) -> HashMap<String, String> {
     HashMap::from([
         ("family_rules".to_string(), on_off(rules.rules_on)),
-        ("screen_time_limit".to_string(), rules.daily_limit_min.to_string()),
+        (
+            "screen_time_limit".to_string(),
+            rules.daily_limit_min.to_string(),
+        ),
         ("allowed_from".to_string(), rules.allowed_from.clone()),
         ("allowed_until".to_string(), rules.allowed_until.clone()),
         ("block_apps".to_string(), on_off(rules.block_apps)),
         ("blocked_apps".to_string(), rules.blocked_apps.join(", ")),
-        ("time_up_action".to_string(), action_label(&rules.time_up_action).to_string()),
+        (
+            "time_up_action".to_string(),
+            action_label(&rules.time_up_action).to_string(),
+        ),
         ("lock_message".to_string(), String::new()),
     ])
 }
@@ -202,7 +222,10 @@ fn normalize_time(text: &str) -> Result<String, String> {
 }
 
 fn parse_minutes(text: &str, max: u32) -> Result<u32, String> {
-    let value: f64 = text.trim().parse().map_err(|_| "not a number of minutes".to_string())?;
+    let value: f64 = text
+        .trim()
+        .parse()
+        .map_err(|_| "not a number of minutes".to_string())?;
     if !value.is_finite() || value < 0.0 {
         return Err("not a number of minutes".into());
     }
@@ -219,7 +242,9 @@ fn parse_app_list(text: &str) -> Result<Vec<String>, String> {
         let name = crate::processes::normalize_name(part)
             .ok_or_else(|| format!("not a program name: {}", part.trim()))?;
         if NEVER_BLOCK.contains(&name.as_str()) {
-            return Err(format!("{name} is part of Windows or Deskmate and cannot be blocked"));
+            return Err(format!(
+                "{name} is part of Windows or Deskmate and cannot be blocked"
+            ));
         }
         if !apps.contains(&name) {
             apps.push(name);
@@ -318,7 +343,10 @@ fn evaluate(rules: &FamilyConfig, usage: &Usage, minute_of_day: u32) -> Evaluati
                 minute_of_day >= from || minute_of_day < until
             };
             let until_in = (until + 1440 - minute_of_day) % 1440;
-            (inside, inside.then_some(if until_in == 0 { 1440 } else { until_in }))
+            (
+                inside,
+                inside.then_some(if until_in == 0 { 1440 } else { until_in }),
+            )
         }
     };
     let status = if !rules.rules_on {
@@ -336,7 +364,12 @@ fn evaluate(rules: &FamilyConfig, usage: &Usage, minute_of_day: u32) -> Evaluati
         (None, Some(bed)) => (Some(bed), true),
         (None, None) => (None, false),
     };
-    Evaluation { status, left_min, next_stop_min, stop_is_bedtime }
+    Evaluation {
+        status,
+        left_min,
+        next_stop_min,
+        stop_is_bedtime,
+    }
 }
 
 // ------------------------------------------------------------------ usage file
@@ -375,7 +408,10 @@ fn with_usage<T>(today: &str, f: impl FnOnce(&mut Usage) -> T) -> T {
     let mut guard = USAGE.lock().unwrap_or_else(|e| e.into_inner());
     let usage = guard.get_or_insert_with(load_usage);
     if usage.date != today {
-        *usage = Usage { date: today.to_string(), ..Default::default() };
+        *usage = Usage {
+            date: today.to_string(),
+            ..Default::default()
+        };
         save_usage(usage);
     }
     f(usage)
@@ -398,7 +434,10 @@ fn clock() -> Clock {
 
 #[cfg(not(windows))]
 fn clock() -> Clock {
-    Clock { date: String::new(), minute_of_day: 0 }
+    Clock {
+        date: String::new(),
+        minute_of_day: 0,
+    }
 }
 
 #[cfg(windows)]
@@ -454,7 +493,11 @@ fn tick(rt: &mut Runtime, rules: &FamilyConfig) -> HashMap<String, String> {
     let now = Instant::now();
     let clock = clock();
     // A gap longer than a few ticks is sleep or hibernation, not use.
-    let elapsed = rt.last_tick.map(|t| now - t).unwrap_or_default().min(TICK * 3);
+    let elapsed = rt
+        .last_tick
+        .map(|t| now - t)
+        .unwrap_or_default()
+        .min(TICK * 3);
     rt.last_tick = Some(now);
     let (locked, active) = in_use();
 
@@ -472,7 +515,10 @@ fn tick(rt: &mut Runtime, rules: &FamilyConfig) -> HashMap<String, String> {
         }
         if rules.rules_on && evaluation.status == Status::Ok {
             if let Some(next) = evaluation.next_stop_min {
-                if WARN_AT_MIN.iter().any(|&t| next <= t && !usage.warned.contains(&t)) {
+                if WARN_AT_MIN
+                    .iter()
+                    .any(|&t| next <= t && !usage.warned.contains(&t))
+                {
                     // Every threshold already passed counts as shown, so a
                     // lowered limit gives one notification, not three.
                     for t in WARN_AT_MIN.iter().filter(|&&t| t >= next) {
@@ -486,7 +532,11 @@ fn tick(rt: &mut Runtime, rules: &FamilyConfig) -> HashMap<String, String> {
                     } else {
                         format!("{next} minute{plural} of screen time left")
                     };
-                    toast(&what, "Save your work. The computer locks when the time is up.", false);
+                    toast(
+                        &what,
+                        "Save your work. The computer locks when the time is up.",
+                        false,
+                    );
                 }
             }
         }
@@ -509,7 +559,11 @@ fn tick(rt: &mut Runtime, rules: &FamilyConfig) -> HashMap<String, String> {
     } else {
         match rt.pending {
             None => {
-                let grace = if rt.enforced_once { AGAIN_GRACE } else { FIRST_GRACE };
+                let grace = if rt.enforced_once {
+                    AGAIN_GRACE
+                } else {
+                    FIRST_GRACE
+                };
                 rt.pending = Some((now, grace));
                 let title = if evaluation.status == Status::TimeUp {
                     "Screen time is up"
@@ -561,7 +615,11 @@ fn tick(rt: &mut Runtime, rules: &FamilyConfig) -> HashMap<String, String> {
                     .is_none_or(|t| now - *t >= BLOCK_NOTICE_EVERY);
                 if due {
                     rt.blocked_notice.insert(name.clone(), now);
-                    toast(&format!("{name} is blocked"), "The family rules on this computer block it.", false);
+                    toast(
+                        &format!("{name} is blocked"),
+                        "The family rules on this computer block it.",
+                        false,
+                    );
                 }
             }
         }
@@ -571,9 +629,15 @@ fn tick(rt: &mut Runtime, rules: &FamilyConfig) -> HashMap<String, String> {
     values.insert("screen_time_today".into(), (usage.seconds / 60).to_string());
     values.insert(
         "screen_time_left".into(),
-        evaluation.left_min.map(|m| m.to_string()).unwrap_or_else(|| "None".into()),
+        evaluation
+            .left_min
+            .map(|m| m.to_string())
+            .unwrap_or_else(|| "None".into()),
     );
-    values.insert("screen_time_status".into(), evaluation.status.as_str().into());
+    values.insert(
+        "screen_time_status".into(),
+        evaluation.status.as_str().into(),
+    );
     values.insert("screen_time_bonus".into(), usage.bonus_min.to_string());
     values
 }
@@ -613,7 +677,9 @@ pub fn spawn(app: AppHandle) {
                 let mut rt = rt_back;
                 let now = Instant::now();
                 let full = connected != was_connected
-                    || rt.last_full_publish.is_none_or(|t| now - t >= FULL_PUBLISH_EVERY);
+                    || rt
+                        .last_full_publish
+                        .is_none_or(|t| now - t >= FULL_PUBLISH_EVERY);
                 was_connected = connected;
                 let changed: HashMap<String, String> = values
                     .into_iter()
@@ -645,7 +711,10 @@ pub async fn handle_command(app: &AppHandle, key: &str, payload: &str) -> Result
     if !(cfg.family.enabled || protected) {
         return Err("family rules are off on this computer".into());
     }
-    let on = matches!(payload.trim().to_ascii_uppercase().as_str(), "ON" | "TRUE" | "1");
+    let on = matches!(
+        payload.trim().to_ascii_uppercase().as_str(),
+        "ON" | "TRUE" | "1"
+    );
     let mut rules = cfg.family.clone();
     match key {
         "family_rules" => rules.rules_on = on,
@@ -734,7 +803,11 @@ pub async fn get_family(app: AppHandle) -> Result<FamilyView, String> {
     tokio::task::spawn_blocking(move || {
         let clock = clock();
         let (seconds, bonus, evaluation) = with_usage(&clock.date, |usage| {
-            (usage.seconds, usage.bonus_min, evaluate(&rules, usage, clock.minute_of_day))
+            (
+                usage.seconds,
+                usage.bonus_min,
+                evaluate(&rules, usage, clock.minute_of_day),
+            )
         });
         FamilyView {
             protected: protection::is_protected(),
@@ -753,8 +826,13 @@ pub async fn get_family(app: AppHandle) -> Result<FamilyView, String> {
 
 #[tauri::command]
 pub async fn set_family(app: AppHandle, rules: FamilyConfig) -> Result<(), String> {
-    if tokio::task::spawn_blocking(protection::is_protected).await.unwrap_or(false) {
-        return Err("an administrator protected this account; change the rules in Home Assistant".into());
+    if tokio::task::spawn_blocking(protection::is_protected)
+        .await
+        .unwrap_or(false)
+    {
+        return Err(
+            "an administrator protected this account; change the rules in Home Assistant".into(),
+        );
     }
     let rules = normalize(rules)?;
     let values = {
@@ -796,7 +874,9 @@ pub async fn unprotect_family_account() -> Result<(), String> {
 /// typed into UAC this process runs as that administrator, not the child.
 pub fn handle_elevated_args() -> Option<i32> {
     let args: Vec<String> = std::env::args().collect();
-    let position = args.iter().position(|a| a == PROTECT_ARG || a == UNPROTECT_ARG)?;
+    let position = args
+        .iter()
+        .position(|a| a == PROTECT_ARG || a == UNPROTECT_ARG)?;
     let sid = args.get(position + 1).map(String::as_str).unwrap_or("");
     let result = if args[position] == PROTECT_ARG {
         protection::protect(sid)
@@ -825,7 +905,9 @@ mod protection {
     fn valid_sid(sid: &str) -> bool {
         sid.starts_with("S-1-5-21-")
             && sid.len() < 100
-            && sid.chars().all(|c| c.is_ascii_digit() || c == '-' || c == 'S')
+            && sid
+                .chars()
+                .all(|c| c.is_ascii_digit() || c == '-' || c == 'S')
     }
 
     fn watchdog_path() -> std::path::PathBuf {
@@ -910,13 +992,14 @@ mod protection {
         if !valid_sid(sid) {
             return Err("not a Windows account".into());
         }
-        let remaining = match RegKey::predef(HKEY_LOCAL_MACHINE).open_subkey_with_flags(KEY, KEY_ALL_ACCESS) {
-            Ok(key) => {
-                let _ = key.delete_value(sid);
-                key.enum_values().count()
-            }
-            Err(_) => 0,
-        };
+        let remaining =
+            match RegKey::predef(HKEY_LOCAL_MACHINE).open_subkey_with_flags(KEY, KEY_ALL_ACCESS) {
+                Ok(key) => {
+                    let _ = key.delete_value(sid);
+                    key.enum_values().count()
+                }
+                Err(_) => 0,
+            };
         if remaining == 0 {
             win::remove_watchdog(&watchdog_path());
         }
@@ -938,7 +1021,9 @@ mod protection {
         let own = std::process::id();
         let session = win::session_of(own);
         let running = crate::processes::snapshot().into_iter().any(|(pid, name)| {
-            pid != own && (name == "deskmate.exe" || name == WATCHDOG_EXE) && win::session_of(pid) == session
+            pid != own
+                && (name == "deskmate.exe" || name == WATCHDOG_EXE)
+                && win::session_of(pid) == session
         });
         if running {
             return;
@@ -1073,7 +1158,9 @@ mod protection {
                 service
                     .Connect(&empty, &empty, &empty, &empty)
                     .map_err(|e| e.to_string())?;
-                service.GetFolder(&BSTR::from("\\")).map_err(|e| e.to_string())
+                service
+                    .GetFolder(&BSTR::from("\\"))
+                    .map_err(|e| e.to_string())
             }
         }
 
@@ -1183,7 +1270,10 @@ mod tests {
     }
 
     fn usage(minutes: u64) -> Usage {
-        Usage { seconds: minutes * 60, ..Default::default() }
+        Usage {
+            seconds: minutes * 60,
+            ..Default::default()
+        }
     }
 
     #[test]
@@ -1212,7 +1302,10 @@ mod tests {
         let mut r = rules();
         r.allowed_from = "07:00".into();
         r.allowed_until = "21:00".into();
-        assert_eq!(evaluate(&r, &usage(0), 6 * 60 + 59).status, Status::OutsideHours);
+        assert_eq!(
+            evaluate(&r, &usage(0), 6 * 60 + 59).status,
+            Status::OutsideHours
+        );
         let e = evaluate(&r, &usage(0), 20 * 60 + 50);
         assert_eq!(e.status, Status::Ok);
         assert_eq!(e.next_stop_min, Some(10));
@@ -1220,7 +1313,10 @@ mod tests {
         r.allowed_from = "22:00".into();
         r.allowed_until = "02:00".into();
         assert_eq!(evaluate(&r, &usage(0), 23 * 60).status, Status::Ok);
-        assert_eq!(evaluate(&r, &usage(0), 12 * 60).status, Status::OutsideHours);
+        assert_eq!(
+            evaluate(&r, &usage(0), 12 * 60).status,
+            Status::OutsideHours
+        );
     }
 
     #[test]

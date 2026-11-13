@@ -117,7 +117,9 @@ fn with_failover<T>(
     for base in &candidates {
         match f(&agent, base, &token) {
             Ok(v) => return Ok(v),
-            Err(ureq::Error::Status(code, _)) => return Err(format!("HA API returned HTTP {code}")),
+            Err(ureq::Error::Status(code, _)) => {
+                return Err(format!("HA API returned HTTP {code}"))
+            }
             Err(e) => last_err = e.to_string(),
         }
     }
@@ -133,11 +135,19 @@ pub fn call_service(
     data: &serde_json::Value,
 ) -> Result<(), String> {
     // validation: [a-z0-9_] - this ends up in the URL path
-    let ok = |s: &str| !s.is_empty() && s.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_');
+    let ok = |s: &str| {
+        !s.is_empty()
+            && s.chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
+    };
     if !ok(domain) || !ok(service) {
         return Err(format!("invalid service: {domain}.{service}"));
     }
-    let mut body = if data.is_object() { data.clone() } else { serde_json::json!({}) };
+    let mut body = if data.is_object() {
+        data.clone()
+    } else {
+        serde_json::json!({})
+    };
     if let Some(id) = entity_id {
         if !id.trim().is_empty() {
             body["entity_id"] = serde_json::json!(id.trim());
@@ -155,7 +165,13 @@ pub fn call_service(
 
 /// homeassistant.toggle on an entity - the most common hotkey/widget action.
 pub fn toggle(cfg: &AppConfig, entity_id: &str) -> Result<(), String> {
-    call_service(cfg, "homeassistant", "toggle", Some(entity_id), &serde_json::json!({}))
+    call_service(
+        cfg,
+        "homeassistant",
+        "toggle",
+        Some(entity_id),
+        &serde_json::json!({}),
+    )
 }
 
 /// GET /api/states/{entity_id} - a single entity (widgets).
