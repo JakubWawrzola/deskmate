@@ -12,6 +12,7 @@
 Komputer sam pilnuje, gdzie wolno pisac i czytac; ta strona niczego nie
 rozszerza, tylko przenosi dane.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -31,7 +32,12 @@ import voluptuous as vol
 
 from homeassistant.components import frontend, panel_custom
 from homeassistant.components.http import HomeAssistantView, StaticPathConfig
-from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse
+from homeassistant.core import (
+    HomeAssistant,
+    ServiceCall,
+    ServiceResponse,
+    SupportsResponse,
+)
 from homeassistant.exceptions import HomeAssistantError, Unauthorized
 from homeassistant.helpers import device_registry as dr
 import homeassistant.helpers.config_validation as cv
@@ -159,7 +165,9 @@ def _admin_error(request: web.Request) -> web.Response | None:
     return None
 
 
-def _json_error(message: str, status: HTTPStatus = HTTPStatus.BAD_REQUEST) -> web.Response:
+def _json_error(
+    message: str, status: HTTPStatus = HTTPStatus.BAD_REQUEST
+) -> web.Response:
     return web.json_response({"message": message}, status=status)
 
 
@@ -240,7 +248,9 @@ class FilesActionView(HomeAssistantView):
             raise web.HTTPNotFound()
         return hub
 
-    async def get(self, request: web.Request, entry_id: str, action: str) -> web.StreamResponse:
+    async def get(
+        self, request: web.Request, entry_id: str, action: str
+    ) -> web.StreamResponse:
         if (denied := _admin_error(request)) is not None:
             return denied
         hub = self._hub(request, entry_id)
@@ -293,7 +303,9 @@ class FilesActionView(HomeAssistantView):
         await response.write_eof()
         return response
 
-    async def post(self, request: web.Request, entry_id: str, action: str) -> web.Response:
+    async def post(
+        self, request: web.Request, entry_id: str, action: str
+    ) -> web.Response:
         if (denied := _admin_error(request)) is not None:
             return denied
         hass: HomeAssistant = request.app["hass"]
@@ -332,22 +344,35 @@ class FilesActionView(HomeAssistantView):
         )
         token = str(result.get("upload", ""))
         _uploads(hass)[token] = UploadSession(
-            entry_id=entry_id, user_id=user.id, name=str(result.get("name", name)), size=size
+            entry_id=entry_id,
+            user_id=user.id,
+            name=str(result.get("name", name)),
+            size=size,
         )
         _LOGGER.info(
             "deskmate_link[%s]: %s wysyla %s (%s B)", hub.node_id, user.name, name, size
         )
         return self.json(
-            {"upload": token, "name": result.get("name", name), "chunk_bytes": FILES_HTTP_CHUNK}
+            {
+                "upload": token,
+                "name": result.get("name", name),
+                "chunk_bytes": FILES_HTTP_CHUNK,
+            }
         )
 
     def _session(self, hass, token: str, entry_id: str, user) -> UploadSession | None:
         session = _uploads(hass).get(token)
-        if session is None or session.entry_id != entry_id or session.user_id != user.id:
+        if (
+            session is None
+            or session.entry_id != entry_id
+            or session.user_id != user.id
+        ):
             return None
         return session
 
-    async def _fail(self, hass, hub, token: str, message: str, status=HTTPStatus.BAD_REQUEST):
+    async def _fail(
+        self, hass, hub, token: str, message: str, status=HTTPStatus.BAD_REQUEST
+    ):
         _uploads(hass).pop(token, None)
         await hub.async_put_abort(token)
         return _json_error(message, status)
@@ -371,15 +396,25 @@ class FilesActionView(HomeAssistantView):
                     received += len(data)
                     if received > FILES_HTTP_CHUNK:
                         return await self._fail(
-                            hass, hub, token, "Chunk too large", HTTPStatus.REQUEST_ENTITY_TOO_LARGE
+                            hass,
+                            hub,
+                            token,
+                            "Chunk too large",
+                            HTTPStatus.REQUEST_ENTITY_TOO_LARGE,
                         )
                     if session.offset + len(buffer) + len(data) > session.size:
-                        return await self._fail(hass, hub, token, "More data than announced")
+                        return await self._fail(
+                            hass, hub, token, "More data than announced"
+                        )
                     buffer.extend(data)
                     if len(buffer) >= FILES_LINK_CHUNK:
                         whole = len(buffer) - len(buffer) % FILES_LINK_CHUNK
                         session.offset = await _send_chunks(
-                            hub, token, session.offset, bytes(buffer[:whole]), session.sha
+                            hub,
+                            token,
+                            session.offset,
+                            bytes(buffer[:whole]),
+                            session.sha,
                         )
                         del buffer[:whole]
                 if buffer:
@@ -405,10 +440,17 @@ class FilesActionView(HomeAssistantView):
             _uploads(hass).pop(token, None)
             result = await hub.async_put_end(token, session.sha.hexdigest())
         _LOGGER.info(
-            "deskmate_link[%s]: zapisano %s w %s", hub.node_id, result.get("name"), result.get("dir")
+            "deskmate_link[%s]: zapisano %s w %s",
+            hub.node_id,
+            result.get("name"),
+            result.get("dir"),
         )
         return self.json(
-            {"name": result.get("name"), "dir": result.get("dir"), "size": result.get("size")}
+            {
+                "name": result.get("name"),
+                "dir": result.get("dir"),
+                "size": result.get("size"),
+            }
         )
 
 
@@ -436,7 +478,9 @@ def _select_hub(hass: HomeAssistant, node_id: str | None):
     if node_id:
         hubs = [hub for hub in hubs if hub.node_id == node_id]
     if not hubs:
-        raise HomeAssistantError(f"Deskmate: no paired computer with node id {node_id!r}")
+        raise HomeAssistantError(
+            f"Deskmate: no paired computer with node id {node_id!r}"
+        )
     if len(hubs) > 1:
         raise HomeAssistantError("Deskmate: several computers are paired, set node_id")
     return hubs[0]
@@ -483,9 +527,7 @@ async def _async_send_file(hass: HomeAssistant, call: ServiceCall) -> ServiceRes
     hub = _select_hub(hass, call.data.get("node_id"))
     path = call.data["path"]
     if not hass.config.is_allowed_path(path):
-        raise HomeAssistantError(
-            f"Deskmate: {path} is not in allowlist_external_dirs"
-        )
+        raise HomeAssistantError(f"Deskmate: {path} is not in allowlist_external_dirs")
     if not await hass.async_add_executor_job(os.path.isfile, path):
         raise HomeAssistantError(f"Deskmate: file not found: {path}")
     size = await hass.async_add_executor_job(os.path.getsize, path)
@@ -520,7 +562,10 @@ async def _async_fetch_file(hass: HomeAssistant, call: ServiceCall) -> ServiceRe
         raise HomeAssistantError("Deskmate: that is a folder, not a file")
     destination = call.data["destination"]
     if await hass.async_add_executor_job(os.path.isdir, destination):
-        safe = os.path.basename(str(stat.get("name") or "file").replace("\\", "/")) or "file"
+        safe = (
+            os.path.basename(str(stat.get("name") or "file").replace("\\", "/"))
+            or "file"
+        )
         destination = os.path.join(destination, safe)
     if not hass.config.is_allowed_path(destination):
         raise HomeAssistantError(

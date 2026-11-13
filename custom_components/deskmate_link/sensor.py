@@ -1,4 +1,5 @@
 """Sensory Deskmate Link (deklarowane przez klienta)."""
+
 from __future__ import annotations
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
@@ -25,7 +26,11 @@ class DeskmateSensor(DeskmateEntity, SensorEntity):
         # A timestamp sensor must hand Home Assistant a datetime, not the ISO
         # text the computer sends (e.g. "Last active").
         if self.device_class == SensorDeviceClass.TIMESTAMP:
-            return dt_util.parse_datetime(self._value) if isinstance(self._value, str) else None
+            return (
+                dt_util.parse_datetime(self._value)
+                if isinstance(self._value, str)
+                else None
+            )
         # Liczbowy sensor bez wartosci (np. "Screen time left" bez limitu)
         if self._value == "" and self.native_unit_of_measurement:
             return None

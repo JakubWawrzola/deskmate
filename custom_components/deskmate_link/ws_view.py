@@ -9,6 +9,7 @@ Blokada liczona jest per (node, IP), z osobna zapora dla samego IP - inaczej
 jeden zle skonfigurowany komputer blokowal poprawny, gdy oba wychodza tym samym
 adresem publicznym (tunel/reverse proxy).
 """
+
 from __future__ import annotations
 
 import json
@@ -223,7 +224,11 @@ class DeskmateLinkWsView(HomeAssistantView):
             reason = result if isinstance(result, str) else REJECT_AUTH
             count = self._record_fail(node, ip)
             self._log_rejected(node, ip, count, reason)
-            if node_valid and reason == REJECT_AUTH and count >= UNKNOWN_NODE_ISSUE_AFTER:
+            if (
+                node_valid
+                and reason == REJECT_AUTH
+                and count >= UNKNOWN_NODE_ISSUE_AFTER
+            ):
                 known = any(h.node_id == node for h in hubs.values())
                 self._raise_unknown_node_issue(hass, node, ip, known)
             return await self._reject(ws, reason)
@@ -236,7 +241,10 @@ class DeskmateLinkWsView(HomeAssistantView):
         ir.async_delete_issue(hass, DOMAIN, f"{ISSUE_UNKNOWN_NODE}_{claimed_node}")
         await ws.send_str(json.dumps(welcome))
         _LOGGER.info(
-            "deskmate_link[%s]: polaczono (%s, protokol v%s)", matched.node_id, ip, proto
+            "deskmate_link[%s]: polaczono (%s, protokol v%s)",
+            matched.node_id,
+            ip,
+            proto,
         )
         await matched.run_session(ws, rx, tx)
         _LOGGER.info("deskmate_link[%s]: rozlaczono", matched.node_id)

@@ -1,4 +1,5 @@
 """Przelaczniki Deskmate Link (np. keep_awake)."""
+
 from __future__ import annotations
 
 from typing import Any

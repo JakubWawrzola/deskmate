@@ -1,4 +1,5 @@
 """Baza encji Deskmate Link + fabryka dynamicznego dodawania po declare."""
+
 from __future__ import annotations
 
 import logging
@@ -119,7 +120,10 @@ class DeskmateOwnedEntity(DeskmateEntity, RestoreEntity):
             restored = extra.as_dict().get("owned")
         if restored is None:
             last = await self.async_get_last_state()
-            if last is not None and last.state not in (STATE_UNKNOWN, STATE_UNAVAILABLE):
+            if last is not None and last.state not in (
+                STATE_UNKNOWN,
+                STATE_UNAVAILABLE,
+            ):
                 restored = last.state
         if restored is not None:
             try:
@@ -168,7 +172,10 @@ class DeskmateOwnedEntity(DeskmateEntity, RestoreEntity):
             await self.hub.async_command(self.key, "set", value)
         except Exception as err:  # noqa: BLE001 - komputer moze odmowic, sprobujemy pozniej
             _LOGGER.debug(
-                "deskmate_link[%s]: %s not restored: %s", self.hub.node_id, self.key, err
+                "deskmate_link[%s]: %s not restored: %s",
+                self.hub.node_id,
+                self.key,
+                err,
             )
 
 
@@ -185,7 +192,9 @@ def setup_dynamic_platform(
 
     @callback
     def _sync() -> None:
-        declared = {d["key"] for d in hub.entities if d.get("kind") == kind and d.get("key")}
+        declared = {
+            d["key"] for d in hub.entities if d.get("kind") == kind and d.get("key")
+        }
         # klucz zniknal z declare -> hub usunal go z rejestru; pozwol dodac ponownie
         added.intersection_update(declared)
         new = []

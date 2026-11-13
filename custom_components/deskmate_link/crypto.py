@@ -11,6 +11,7 @@ Pola do MAC i KDF sa kodowane z prefiksem dlugosci (`enc`), wiec zadne
 sklejenie pol nie da tego samego ciagu bajtow co inne.
 Uzywa pakietu `cryptography` (jest w srodowisku HA Core).
 """
+
 from __future__ import annotations
 
 import base64
@@ -87,9 +88,7 @@ def derive_session_keys(psk_b64: str, cn_b64: str, sn_b64: str) -> tuple[bytes, 
 def derive_cascade_keys(psk_b64: str, cn_b64: str, sn_b64: str) -> tuple[bytes, bytes]:
     """v1: klucze drugiej warstwy (ChaCha20-Poly1305), z osobnego klucza kaskady."""
     salt = _b64d(cn_b64) + _b64d(sn_b64)
-    return _hkdf_pair(
-        _b64d(psk_b64), salt, b"dml1 cascade c2s", b"dml1 cascade s2c"
-    )
+    return _hkdf_pair(_b64d(psk_b64), salt, b"dml1 cascade c2s", b"dml1 cascade s2c")
 
 
 # ── v2 ───────────────────────────────────────────────────────────
@@ -104,9 +103,7 @@ def enc(*parts: bytes) -> bytes:
     return bytes(out)
 
 
-def v2_hello_bytes(
-    node: str, cn: bytes, ts: int, epk: bytes, cascade: bool
-) -> bytes:
+def v2_hello_bytes(node: str, cn: bytes, ts: int, epk: bytes, cascade: bool) -> bytes:
     return enc(
         b"dml2 hello",
         b"2",

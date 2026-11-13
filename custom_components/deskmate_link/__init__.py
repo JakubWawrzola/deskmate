@@ -1,4 +1,5 @@
 """Deskmate Link - szyfrowany kanal Deskmate <-> HA bez MQTT."""
+
 from __future__ import annotations
 
 import logging

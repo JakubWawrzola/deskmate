@@ -9,6 +9,7 @@ Rekonfiguracja pozwala wygenerowac nowy klucz albo odpiac wpis od node'a
 (np. po zmianie nazwy komputera) bez kasowania urzadzenia i jego encji, a takze
 pokazac kod dla kolejnego konta Windows na tym samym komputerze.
 """
+
 from __future__ import annotations
 
 import base64

@@ -18,8 +18,8 @@ SUPPORTED_VERSIONS = (PROTO_V1, PROTO_V2)
 # Nazwa node'a z Deskmate to zsanityzowany hostname: [a-z0-9_]
 NODE_ID_PATTERN = r"^[a-z0-9_]{1,64}$"
 HANDSHAKE_MAX_SKEW_S = 90
-HANDSHAKE_FAILS_LOCKOUT = 10          # limit na pare (node, IP)
-HANDSHAKE_FAILS_LOCKOUT_IP = 100      # zapora dla samego IP (anty-flood)
+HANDSHAKE_FAILS_LOCKOUT = 10  # limit na pare (node, IP)
+HANDSHAKE_FAILS_LOCKOUT_IP = 100  # zapora dla samego IP (anty-flood)
 HANDSHAKE_LOCKOUT_S = 300
 
 # Powody odrzucenia wysylane do klienta. Celowo zgrubne: endpoint jest
@@ -53,9 +53,9 @@ PAIRING_CODE_PREFIX = "DMP1."
 DIR_C2S = b"\x01\x00\x00\x00"
 DIR_S2C = b"\x02\x00\x00\x00"
 
-SIGNAL_STATE = f"{DOMAIN}_state"          # + entry_id
+SIGNAL_STATE = f"{DOMAIN}_state"  # + entry_id
 SIGNAL_AVAILABLE = f"{DOMAIN}_available"  # + entry_id
-SIGNAL_DECLARED = f"{DOMAIN}_declared"    # + entry_id
+SIGNAL_DECLARED = f"{DOMAIN}_declared"  # + entry_id
 
 EVENT_NOTIFY_ACTION = f"{DOMAIN}_notify_action"
 EVENT_TRIGGER = f"{DOMAIN}_trigger"
@@ -82,7 +82,16 @@ FILES_LINK_CHUNK = 256 * 1024  # jedna ramka Link (limit po stronie komputera)
 FILES_HTTP_CHUNK = 8 * 1024 * 1024  # jedno zadanie HTTP z przegladarki
 FILES_UPLOAD_IDLE_S = 600
 
-PLATFORMS = ["sensor", "binary_sensor", "switch", "number", "button", "text", "event", "select"]
+PLATFORMS = [
+    "sensor",
+    "binary_sensor",
+    "switch",
+    "number",
+    "button",
+    "text",
+    "event",
+    "select",
+]
 
 # Wartosci regul rodzinnych na chronionym koncie: HA odklada je ponownie,
 # gdy komputer zglosi cos innego - nie czesciej niz co tyle sekund.

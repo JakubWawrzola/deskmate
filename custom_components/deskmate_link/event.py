@@ -4,6 +4,7 @@ Klient deklaruje kind "event" z lista event_types (np. ["press"]) i wysyla
 wiadomosc {"t":"trigger","key":...,"event":...}. Kazdy trigger to takze
 event `deskmate_link_trigger` na busie HA (dla automatyzacji).
 """
+
 from __future__ import annotations
 
 from homeassistant.components.event import EventEntity

@@ -1,4 +1,5 @@
 """Hub sesji Deskmate Link - jedno urzadzenie (node) per config entry."""
+
 from __future__ import annotations
 
 import asyncio
@@ -133,7 +134,9 @@ class DeskmateHub:
         now = time.time()
         cutoff = HANDSHAKE_MAX_SKEW_S * 2
         self._seen_hello = {
-            nonce: seen for nonce, seen in self._seen_hello.items() if now - seen < cutoff
+            nonce: seen
+            for nonce, seen in self._seen_hello.items()
+            if now - seen < cutoff
         }
         if not cn or cn in self._seen_hello:
             return False
@@ -177,7 +180,9 @@ class DeskmateHub:
         ts = hello.get("ts", 0)
         if not isinstance(cn, str) or not isinstance(ts, (int, float)):
             return None
-        if not hs_mac_ok(self._psk, hello.get("mac", ""), "hello", node, cn, str(int(ts))):
+        if not hs_mac_ok(
+            self._psk, hello.get("mac", ""), "hello", node, cn, str(int(ts))
+        ):
             return None
         if self.min_version > PROTO_V1:
             # Ten komputer mowil juz v2 - v1 to proba downgrade'u albo stary klient.
@@ -395,7 +400,9 @@ class DeskmateHub:
             updates = msg.get("s", {}) or {}
             if isinstance(updates, dict):
                 self.states.update(updates)
-                async_dispatcher_send(self.hass, f"{SIGNAL_STATE}_{self.entry.entry_id}")
+                async_dispatcher_send(
+                    self.hass, f"{SIGNAL_STATE}_{self.entry.entry_id}"
+                )
         elif mtype == "ack":
             fut = self._pending.pop(msg.get("id"), None)
             if fut is not None and not fut.done():
@@ -434,7 +441,9 @@ class DeskmateHub:
         """Usuwa z rejestru encje, ktorych nie ma w nowym declare."""
         from homeassistant.helpers import entity_registry as er
 
-        declared = {f"{self.entry.entry_id}-{d['key']}" for d in self.entities if d.get("key")}
+        declared = {
+            f"{self.entry.entry_id}-{d['key']}" for d in self.entities if d.get("key")
+        }
         registry = er.async_get(self.hass)
         for entry in er.async_entries_for_config_entry(registry, self.entry.entry_id):
             if entry.unique_id not in declared:
@@ -512,7 +521,9 @@ class DeskmateHub:
             self._pending.pop(request_id, None)
 
         if not isinstance(response, dict) or response.get("t") != "fs_res":
-            raise HomeAssistantError("Deskmate Files: unexpected answer from the computer")
+            raise HomeAssistantError(
+                "Deskmate Files: unexpected answer from the computer"
+            )
         if not response.get("ok"):
             error = str(response.get("error") or "unknown error on the computer")
             raise HomeAssistantError(f"Deskmate Files: {error}")
@@ -520,24 +531,24 @@ class DeskmateHub:
 
     async def async_fs_list(self, path: str) -> list[dict[str, Any]]:
         """Zwraca wpisy allowlistowanego katalogu klienta."""
-        response = await self._send_fs_request(
-            {"t": "fs", "op": "list", "path": path}
-        )
+        response = await self._send_fs_request({"t": "fs", "op": "list", "path": path})
         entries = response.get("entries")
         if not isinstance(entries, list) or not all(
             isinstance(entry, dict) for entry in entries
         ):
-            raise HomeAssistantError("Deskmate Files: the computer sent no valid folder listing")
+            raise HomeAssistantError(
+                "Deskmate Files: the computer sent no valid folder listing"
+            )
         return entries
 
     async def async_fs_stat(self, path: str) -> dict[str, Any]:
         """Zwraca metadane allowlistowanej sciezki klienta."""
-        response = await self._send_fs_request(
-            {"t": "fs", "op": "stat", "path": path}
-        )
+        response = await self._send_fs_request({"t": "fs", "op": "stat", "path": path})
         stat = response.get("stat")
         if not isinstance(stat, dict):
-            raise HomeAssistantError("Deskmate Files: the computer sent no valid file details")
+            raise HomeAssistantError(
+                "Deskmate Files: the computer sent no valid file details"
+            )
         return stat
 
     async def async_fs_roots(self) -> dict[str, Any]:
@@ -580,13 +591,13 @@ class DeskmateHub:
     async def async_put_abort(self, upload: str) -> None:
         """Przerywa zapis; komputer kasuje niedokonczony plik. Best effort."""
         try:
-            await self._send_fs_request({"t": "fs", "op": "put_abort", "upload": upload})
+            await self._send_fs_request(
+                {"t": "fs", "op": "put_abort", "upload": upload}
+            )
         except HomeAssistantError:
             pass
 
-    async def async_fs_read(
-        self, path: str, offset: int, len: int
-    ) -> dict[str, Any]:
+    async def async_fs_read(self, path: str, offset: int, len: int) -> dict[str, Any]:
         """Zwraca zakodowany chunk pliku i znacznik EOF."""
         if offset < 0 or len < 0 or len > 256 * 1024:
             raise HomeAssistantError("Deskmate Files: invalid read range")
@@ -602,7 +613,9 @@ class DeskmateHub:
         if not isinstance(response.get("data"), str) or not isinstance(
             response.get("eof"), bool
         ):
-            raise HomeAssistantError("Deskmate Files: invalid file chunk from the computer")
+            raise HomeAssistantError(
+                "Deskmate Files: invalid file chunk from the computer"
+            )
         return {"data": response["data"], "eof": response["eof"]}
 
     # ── DeskmateTV (wezel typu tv) ───────────────────────────────
@@ -613,7 +626,10 @@ class DeskmateHub:
         return self.device_info.get("type") == "tv"
 
     async def async_tv_request(
-        self, op: str, args: dict[str, Any] | None = None, timeout: float = TV_RESPONSE_TIMEOUT
+        self,
+        op: str,
+        args: dict[str, Any] | None = None,
+        timeout: float = TV_RESPONSE_TIMEOUT,
     ) -> dict[str, Any]:
         """Polecenie dla DeskmateTV i odpowiedz `tv_res`.
 

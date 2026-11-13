@@ -1,4 +1,5 @@
 """Listy wyboru Deskmate Link (urzadzenia dzwieku, akcja po czasie ekranowym)."""
+
 from __future__ import annotations
 
 from homeassistant.components.select import SelectEntity

@@ -10,7 +10,9 @@ from pathlib import Path
 
 
 def load_ha_crypto(home_assistant: Path):
-    source = home_assistant / "domos" / "custom_components" / "deskmate_link" / "crypto.py"
+    source = (
+        home_assistant / "domos" / "custom_components" / "deskmate_link" / "crypto.py"
+    )
     spec = importlib.util.spec_from_file_location("deskmate_link_ha_crypto", source)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"cannot load {source}")

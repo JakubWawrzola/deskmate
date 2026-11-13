@@ -1,4 +1,5 @@
 """Sensory binarne Deskmate Link."""
+
 from __future__ import annotations
 
 from homeassistant.components.binary_sensor import (
@@ -56,6 +57,4 @@ def _factory(hub, desc) -> DeskmateEntity:
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    setup_dynamic_platform(
-        hass, entry, async_add_entities, "binary_sensor", _factory
-    )
+    setup_dynamic_platform(hass, entry, async_add_entities, "binary_sensor", _factory)

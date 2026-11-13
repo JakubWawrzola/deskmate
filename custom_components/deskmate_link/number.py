@@ -1,4 +1,5 @@
 """Liczby Deskmate Link (np. glosnosc)."""
+
 from __future__ import annotations
 
 from homeassistant.components.number import NumberEntity

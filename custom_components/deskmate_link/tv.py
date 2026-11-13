@@ -8,6 +8,7 @@ wylaczone, wiec nowa wersja APK idzie z HA przez Link: plik z
 przy najblizszym polaczeniu (raz na wersje i uruchomienie HA).
 Opis: docs/TV.md.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -20,12 +21,24 @@ from typing import Any, Callable
 
 import voluptuous as vol
 
-from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse, callback
+from homeassistant.core import (
+    HomeAssistant,
+    ServiceCall,
+    ServiceResponse,
+    SupportsResponse,
+    callback,
+)
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 
-from .const import DOMAIN, SERVICE_TV_UPDATE, SIGNAL_DECLARED, TV_UPDATE_CHUNK, TV_UPDATE_DIR
+from .const import (
+    DOMAIN,
+    SERVICE_TV_UPDATE,
+    SIGNAL_DECLARED,
+    TV_UPDATE_CHUNK,
+    TV_UPDATE_DIR,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -42,7 +55,9 @@ _APK_RE = re.compile(r"^DeskmateTV-(\d+(?:\.\d+)*)\.apk$")
 def find_tv_hub(hass: HomeAssistant, node_id: str | None = None):
     """Hub DeskmateTV: wskazany node albo jedyny/pierwszy wezel typu tv."""
     hubs = (hass.data.get(DOMAIN) or {}).get("hubs", {})
-    candidates = [h for h in hubs.values() if h.is_tv or (node_id and h.node_id == node_id)]
+    candidates = [
+        h for h in hubs.values() if h.is_tv or (node_id and h.node_id == node_id)
+    ]
     if node_id:
         candidates = [h for h in candidates if h.node_id == node_id]
     # polaczony wygrywa z odlaczonym duplikatem
@@ -76,11 +91,15 @@ def _pick_apk(directory: Path, name: str | None) -> Path:
             raise HomeAssistantError("DeskmateTV: update file must be an .apk")
         path = directory / safe
         if not path.is_file():
-            raise HomeAssistantError(f"DeskmateTV: no {safe} in /config/{TV_UPDATE_DIR}")
+            raise HomeAssistantError(
+                f"DeskmateTV: no {safe} in /config/{TV_UPDATE_DIR}"
+            )
         return path
     newest = _newest_apk(directory)
     if newest is None:
-        raise HomeAssistantError(f"DeskmateTV: no DeskmateTV-<version>.apk in /config/{TV_UPDATE_DIR}")
+        raise HomeAssistantError(
+            f"DeskmateTV: no DeskmateTV-<version>.apk in /config/{TV_UPDATE_DIR}"
+        )
     return directory / newest[0]
 
 
@@ -89,19 +108,27 @@ def _read_apk(directory: Path, name: str | None) -> tuple[str, bytes]:
     return path.name, path.read_bytes()
 
 
-async def async_tv_update(hass: HomeAssistant, hub, name: str | None = None) -> dict[str, Any]:
+async def async_tv_update(
+    hass: HomeAssistant, hub, name: str | None = None
+) -> dict[str, Any]:
     """Wysyla APK na TV fragmentami; TV sprawdza SHA-256, wersje i podpis."""
     if not hub.available:
         raise HomeAssistantError("DeskmateTV: the TV is not connected")
     directory = Path(hass.config.path(TV_UPDATE_DIR))
     filename, data = await hass.async_add_executor_job(_read_apk, directory, name)
     digest = hashlib.sha256(data).hexdigest()
-    _LOGGER.info("DeskmateTV: wysylam %s (%s B) na %s", filename, len(data), hub.node_id)
+    _LOGGER.info(
+        "DeskmateTV: wysylam %s (%s B) na %s", filename, len(data), hub.node_id
+    )
 
-    async def step(op: str, args: dict[str, Any], timeout: float = 30.0) -> dict[str, Any]:
+    async def step(
+        op: str, args: dict[str, Any], timeout: float = 30.0
+    ) -> dict[str, Any]:
         res = await hub.async_tv_request(op, args, timeout)
         if not res.get("ok"):
-            raise HomeAssistantError(f"DeskmateTV {op}: {res.get('error') or res.get('code')}")
+            raise HomeAssistantError(
+                f"DeskmateTV {op}: {res.get('error') or res.get('code')}"
+            )
         return res
 
     await step("update_begin", {"size": len(data), "sha256": digest})
@@ -151,26 +178,44 @@ def async_track_tv_auto_update(hass: HomeAssistant, hub) -> Callable[[], None]:
             return
         try:
             result = await async_tv_update(hass, hub, name)
-            _LOGGER.info("DeskmateTV[%s]: autoaktualizacja %s -> %s", hub.node_id, current, result.get("status"))
+            _LOGGER.info(
+                "DeskmateTV[%s]: autoaktualizacja %s -> %s",
+                hub.node_id,
+                current,
+                result.get("status"),
+            )
         except HomeAssistantError as err:
-            _LOGGER.warning("DeskmateTV[%s]: autoaktualizacja %s nieudana: %s", hub.node_id, name, err)
+            _LOGGER.warning(
+                "DeskmateTV[%s]: autoaktualizacja %s nieudana: %s",
+                hub.node_id,
+                name,
+                err,
+            )
 
     @callback
     def _declared() -> None:
         if not hub.is_tv:
             return
         async_register_tv_services(hass)
-        hass.async_create_background_task(_check(), f"deskmate_tv_auto_update_{hub.entry.entry_id}")
+        hass.async_create_background_task(
+            _check(), f"deskmate_tv_auto_update_{hub.entry.entry_id}"
+        )
 
-    return async_dispatcher_connect(hass, f"{SIGNAL_DECLARED}_{hub.entry.entry_id}", _declared)
+    return async_dispatcher_connect(
+        hass, f"{SIGNAL_DECLARED}_{hub.entry.entry_id}", _declared
+    )
 
 
-async def async_camera_data_uri(hass: HomeAssistant, entity_id: str, width: int = 960) -> str:
+async def async_camera_data_uri(
+    hass: HomeAssistant, entity_id: str, width: int = 960
+) -> str:
     """Klatka z kamery HA jako data URI (TV nie ma tokenu do API HA)."""
     from homeassistant.components.camera import async_get_image
 
     image = await async_get_image(hass, entity_id, width=width)
-    return f"data:{image.content_type};base64,{base64.b64encode(image.content).decode()}"
+    return (
+        f"data:{image.content_type};base64,{base64.b64encode(image.content).decode()}"
+    )
 
 
 def async_register_tv_services(hass: HomeAssistant) -> None:

@@ -1,4 +1,5 @@
 """Przyciski Deskmate Link (lock, sleep, media...)."""
+
 from __future__ import annotations
 
 from homeassistant.components.button import ButtonEntity

@@ -1,4 +1,5 @@
 """Pola tekstowe Deskmate Link (np. wpis tekstu / tryb prezentacji)."""
+
 from __future__ import annotations
 
 from homeassistant.components.text import TextEntity
