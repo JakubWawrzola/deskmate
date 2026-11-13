@@ -43,11 +43,15 @@ pub fn dashboard_url(cfg: &AppConfig, path: &str) -> Result<url::Url, String> {
     let base = base_url(cfg).ok_or(
         "Home Assistant's address is unknown: set it under Settings > Home Assistant API, or connect with the Deskmate integration",
     )?;
-    let path = path.trim().trim_start_matches('/');
+    // Checked before the leading slashes are stripped: afterwards "//host/x"
+    // would look like an ordinary path.
+    let path = path.trim();
     if path.contains("://") || path.starts_with("//") || path.contains('\\') {
         return Err("the dashboard must be a path such as lovelace/0".into());
     }
-    let url = base.join(path).map_err(|e| e.to_string())?;
+    let url = base
+        .join(path.trim_start_matches('/'))
+        .map_err(|e| e.to_string())?;
     if url.host_str() != base.host_str() || url.scheme() != base.scheme() {
         return Err("the dashboard must be on the Home Assistant host".into());
     }
