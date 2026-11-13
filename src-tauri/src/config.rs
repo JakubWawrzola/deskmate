@@ -268,7 +268,7 @@ pub struct AppConfig {
     /// Last version announced with a notification, so each is announced once.
     #[serde(default)]
     pub update_notified: String,
-    /// Home Assistant URL (local), e.g. http://192.168.18.9:8123. Empty = API channel disabled.
+    /// Home Assistant URL (local), e.g. http://192.168.1.10:8123. Empty = API channel disabled.
     pub ha_url: String,
     /// fallback URL (Tailscale/public) - failover like the MQTT broker
     pub ha_url_remote: String,

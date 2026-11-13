@@ -77,7 +77,7 @@ mod tests {
         assert!(is_deskmate_target("laptop.Deskmate Link"));
         assert!(is_deskmate_target("laptop.Deskmate Link Cascade"));
         assert!(is_deskmate_target("laptop.Deskmate HA Token"));
-        assert!(is_deskmate_target("kuba@192.168.1.5.Deskmate MQTT"));
+        assert!(is_deskmate_target("user@192.168.1.5.Deskmate MQTT"));
         assert!(!is_deskmate_target("Deskmate Link"));
         assert!(!is_deskmate_target("laptop.Deskmate Link backup"));
         assert!(!is_deskmate_target("git:https://github.com"));
