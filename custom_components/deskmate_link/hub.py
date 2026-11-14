@@ -55,6 +55,7 @@ from .crypto import (
     v2_session_keys,
     v2_welcome_bytes,
 )
+from .session_info import async_info_answer, invalid_info_field
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -85,6 +86,11 @@ class DeskmateHub:
         self.entities: list[dict[str, Any]] = []  # deskryptory z declare
         self.states: dict[str, Any] = {}
         self.available: bool = False
+        # What the client of the current session said about itself in `info`.
+        # None when it sent no `info`, and when there is no session.
+        self.session_role: str | None = None
+        self.session_platform: str | None = None
+        self.session_app: str | None = None
 
         self._ws: web.WebSocketResponse | None = None
         self._tx: FrameCodec | None = None  # s2c
@@ -337,6 +343,8 @@ class DeskmateHub:
         self._ws = ws
         self._rx = rx
         self._tx = tx
+        # The replaced session may have handled one more frame while it closed.
+        self._clear_session_info()
         self._set_available(True)
         try:
             async for msg in ws:
@@ -360,11 +368,13 @@ class DeskmateHub:
                 self._ws = None
                 self._tx = None
                 self._rx = None
+                self._clear_session_info()
                 self._set_available(False)
                 self._fail_pending("disconnected")
 
     async def _close_current(self) -> None:
         ws, self._ws = self._ws, None
+        self._clear_session_info()
         if ws is not None and not ws.closed:
             try:
                 await ws.close()
@@ -378,6 +388,11 @@ class DeskmateHub:
     def _set_available(self, value: bool) -> None:
         self.available = value
         async_dispatcher_send(self.hass, f"{SIGNAL_AVAILABLE}_{self.entry.entry_id}")
+
+    def _clear_session_info(self) -> None:
+        self.session_role = None
+        self.session_platform = None
+        self.session_app = None
 
     def _fail_pending(self, reason: str) -> None:
         for fut in self._pending.values():
@@ -434,7 +449,29 @@ class DeskmateHub:
                 )
         elif mtype == "ping":
             await self._send({"t": "pong"})
+        elif mtype == "info":
+            await self._handle_info(msg)
         # pong: nic do zrobienia
+
+    async def _handle_info(self, msg: dict) -> None:
+        """Record what the client is and answer with what this integration is.
+
+        Clients older than this frame never send it and get no answer, so
+        nothing changes for them.
+        """
+        invalid = invalid_info_field(msg)
+        if invalid is not None:
+            # Only the name of the field is logged, never what was received.
+            _LOGGER.warning(
+                "deskmate_link[%s]: ignoring an info frame with an invalid %s",
+                self.node_id,
+                invalid,
+            )
+            return
+        self.session_role = msg["role"]
+        self.session_platform = msg["platform"]
+        self.session_app = msg["app"]
+        await self._send(await async_info_answer(self.hass))
 
     def _prune_stale_registry_entries(self) -> None:
         """Usuwa z rejestru encje, ktorych nie ma w nowym declare."""

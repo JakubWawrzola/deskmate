@@ -53,6 +53,13 @@ PAIRING_CODE_PREFIX = "DMP1."
 DIR_C2S = b"\x01\x00\x00\x00"
 DIR_S2C = b"\x02\x00\x00\x00"
 
+# The `info` frame (docs/LINK.md, "Session frames"): what a client may say
+# about itself, and the optional frame types this integration announces.
+INFO_ROLES = frozenset({"app", "service", "daemon"})
+INFO_PLATFORMS = frozenset({"windows", "linux", "android_tv"})
+INFO_APP_VERSION_PATTERN = r"^\d+\.\d+\.\d+([-+][0-9A-Za-z.-]{1,20})?$"
+LINK_CAPS = ("info",)
+
 SIGNAL_STATE = f"{DOMAIN}_state"  # + entry_id
 SIGNAL_AVAILABLE = f"{DOMAIN}_available"  # + entry_id
 SIGNAL_DECLARED = f"{DOMAIN}_declared"  # + entry_id

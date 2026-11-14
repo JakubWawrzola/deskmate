@@ -32,12 +32,7 @@ from .link_client import NODE_ID, Connect, LinkClient
 WAIT_TIMEOUT_S = 5
 
 
-@pytest.fixture(autouse=True)
-def auto_enable_custom_integrations(enable_custom_integrations: None) -> None:
-    """Let Home Assistant load the integration from custom_components/."""
-
-
-@pytest.fixture(autouse=True)
+@pytest.fixture
 def stub_frontend(hass: HomeAssistant) -> None:
     """Mark `frontend` as set up without loading it.
 
@@ -51,8 +46,14 @@ def stub_frontend(hass: HomeAssistant) -> None:
 
 
 @pytest.fixture
-async def entry(hass: HomeAssistant) -> MockConfigEntry:
-    """An entry as the config flow creates it: set up and waiting for pairing."""
+async def entry(
+    hass: HomeAssistant, enable_custom_integrations: None, stub_frontend: None
+) -> MockConfigEntry:
+    """An entry as the config flow creates it: set up and waiting for pairing.
+
+    `enable_custom_integrations` lets Home Assistant load the integration from
+    custom_components/.
+    """
     config_entry = MockConfigEntry(
         domain=DOMAIN,
         title=UNBOUND_TITLE,

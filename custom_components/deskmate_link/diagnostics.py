@@ -16,6 +16,9 @@ async def async_get_config_entry_diagnostics(
     return {
         "entry": async_redact_data(dict(entry.data), REDACT),
         "available": getattr(hub, "available", None),
+        "session_role": getattr(hub, "session_role", None),
+        "session_platform": getattr(hub, "session_platform", None),
+        "session_app": getattr(hub, "session_app", None),
         "device_info": getattr(hub, "device_info", None),
         "declared_entities": [
             {k: v for k, v in d.items()} for d in getattr(hub, "entities", [])
