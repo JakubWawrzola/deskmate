@@ -280,12 +280,16 @@ most mistakes.
 | Rust dependencies | `cargo tree` | no `ring`, `openssl` or `rustls` |
 | `src/` | `npx tsc --noEmit`, `npm run lint` | no errors |
 | `streamdeck-plugin/` | `npx tsc --noEmit` in that folder | no errors |
-| The integration | `ruff check` and `ruff format --check` on `custom_components scripts`, `python -m py_compile` on the changed files | no errors |
+| The integration | `ruff check` and `ruff format --check` on `custom_components scripts tests`, `python -m py_compile` on the changed files, `python -m pytest` | no errors, all tests pass |
 | Link protocol or crypto | the vector tests in Rust and in `tv/` | all pass |
 
 Run the tests, do not only compile them: `cargo check --tests` passes while a
 test fails. Use the ruff version pinned in `.github/workflows/ci.yml`
 (`uvx ruff@<version>` runs it without installing anything).
+
+The integration tests start Home Assistant, which does not run on Windows:
+run `python -m pytest` on Linux or in WSL, in a virtual environment built from
+`requirements-test.txt`.
 
 These run only when Jakub asks: `tauri dev`, `tauri build`, starting or
 installing the app, anything that talks to Home Assistant, browser or

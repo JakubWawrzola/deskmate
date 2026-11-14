@@ -96,9 +96,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - run: pipx run "ruff==${RUFF_VERSION}" check custom_components scripts
-      - run: pipx run "ruff==${RUFF_VERSION}" format --check custom_components scripts
-      - run: python3 -m compileall -q custom_components scripts
+      - run: pipx run "ruff==${RUFF_VERSION}" check custom_components scripts tests
+      - run: pipx run "ruff==${RUFF_VERSION}" format --check custom_components scripts tests
+      - run: python3 -m compileall -q custom_components scripts tests
 
   integration-tests:
     name: Integration tests (Python)
