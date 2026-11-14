@@ -16,6 +16,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.storage import Store
 
+from .bye import invalid_bye_field
 from .const import (
     CONF_CASCADE_KEY,
     CONF_KEY,
@@ -410,6 +411,11 @@ class DeskmateHub:
     def available(self) -> bool:
         return self.presence.available
 
+    @property
+    def connected(self) -> bool:
+        """Whether a session is open. `available` outlasts it in a handover."""
+        return self._ws is not None
+
     def _clear_session_info(self) -> None:
         self.session_role = None
         self.session_platform = None
@@ -476,6 +482,8 @@ class DeskmateHub:
             await self._send({"t": "pong"})
         elif mtype == "info":
             await self._handle_info(msg)
+        elif mtype == "bye":
+            self._handle_bye(msg)
         # pong: nic do zrobienia
 
     async def _handle_info(self, msg: dict) -> None:
@@ -497,6 +505,19 @@ class DeskmateHub:
         self.session_platform = msg["platform"]
         self.session_app = msg["app"]
         await self._send(await async_info_answer(self.hass))
+
+    def _handle_bye(self, msg: dict) -> None:
+        """Note why the client is about to close the socket."""
+        invalid = invalid_bye_field(msg)
+        if invalid is not None:
+            # Only the name of the field is logged, never what was received.
+            _LOGGER.warning(
+                "deskmate_link[%s]: ignoring a bye frame with an invalid %s",
+                self.node_id,
+                invalid,
+            )
+            return
+        self.presence.bye_received(msg["reason"])
 
     def _declare_machine(self, msg: dict) -> None:
         """`declare` from a client that serves machine-level entities only.
@@ -559,7 +580,7 @@ class DeskmateHub:
 
     async def async_command(self, key: str, action: str, value: Any = None) -> None:
         # Without a session the command fails below as "not connected".
-        if self._ws is not None and not self.presence.serves(key):
+        if self.connected and not self.presence.serves(key):
             raise HomeAssistantError(NEEDS_APP_ERROR)
         payload: dict[str, Any] = {"t": "cmd", "key": key, "action": action}
         if value is not None:
@@ -744,5 +765,6 @@ class DeskmateHub:
         return response
 
     async def async_shutdown(self) -> None:
+        self.presence.async_shutdown()
         await self._close_current()
         self._fail_pending("shutdown")

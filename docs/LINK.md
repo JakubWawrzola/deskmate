@@ -196,6 +196,7 @@ the session. `p` decrypts to the frame, and its `t` field names the type:
 | `tv_res` | Client | `id`, `ok`, then `error` or the result | The answer to the `tv` with that `id`. |
 | `ping` | Either side | none | Asks for a `pong`. Deskmate sends one every 30 seconds. |
 | `pong` | Either side | none | Answers a `ping`. |
+| `bye` | Client | `reason` | Says why the client is about to close the socket. Sent last, by clients that know the frame. |
 
 Home Assistant numbers `cmd`, `notify`, `fs` and `tv` from one counter per
 computer and matches each answer by its `id`. It waits 10 seconds for an `ack`
@@ -308,8 +309,40 @@ While the session lasts:
 - the entity declared with `link` stays on.
 
 A full declaration in the same session lifts the limit, and so does the end
-of the session. Any other value of `scope`, and a `declare` without one, is a
-full declaration.
+of the session. After a [`bye`](#bye) with the reason `handover` the limit
+stays until the next session starts or the handover window ends. Any other
+value of `scope`, and a `declare` without one, is a full declaration.
+
+### `bye`
+
+```json
+{"t": "bye", "reason": "handover"}
+```
+
+A client sends `bye` as its last frame and then closes the socket. Home
+Assistant does not answer it. The reason decides what the closed socket means:
+
+| `reason` | Sent when | After the socket closes |
+|---|---|---|
+| `handover` | Another client on the same computer takes the connection over, for example the Deskmate app from the Windows service when a user signs in. | The computer stays available for up to 15 seconds. |
+| `suspend` | The computer goes to sleep. | The computer is unavailable at once. |
+| `shutdown` | The computer shuts down or restarts. | The computer is unavailable at once. |
+
+During the 15 seconds after a `handover`, entities keep their states and
+their availability, and the limit of a machine declaration stays in place.
+When the next session authenticates in that time, nothing in Home Assistant
+changes until that session declares and reports. When none does, the computer
+becomes unavailable at the end of the window. A command, a notification or a
+file request in the gap fails as it does for a computer that is not
+connected.
+
+A session that ends without `bye` makes the computer unavailable at once, as
+before. So does `handover` while Home Assistant itself is stopping.
+
+A `bye` with a missing or unknown `reason` is ignored. Home Assistant logs a
+warning that names the field, never the value it received, and fields other
+than `reason` are ignored. The reason counts when the socket closes: a client
+that sends `bye` and stays connected keeps its session.
 
 ### `fs` and `fs_res`
 

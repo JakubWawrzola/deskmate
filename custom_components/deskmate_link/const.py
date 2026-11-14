@@ -65,6 +65,15 @@ LINK_CAPS = ("info",)
 DECLARE_SCOPE_MACHINE = "machine"
 DECLARE_SCOPE_FULL = "full"
 
+# The `bye` frame: why a client is about to close the socket.
+BYE_HANDOVER = "handover"
+BYE_SUSPEND = "suspend"
+BYE_SHUTDOWN = "shutdown"
+BYE_REASONS = frozenset({BYE_HANDOVER, BYE_SUSPEND, BYE_SHUTDOWN})
+# After `bye` with the reason `handover`, the computer's other client is about
+# to connect. The computer stays available for this long while it does.
+HANDOVER_WINDOW_S = 15
+
 SIGNAL_STATE = f"{DOMAIN}_state"  # + entry_id
 SIGNAL_AVAILABLE = f"{DOMAIN}_available"  # + entry_id
 SIGNAL_DECLARED = f"{DOMAIN}_declared"  # + entry_id

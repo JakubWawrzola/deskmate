@@ -122,3 +122,20 @@ def wait_until_offline(
             unsubscribe()
 
     return _wait
+
+
+@pytest.fixture
+def wait_until_session_ended(hub: DeskmateHub) -> Callable[[], Awaitable[None]]:
+    """Wait until the hub has noticed that its socket closed.
+
+    Unlike `wait_until_offline`, this also returns when the computer stays
+    available after the session, as it does during a handover.
+    """
+
+    async def _wait() -> None:
+        async with asyncio.timeout(WAIT_TIMEOUT_S):
+            # The hub signals nothing when a socket closes during a handover.
+            while hub.connected:  # noqa: ASYNC110 - no event to wait for
+                await asyncio.sleep(0.01)
+
+    return _wait
