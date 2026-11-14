@@ -44,7 +44,7 @@ winreg = "0.55"
 # arboard bez default (image-data ciagnie ciezki crate image); na Windows = clipboard-win (pure rust)
 arboard = { version = "3", default-features = false }
 # native-tls = schannel na Windows (zero zaleznosci C - ring/clang niepotrzebne na ARM64)
-ureq = { version = "2", default-features = false, features = ["native-tls"] }
+ureq = { version = "3", default-features = false, features = ["native-tls"] }
 native-tls = "0.2"
 url = "2"
 log = "0.4"
