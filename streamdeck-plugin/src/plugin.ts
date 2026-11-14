@@ -1,8 +1,8 @@
 import streamDeck from "@elgato/streamdeck";
-import { haClient, type HaGlobalSettings } from "./ha-client";
 import { ActivateScene } from "./actions/activate-scene";
 import { CallService } from "./actions/call-service";
 import { ToggleEntity } from "./actions/toggle-entity";
+import { type HaGlobalSettings, haClient } from "./ha-client";
 
 // "info" is enough for normal operation; "trace" would also log payloads, and
 // the global settings carry the access token.
@@ -15,7 +15,7 @@ streamDeck.actions.registerAction(new ActivateScene());
 // The property inspector writes the URL and token to the global settings.
 // Since SDK 3 this fires only for changes made there.
 streamDeck.settings.onDidReceiveGlobalSettings<HaGlobalSettings>((ev) => {
-	haClient.configure(ev.settings);
+  haClient.configure(ev.settings);
 });
 
 await streamDeck.connect();
