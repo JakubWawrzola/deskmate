@@ -64,7 +64,7 @@ from .declare_scope import (
     merge_machine_declaration,
 )
 from .device_compat import async_entry_device, async_hand_device_over
-from .presence import Presence
+from .presence import Presence, connection_unique_id
 from .session_info import async_info_answer, invalid_info_field
 
 _LOGGER = logging.getLogger(__name__)
@@ -96,7 +96,7 @@ class DeskmateHub:
         self.entities: list[dict[str, Any]] = []  # deskryptory z declare
         # Scope of the declaration kept in `entities`: full, machine, or None
         # while the computer has never declared anything.
-        self._declared_scope: str | None = None
+        self.declared_scope: str | None = None
         self.states: dict[str, Any] = {}
         self.presence = Presence(hass, entry.entry_id)
         # What the client of the current session said about itself in `info`.
@@ -131,7 +131,7 @@ class DeskmateHub:
         self.device_info = data.get("device", {}) or {}
         self.entities = list(data.get("entities", []) or [])
         # Files written before the scope existed hold a full declaration.
-        self._declared_scope = (
+        self.declared_scope = (
             DECLARE_SCOPE_MACHINE
             if data.get("scope") == DECLARE_SCOPE_MACHINE
             else DECLARE_SCOPE_FULL
@@ -142,7 +142,7 @@ class DeskmateHub:
             lambda: {
                 "device": self.device_info,
                 "entities": self.entities,
-                "scope": self._declared_scope,
+                "scope": self.declared_scope,
             },
             PERSIST_DELAY_S,
         )
@@ -337,6 +337,8 @@ class DeskmateHub:
             for ent in er.async_entries_for_config_entry(ent_reg, other.entry_id):
                 key = ent.unique_id.split("-", 1)[-1]
                 new_uid = f"{self.entry.entry_id}-{key}"
+                if ent.unique_id == connection_unique_id(other.entry_id):
+                    new_uid = connection_unique_id(self.entry.entry_id)
                 if ent_reg.async_get_entity_id(ent.domain, DOMAIN, new_uid):
                     ent_reg.async_remove(ent.entity_id)
                     continue
@@ -346,7 +348,7 @@ class DeskmateHub:
                 }
                 if ours is not None:
                     # Their device goes away with their entry, and an entity
-                    # left on it would go with it.
+                    # left on it would end up without a device.
                     changes["device_id"] = ours.id
                 ent_reg.async_update_entity(ent.entity_id, **changes)
             # Only after its entities have moved: a device that changes its
@@ -443,7 +445,7 @@ class DeskmateHub:
         elif mtype == "declare":
             self.device_info = msg.get("device", {}) or {}
             self.entities = list(msg.get("entities", []) or [])
-            self._declared_scope = DECLARE_SCOPE_FULL
+            self.declared_scope = DECLARE_SCOPE_FULL
             self._prune_stale_registry_entries()
             self._persist()
             async_dispatcher_send(self.hass, f"{SIGNAL_DECLARED}_{self.entry.entry_id}")
@@ -511,6 +513,7 @@ class DeskmateHub:
         self.session_role = msg["role"]
         self.session_platform = msg["platform"]
         self.session_app = msg["app"]
+        self.presence.client_identified(msg["role"])
         await self._send(await async_info_answer(self.hass))
 
     def _handle_bye(self, msg: dict) -> None:
@@ -533,7 +536,7 @@ class DeskmateHub:
         """
         entities = list(msg.get("entities", []) or [])
         keys = declared_keys(entities)
-        if self._declared_scope == DECLARE_SCOPE_FULL:
+        if self.declared_scope == DECLARE_SCOPE_FULL:
             # Only what the app declared as well: a sensor that the user
             # switched off there must not come back through this client.
             keys &= declared_keys(self.entities)
@@ -541,7 +544,7 @@ class DeskmateHub:
             # The app has not declared anything yet, so this is all there is.
             self.device_info = msg.get("device", {}) or {}
             self.entities = merge_machine_declaration(self.entities, entities)
-            self._declared_scope = DECLARE_SCOPE_MACHINE
+            self.declared_scope = DECLARE_SCOPE_MACHINE
             self._persist()
             async_dispatcher_send(self.hass, f"{SIGNAL_DECLARED}_{self.entry.entry_id}")
         self.presence.serve_only(keys)
@@ -553,6 +556,8 @@ class DeskmateHub:
         declared = {
             f"{self.entry.entry_id}-{d['key']}" for d in self.entities if d.get("key")
         }
+        # The Connection sensor is the hub's own, so no client declares it.
+        declared.add(connection_unique_id(self.entry.entry_id))
         registry = er.async_get(self.hass)
         for entry in er.async_entries_for_config_entry(registry, self.entry.entry_id):
             if entry.unique_id not in declared:

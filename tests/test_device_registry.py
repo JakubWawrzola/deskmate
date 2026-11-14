@@ -24,6 +24,7 @@ from custom_components.deskmate_link.device_compat import (
     async_entry_device,
     async_hand_device_over,
 )
+from custom_components.deskmate_link.presence import connection_unique_id
 
 from .link_client import NODE_ID, Connect
 from .test_session import CPU_SENSOR, KEEP_AWAKE_SWITCH, declare, entity_id
@@ -169,8 +170,12 @@ async def test_new_pairing_takes_over_the_device_and_entities_of_the_old_entry(
     devices.async_update_device(device.id, name_by_user="Workshop")
     sensor = entity_id(hass, old, "sensor", "cpu_usage")
     switch = entity_id(hass, old, "switch", "keep_awake")
+    connection = entities.async_get_entity_id(
+        "sensor", DOMAIN, connection_unique_id(old.entry_id)
+    )
     assert sensor is not None
     assert switch is not None
+    assert connection is not None
 
     # The computer was paired again: it authenticates with the new entry's key.
     second = await connect()
@@ -193,6 +198,19 @@ async def test_new_pairing_takes_over_the_device_and_entities_of_the_old_entry(
         assert moved.config_entry_id == entry.entry_id
         assert moved.device_id == device.id
     assert hass.states.get(sensor).state == "42"
+    # The hub's own sensor keeps its entity id and history as well.
+    assert (
+        entities.async_get_entity_id(
+            "sensor", DOMAIN, connection_unique_id(entry.entry_id)
+        )
+        == connection
+    )
+    assert entities.async_get(connection).device_id == device.id
+    assert hass.states.get(connection).state == "connected"
+    assert all(
+        registered.unique_id.startswith(entry.entry_id)
+        for registered in er.async_entries_for_config_entry(entities, entry.entry_id)
+    )
 
 
 async def test_entities_of_a_duplicate_entry_move_to_the_device_that_stays(

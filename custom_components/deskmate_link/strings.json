@@ -54,6 +54,22 @@
       "description": "A computer calling itself `{node}` ({ip}) keeps failing the Deskmate handshake. No paired entry matches that name, or its pairing key is different.\n\nEither pair it (Add integration -> Deskmate, then paste the key into Deskmate), or - if it should use an entry that already exists - open that entry, choose Reconfigure -> Unbind from the current computer, and let it re-attach."
     }
   },
+  "entity": {
+    "sensor": {
+      "connection": {
+        "name": "Connection",
+        "state": {
+          "app": "App",
+          "service": "Service",
+          "daemon": "Daemon",
+          "connected": "Connected",
+          "sleeping": "Sleeping",
+          "off": "Off",
+          "disconnected": "Disconnected"
+        }
+      }
+    }
+  },
   "services": {
     "notify": {
       "name": "Notify",

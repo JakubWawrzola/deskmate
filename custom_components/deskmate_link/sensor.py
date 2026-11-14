@@ -1,4 +1,7 @@
-"""Sensory Deskmate Link (deklarowane przez klienta)."""
+"""Sensory Deskmate Link (deklarowane przez klienta).
+
+The hub's own Connection sensor is set up here too; it lives in connection.py.
+"""
 
 from __future__ import annotations
 
@@ -8,6 +11,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import dt as dt_util
 
+from .connection import setup_connection_sensor
 from .entity import DeskmateEntity, setup_dynamic_platform
 
 
@@ -41,3 +45,4 @@ async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     setup_dynamic_platform(hass, entry, async_add_entities, "sensor", DeskmateSensor)
+    setup_connection_sensor(hass, entry, async_add_entities)

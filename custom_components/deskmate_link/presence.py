@@ -1,7 +1,8 @@
 """Whether a computer counts as connected, and which entities it serves.
 
 The hub reports what happens to its session. Entities read the result
-through `serves` (docs/LINK.md, "Session frames").
+through `serves`, and the Connection sensor through `connection`
+(docs/LINK.md, "Session frames").
 """
 
 from __future__ import annotations
@@ -14,7 +15,32 @@ from homeassistant.core import CALLBACK_TYPE, Event, HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import async_call_later
 
-from .const import BYE_HANDOVER, HANDOVER_WINDOW_S, SIGNAL_AVAILABLE
+from .const import (
+    BYE_HANDOVER,
+    BYE_SHUTDOWN,
+    BYE_SUSPEND,
+    CONNECTION_CONNECTED,
+    CONNECTION_DISCONNECTED,
+    CONNECTION_OFF,
+    CONNECTION_SLEEPING,
+    HANDOVER_WINDOW_S,
+    SIGNAL_AVAILABLE,
+    SIGNAL_CONNECTION,
+)
+
+_CONNECTION_AFTER_BYE = {
+    BYE_SUSPEND: CONNECTION_SLEEPING,
+    BYE_SHUTDOWN: CONNECTION_OFF,
+}
+
+
+def connection_unique_id(entry_id: str) -> str:
+    """Registry id of the Connection sensor of a config entry.
+
+    An entity that the client declares is `<entry id>-<key>`. This id has a
+    colon where those have the hyphen, so no declared key can produce it.
+    """
+    return f"{entry_id}:connection"
 
 
 class Presence:
@@ -32,8 +58,20 @@ class Presence:
         self.last_bye: str | None = None
         # The `bye` of the running session. It counts once the socket closes.
         self._bye: str | None = None
+        # The role from the `info` of the last session that started. It is
+        # shown while the computer is available, so through a handover too.
+        self._role: str | None = None
         self._cancel_handover_timer: CALLBACK_TYPE | None = None
         self._cancel_stop_listener: CALLBACK_TYPE | None = None
+
+    @property
+    def connection(self) -> str:
+        """The state of the Connection sensor."""
+        if self.available:
+            return self._role or CONNECTION_CONNECTED
+        if self.last_bye is None:
+            return CONNECTION_DISCONNECTED
+        return _CONNECTION_AFTER_BYE.get(self.last_bye, CONNECTION_DISCONNECTED)
 
     def serves(self, key: str) -> bool:
         """Whether the entity `key` is available right now."""
@@ -50,8 +88,15 @@ class Presence:
         self._close_handover_window()
         self._bye = None
         self.last_bye = None
+        self._role = None
         self.active_keys = None
         self._set_available(True)
+
+    @callback
+    def client_identified(self, role: str) -> None:
+        """The client of the session sent a valid `info`."""
+        self._role = role
+        self._notify_connection()
 
     @callback
     def bye_received(self, reason: str) -> None:
@@ -122,6 +167,10 @@ class Presence:
     def _set_available(self, value: bool) -> None:
         self.available = value
         self._notify_entities()
+        self._notify_connection()
 
     def _notify_entities(self) -> None:
         async_dispatcher_send(self._hass, f"{SIGNAL_AVAILABLE}_{self._entry_id}")
+
+    def _notify_connection(self) -> None:
+        async_dispatcher_send(self._hass, f"{SIGNAL_CONNECTION}_{self._entry_id}")

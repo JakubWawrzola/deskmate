@@ -128,6 +128,12 @@ One device per PC, with:
 - **Privacy-sensitive sensors**, off until you enable them on the Sensors page:
   active window title, Wi-Fi name, what is playing, camera in use, microphone
   in use.
+- **Connection**: a diagnostic sensor that Home Assistant adds itself. It says
+  what is connected for this PC (*App*, *Service*, *Daemon*, or *Connected*
+  for a Deskmate that does not say what it is) and, when nothing is, whether
+  the PC went to sleep (*Sleeping*), shut down (*Off*) or just dropped off
+  (*Disconnected*). It stays available while the PC is offline, so
+  automations can react to it.
 
 Turning a sensor off in Deskmate removes its entity from Home Assistant.
 Drives, the GPU and temperatures are found when Deskmate starts and have their

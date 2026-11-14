@@ -54,6 +54,22 @@
       "description": "Komputer przedstawiajacy sie jako `{node}` ({ip}) nie przechodzi handshake'u Deskmate. Zaden sparowany wpis nie ma takiej nazwy albo klucz parowania jest inny.\n\nAlbo sparuj go (Dodaj integracje -> Deskmate, potem wklej klucz w Deskmate), albo - jesli ma korzystac z istniejacego wpisu - otworz ten wpis, wybierz Skonfiguruj ponownie -> Odepnij od obecnego komputera i pozwol mu sie przypiac."
     }
   },
+  "entity": {
+    "sensor": {
+      "connection": {
+        "name": "Polaczenie",
+        "state": {
+          "app": "Aplikacja",
+          "service": "Usluga",
+          "daemon": "Demon",
+          "connected": "Polaczono",
+          "sleeping": "Uspiony",
+          "off": "Wylaczony",
+          "disconnected": "Rozlaczono"
+        }
+      }
+    }
+  },
   "services": {
     "notify": {
       "name": "Powiadomienie",

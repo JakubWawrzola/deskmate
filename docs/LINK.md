@@ -355,6 +355,24 @@ warning that names the field, never the value it received, and fields other
 than `reason` are ignored. The reason counts when the socket closes: a client
 that sends `bye` and stays connected keeps its session.
 
+### The Connection sensor
+
+Home Assistant adds one diagnostic sensor to every computer, named
+*Connection*. No `declare` lists it and none removes it, and it is always
+available. Its state follows `info` and `bye`:
+
+| State | When |
+|---|---|
+| `app`, `service`, `daemon` | A session is open and its client sent `info` with that role. |
+| `connected` | A session is open and its client sent no valid `info`. |
+| `sleeping` | The last session ended after `bye` with the reason `suspend`. |
+| `off` | The last session ended after `bye` with the reason `shutdown`. |
+| `disconnected` | No session is open, for any other reason. |
+
+During the handover window the sensor keeps the state of the session that
+said `bye`. `sleeping` and `off` last until the next session starts or Home
+Assistant restarts. The sensor appears with the computer's first `declare`.
+
 ### `fs` and `fs_res`
 
 | `op` | Arguments | Result in `fs_res` |

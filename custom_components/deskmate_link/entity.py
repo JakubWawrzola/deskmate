@@ -25,6 +25,18 @@ from .hub import DeskmateHub
 _LOGGER = logging.getLogger(__name__)
 
 
+def hub_device_info(hub: DeskmateHub) -> DeviceInfo:
+    """The device of the hub's computer, the same for each of its entities."""
+    info = hub.device_info
+    return DeviceInfo(
+        identifiers={(DOMAIN, hub.node_id)},
+        name=info.get("name", hub.node_id),
+        model=info.get("model", "Deskmate"),
+        sw_version=info.get("sw_version"),
+        manufacturer="Deskmate",
+    )
+
+
 class DeskmateEntity(Entity):
     """Wspolna baza: device, dostepnosc, stan z hub.states."""
 
@@ -43,14 +55,7 @@ class DeskmateEntity(Entity):
 
     @property
     def device_info(self) -> DeviceInfo:
-        info = self.hub.device_info
-        return DeviceInfo(
-            identifiers={(DOMAIN, self.hub.node_id)},
-            name=info.get("name", self.hub.node_id),
-            model=info.get("model", "Deskmate"),
-            sw_version=info.get("sw_version"),
-            manufacturer="Deskmate",
-        )
+        return hub_device_info(self.hub)
 
     @property
     def available(self) -> bool:

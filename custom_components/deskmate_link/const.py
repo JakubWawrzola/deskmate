@@ -74,9 +74,25 @@ BYE_REASONS = frozenset({BYE_HANDOVER, BYE_SUSPEND, BYE_SHUTDOWN})
 # to connect. The computer stays available for this long while it does.
 HANDOVER_WINDOW_S = 15
 
+# States of the Connection sensor, which the hub adds to every computer. A
+# session whose client sent `info` shows that client's role instead of
+# "connected".
+CONNECTION_CONNECTED = "connected"
+CONNECTION_SLEEPING = "sleeping"
+CONNECTION_OFF = "off"
+CONNECTION_DISCONNECTED = "disconnected"
+CONNECTION_STATES = (
+    *sorted(INFO_ROLES),
+    CONNECTION_CONNECTED,
+    CONNECTION_SLEEPING,
+    CONNECTION_OFF,
+    CONNECTION_DISCONNECTED,
+)
+
 SIGNAL_STATE = f"{DOMAIN}_state"  # + entry_id
 SIGNAL_AVAILABLE = f"{DOMAIN}_available"  # + entry_id
 SIGNAL_DECLARED = f"{DOMAIN}_declared"  # + entry_id
+SIGNAL_CONNECTION = f"{DOMAIN}_connection"  # + entry_id
 
 EVENT_NOTIFY_ACTION = f"{DOMAIN}_notify_action"
 EVENT_TRIGGER = f"{DOMAIN}_trigger"
