@@ -112,7 +112,7 @@ reaches both through `crate::sensors` and so on.
 Rust: tauri 2, tauri-plugin-autostart, tauri-plugin-single-instance,
 tauri-plugin-global-shortcut, rumqttc, sysinfo, keyring,
 tauri-winrt-notification, ureq(+native-tls), windows (Media_Control, Win32_*),
-tokio, serde. Frontend: React 18, Tailwind 4, @tauri-apps/api.
+tokio, serde. Frontend: React 19, Tailwind 4, @tauri-apps/api.
 
 ## Adding a sensor (checklist)
 

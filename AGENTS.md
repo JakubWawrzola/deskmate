@@ -18,7 +18,7 @@ by anyone, and so is the history.
 |---|---|---|
 | `src-tauri/` | Windows app, x64 and ARM64, and the root of the Cargo workspace | Rust, Tauri 2 |
 | `src-tauri/crates/core/` | `deskmate-core`, the library for code that must not depend on Tauri: configuration, the Link protocol, the entity descriptors, and the sensors and commands that work without a signed-in user | Rust |
-| `src/` | The app's window | React 18, TypeScript strict, Tailwind 4 |
+| `src/` | The app's window | React 19, TypeScript strict, Tailwind 4 |
 | `custom_components/deskmate_link/` | Home Assistant integration, in the default HACS catalog | Python |
 | `streamdeck-plugin/` | Stream Deck plugin, versioned on its own | Node, TypeScript |
 | `tv/` | DeskmateTV for Android TV (preview), versioned on its own | Kotlin |
