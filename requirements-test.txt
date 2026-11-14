@@ -1,0 +1,5 @@
+# Test environment for the Home Assistant integration (tests/).
+# This package pins Home Assistant, pytest and the pytest plugins to exact
+# versions, so the one line fixes the whole environment.
+# 0.13.375 brings Home Assistant 2026.10.4 and needs Python 3.14.
+pytest-homeassistant-custom-component==0.13.375
