@@ -145,7 +145,7 @@ async fn run(app: &AppHandle, mut update: Update, auto: bool) -> Result<(), Fail
         started_at: unix_now(),
     };
     remember_attempt(app, Some(attempt)).await;
-    audit(RUNNING_VERSION, &update.version, "installer_started");
+    audit(RUNNING_VERSION, &update.version, "starting_installer");
     set_installing(app);
 
     // Verifies the bytes once more, writes them to a temporary file and runs

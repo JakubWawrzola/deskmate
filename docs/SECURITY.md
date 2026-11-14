@@ -525,11 +525,12 @@ path. It never contains clipboard data, URLs, command scripts, file contents
 or credentials. It rotates at 1 MiB to `security.log.1`.
 
 An update install is recorded as `update_install from=<version> to=<version>
-result=<result>`: `installer_started` when the verified installer is run, and
-at the next start `ok` or `not_applied`. An attempt that stopped earlier
-carries the reason instead: `version`, `address`, `too_large`, `network`,
-`signature`, `format` or `launch`. A refused manifest is recorded as
-`update_manifest refused_address`.
+result=<result>`: `starting_installer` once the installer is verified and
+about to run, and at the next start `ok` or `not_applied`. An attempt that
+stopped carries the reason instead: `version`, `address`, `too_large`,
+`network`, `signature`, `format` or `launch`. A refused manifest is recorded
+as `update_manifest refused_address`, and a click on an update notification
+without a valid token as `update_prompt blocked_unknown_token`.
 
 ## The app itself
 
