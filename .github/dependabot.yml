@@ -40,6 +40,19 @@ updates:
       prefix: chore
       include: scope
 
+  # requirements-test.txt: the package that pins Home Assistant for the
+  # integration tests. An update here is how a new Home Assistant release
+  # gets tested against the integration.
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: chore
+      include: scope
+
   - package-ecosystem: npm
     directory: /
     schedule:
