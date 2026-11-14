@@ -58,7 +58,7 @@ DIR_S2C = b"\x02\x00\x00\x00"
 INFO_ROLES = frozenset({"app", "service", "daemon"})
 INFO_PLATFORMS = frozenset({"windows", "linux", "android_tv"})
 INFO_APP_VERSION_PATTERN = r"^\d+\.\d+\.\d+([-+][0-9A-Za-z.-]{1,20})?$"
-LINK_CAPS = ("info",)
+LINK_CAPS = ("info", "scoped_declare", "bye")
 
 # `declare` with the scope "machine" lists only what a client without a
 # signed-in user can serve. Every other declaration is a full one.

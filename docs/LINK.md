@@ -222,12 +222,23 @@ Home Assistant keeps the three values for the length of the session, shows
 them in the entry's diagnostics, and answers:
 
 ```json
-{"t": "info", "integration": "0.9.0", "caps": ["info"]}
+{"t": "info", "integration": "0.9.0", "caps": ["info", "scoped_declare", "bye"]}
 ```
 
 `integration` is the version of the integration. `caps` lists the optional
-frame types it understands, so a client can tell what an older integration
-lacks.
+parts of the protocol it understands, so a client can tell what an older
+integration lacks:
+
+| `caps` item | The integration understands |
+|---|---|
+| `info` | the `info` frame |
+| `scoped_declare` | [`declare` with `"scope": "machine"`](#machine-scope) |
+| `bye` | the [`bye`](#bye) frame |
+
+A client sends a machine declaration only to an integration that lists
+`scoped_declare`. An older one reads it as a full declaration and removes
+every entity that it does not name. A `bye` is harmless there: the frame is
+ignored, and the session ends as it does without one.
 
 An `info` with a missing or invalid value is ignored: it gets no answer and
 changes nothing. Home Assistant logs a warning that names the field, never the
