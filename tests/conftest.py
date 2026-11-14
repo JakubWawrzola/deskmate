@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncGenerator, Awaitable, Callable
+from collections.abc import AsyncGenerator, Awaitable, Callable, Generator
 
 import pytest
+from aiohttp.test_utils import TestClient
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from pytest_homeassistant_custom_component.common import (
@@ -30,6 +31,24 @@ from custom_components.deskmate_link.hub import DeskmateHub
 from .link_client import NODE_ID, Connect, LinkClient
 
 WAIT_TIMEOUT_S = 5
+# The logger that Home Assistant reports deprecated and wrong calls on.
+USAGE_REPORT_LOGGER = "homeassistant.helpers.frame"
+
+
+@pytest.fixture(autouse=True)
+def no_reported_usage(caplog: pytest.LogCaptureFixture) -> Generator[None]:
+    """Fail a test in which Home Assistant reports a call it is going to drop.
+
+    This is how a deprecated registry call shows up before it stops working.
+    """
+    yield
+    reports = [
+        record.getMessage()
+        for phase in ("setup", "call")
+        for record in caplog.get_records(phase)
+        if record.name == USAGE_REPORT_LOGGER
+    ]
+    assert not reports
 
 
 @pytest.fixture
@@ -77,14 +96,28 @@ def hub(hass: HomeAssistant, entry: MockConfigEntry) -> DeskmateHub:
 
 
 @pytest.fixture
-async def connect(
+async def http(
     hass_client_no_auth: ClientSessionGenerator, entry: MockConfigEntry
-) -> AsyncGenerator[Connect]:
+) -> TestClient:
+    """An HTTP client for Home Assistant that logs in as nobody.
+
+    A request that needs a user adds `admin_headers`.
+    """
+    return await hass_client_no_auth()
+
+
+@pytest.fixture
+def admin_headers(hass_access_token: str) -> dict[str, str]:
+    """Headers that make a request come from an administrator."""
+    return {"Authorization": f"Bearer {hass_access_token}"}
+
+
+@pytest.fixture
+async def connect(http: TestClient, entry: MockConfigEntry) -> AsyncGenerator[Connect]:
     """Open Link sessions as the computer `NODE_ID`, through the real view.
 
     Without an argument the session uses the entry's pairing key.
     """
-    http = await hass_client_no_auth()
     clients: list[LinkClient] = []
 
     async def _connect(key: str | None = None) -> LinkClient:

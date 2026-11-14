@@ -63,6 +63,7 @@ from .declare_scope import (
     is_machine_declare,
     merge_machine_declaration,
 )
+from .device_compat import async_entry_device, async_hand_device_over
 from .presence import Presence
 from .session_info import async_info_answer, invalid_info_field
 
@@ -329,23 +330,29 @@ class DeskmateHub:
             return
         ent_reg = er.async_get(self.hass)
         dev_reg = dr.async_get(self.hass)
-        device = dev_reg.async_get_device(identifiers={(DOMAIN, node_id)})
-        if device is not None:
-            dev_reg.async_update_device(
-                device.id, add_config_entry_id=self.entry.entry_id
-            )
+        identifier = (DOMAIN, node_id)
         for other in others:
+            ours = async_entry_device(dev_reg, self.entry.entry_id, identifier)
+            theirs = async_entry_device(dev_reg, other.entry_id, identifier)
             for ent in er.async_entries_for_config_entry(ent_reg, other.entry_id):
                 key = ent.unique_id.split("-", 1)[-1]
                 new_uid = f"{self.entry.entry_id}-{key}"
                 if ent_reg.async_get_entity_id(ent.domain, DOMAIN, new_uid):
                     ent_reg.async_remove(ent.entity_id)
                     continue
-                ent_reg.async_update_entity(
-                    ent.entity_id,
-                    new_unique_id=new_uid,
-                    config_entry_id=self.entry.entry_id,
-                )
+                changes: dict[str, Any] = {
+                    "new_unique_id": new_uid,
+                    "config_entry_id": self.entry.entry_id,
+                }
+                if ours is not None:
+                    # Their device goes away with their entry, and an entity
+                    # left on it would go with it.
+                    changes["device_id"] = ours.id
+                ent_reg.async_update_entity(ent.entity_id, **changes)
+            # Only after its entities have moved: a device that changes its
+            # entry drops the entities that still belong to the old one.
+            if theirs is not None and (ours is None or ours.id == theirs.id):
+                async_hand_device_over(dev_reg, theirs.id, self.entry.entry_id)
             _LOGGER.warning(
                 "deskmate_link[%s]: scalam zdublowany wpis %s (%s) z nowym parowaniem",
                 node_id,

@@ -53,6 +53,7 @@ from .const import (
     SERVICE_FETCH_FILE,
     SERVICE_SEND_FILE,
 )
+from .device_compat import async_entry_device
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -218,7 +219,7 @@ class FilesDevicesView(HomeAssistantView):
         for entry_id, hub in _hubs(hass).items():
             if not hub.node_id or hub.is_tv:  # DeskmateTV nie udostepnia plikow
                 continue
-            device = dev_reg.async_get_device(identifiers={(DOMAIN, hub.node_id)})
+            device = async_entry_device(dev_reg, entry_id, (DOMAIN, hub.node_id))
             devices.append(
                 {
                     "entry_id": entry_id,
