@@ -5,7 +5,7 @@
 	"type": "module",
 	"description": "Stream Deck plugin for Deskmate: controls Home Assistant from Stream Deck keys",
 	"scripts": {
-		"build": "rollup -c",
+		"build": "rollup -c && node scripts/check-bundle.mjs",
 		"watch": "rollup -c -w",
 		"icons": "node scripts/generate-icons.mjs"
 	},
