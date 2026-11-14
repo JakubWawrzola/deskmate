@@ -16,7 +16,8 @@ by anyone, and so is the history.
 
 | Path | What | Stack |
 |---|---|---|
-| `src-tauri/` | Windows app, x64 and ARM64 | Rust, Tauri 2 |
+| `src-tauri/` | Windows app, x64 and ARM64, and the root of the Cargo workspace | Rust, Tauri 2 |
+| `src-tauri/crates/core/` | `deskmate-core`, the library for code that must not depend on Tauri | Rust |
 | `src/` | The app's window | React 18, TypeScript strict, Tailwind 4 |
 | `custom_components/deskmate_link/` | Home Assistant integration, in the default HACS catalog | Python |
 | `streamdeck-plugin/` | Stream Deck plugin, versioned on its own | Node, TypeScript |
@@ -276,8 +277,8 @@ most mistakes.
 
 | You changed | Run | Expect |
 |---|---|---|
-| `src-tauri/` | `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test` | formatted, no warnings, all tests pass |
-| Rust dependencies | `cargo tree` | no `ring`, `openssl` or `rustls` |
+| `src-tauri/`, `crates/core` included | `cargo fmt --all --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` | formatted, no warnings, all tests pass |
+| Rust dependencies | `cargo tree --workspace`, `cargo tree -p deskmate-core` | no `ring`, `openssl` or `rustls`; no `tauri` crate under `deskmate-core` |
 | `src/` | `npx tsc --noEmit`, `npm run lint` | no errors |
 | `streamdeck-plugin/` | `npx tsc --noEmit` in that folder | no errors |
 | The integration | `ruff check` and `ruff format --check` on `custom_components scripts tests`, `python -m py_compile` on the changed files, `python -m pytest` | no errors, all tests pass |
