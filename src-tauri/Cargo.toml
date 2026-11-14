@@ -52,7 +52,7 @@ env_logger = "0.11"
 aes-gcm = "0.10"
 # Second cipher for the optional cascade layer. Pure Rust like the rest of the
 # crypto stack - no ring, no C toolchain, so ARM64 keeps building.
-chacha20poly1305 = "0.10"
+chacha20poly1305 = "0.11"
 base64 = "0.22"
 futures-util = "0.3"
 hkdf = "0.12"
