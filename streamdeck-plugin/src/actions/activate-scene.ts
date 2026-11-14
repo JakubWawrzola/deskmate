@@ -1,5 +1,5 @@
 import streamDeck, { action, type KeyDownEvent, SingletonAction } from "@elgato/streamdeck";
-import { haClient } from "../ha-client";
+import { haClient } from "../ha-client.ts";
 
 /** Action settings (per key). */
 type SceneSettings = {

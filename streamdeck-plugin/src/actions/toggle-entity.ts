@@ -6,7 +6,7 @@ import streamDeck, {
   type WillAppearEvent,
   type WillDisappearEvent,
 } from "@elgato/streamdeck";
-import { type HaEntityState, haClient } from "../ha-client";
+import { type HaEntityState, haClient } from "../ha-client.ts";
 
 /** Per-key action settings. */
 type ToggleSettings = {

@@ -6,7 +6,10 @@
 		"strict": true,
 		"noUnusedLocals": true,
 		"noUnusedParameters": true,
-		"forceConsistentCasingInFileNames": true
+		"forceConsistentCasingInFileNames": true,
+		"verbatimModuleSyntax": true,
+		"erasableSyntaxOnly": true,
+		"rewriteRelativeImportExtensions": true
 	},
-	"include": ["src/**/*.ts"]
+	"include": ["src/**/*.ts", "test/**/*.ts"]
 }

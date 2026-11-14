@@ -1,8 +1,8 @@
 import streamDeck from "@elgato/streamdeck";
-import { ActivateScene } from "./actions/activate-scene";
-import { CallService } from "./actions/call-service";
-import { ToggleEntity } from "./actions/toggle-entity";
-import { type HaGlobalSettings, haClient } from "./ha-client";
+import { ActivateScene } from "./actions/activate-scene.ts";
+import { CallService } from "./actions/call-service.ts";
+import { ToggleEntity } from "./actions/toggle-entity.ts";
+import { type HaGlobalSettings, haClient } from "./ha-client.ts";
 
 // "info" is enough for normal operation; "trace" would also log payloads, and
 // the global settings carry the access token.

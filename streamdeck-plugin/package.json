@@ -9,7 +9,8 @@
 		"watch": "rollup -c -w",
 		"icons": "node scripts/generate-icons.mjs",
 		"lint": "biome ci",
-		"format": "biome check --write --linter-enabled=false"
+		"format": "biome check --write --linter-enabled=false",
+		"test": "node --test \"test/**/*.test.ts\""
 	},
 	"dependencies": {
 		"@elgato/streamdeck": "^3.0.4",
