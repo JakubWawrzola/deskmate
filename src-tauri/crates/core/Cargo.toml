@@ -8,3 +8,47 @@ edition.workspace = true
 
 [lints]
 workspace = true
+
+[features]
+# Stops security::audit from writing the security log. For the test build of a
+# crate that depends on this one, listed under its [dev-dependencies]: unit
+# tests must not write into the real log. Never enable it as a normal
+# dependency feature, that would switch the audit log off in the program.
+audit-log-off = []
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sysinfo = "0.33"
+keyring = { version = "3", features = ["windows-native"] }
+# Wipes a secret from memory once it has been moved to its new entry.
+zeroize = "1"
+
+[target.'cfg(windows)'.dependencies]
+winreg = "0.55"
+
+[target.'cfg(windows)'.dependencies.windows]
+version = "0.61"
+features = [
+  "Win32_Foundation",
+  # confirmation dialog (security.rs)
+  "Win32_UI_WindowsAndMessaging",
+  # CPU temperature helper (cpu_temperature.rs): pipe, PawnIOLib, task, UAC
+  "Win32_System_Pipes",
+  "Win32_System_IO",
+  "Win32_Storage_FileSystem",
+  "Win32_Security",
+  "Win32_System_LibraryLoader",
+  "Win32_System_TaskScheduler",
+  "Win32_System_Threading",
+  "Win32_System_Registry",
+  "Win32_UI_Shell",
+  # hardware telemetry (hardware.rs): WMI temperatures, PDH GPU counters, DXGI
+  "Win32_System_Com",
+  "Win32_System_Com_StructuredStorage",
+  "Win32_System_Ole",
+  "Win32_System_Variant",
+  "Win32_System_Wmi",
+  "Win32_System_Performance",
+  "Win32_Graphics_Dxgi",
+]

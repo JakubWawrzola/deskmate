@@ -5,15 +5,11 @@ mod actions;
 mod audio;
 mod autostart;
 mod clipboard;
-mod config;
-mod consts;
-mod cpu_temperature;
 mod custom_sensors;
 mod dashboard;
 mod discovery;
 mod family;
 mod ha_api;
-mod hardware;
 mod hotkeys;
 mod keys;
 mod link;
@@ -24,7 +20,6 @@ mod mqtt;
 mod notify;
 mod processes;
 mod seat;
-mod security;
 mod sensors;
 mod state;
 mod sys_commands;
@@ -32,6 +27,10 @@ mod transport;
 mod tts;
 mod uninstall;
 mod updates;
+
+// These modules live in deskmate-core. The re-export keeps them reachable as
+// `crate::config`, `crate::consts` and so on for the rest of the app.
+pub(crate) use deskmate_core::{config, consts, cpu_temperature, hardware, security};
 
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;

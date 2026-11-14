@@ -10,8 +10,10 @@ const MAX_AUDIT_BYTES: u64 = 1024 * 1024;
 
 pub fn audit(event: &str, result: &str) {
     // Unit tests exercise audited code paths; they must not write into the
-    // real security log of the developer's machine.
-    if cfg!(test) {
+    // real security log of the developer's machine. `cfg!(test)` covers this
+    // crate's own tests only, so a crate that depends on this one turns the
+    // `audit-log-off` feature on for its test build.
+    if cfg!(any(test, feature = "audit-log-off")) {
         return;
     }
     let _guard = AUDIT_LOCK.get_or_init(|| Mutex::new(())).lock().ok();

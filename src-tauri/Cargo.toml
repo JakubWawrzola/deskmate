@@ -25,6 +25,8 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+# The part of Deskmate that does not depend on Tauri.
+deskmate-core = { path = "crates/core" }
 tauri = { version = "2", features = ["tray-icon", "image-png"] }
 tauri-plugin-autostart = "2"
 # single-instance: przekazuje aktywacje protokolu deskmate: (klik przycisku toastu) do dzialajacej apki
@@ -64,6 +66,11 @@ x25519-dalek = { version = "2", features = ["static_secrets", "zeroize"] }
 # Wipes pairing keys and session keys from memory when they go out of scope.
 zeroize = "1"
 
+# Unit tests exercise audited code paths. This feature keeps them from writing
+# into the real security log of the machine they run on.
+[dev-dependencies]
+deskmate-core = { path = "crates/core", features = ["audit-log-off"] }
+
 # #[implement] (COM callback for the camera monitor) expands to windows_core paths.
 [target.'cfg(windows)'.dependencies.windows-core]
 version = "0.61"
@@ -83,19 +90,12 @@ features = [
   # custom sensors and program controls: process list, service state
   "Win32_System_Diagnostics_ToolHelp",
   "Win32_System_Services",
-  # CPU temperature helper (cpu_temperature.rs): pipe, PawnIOLib, task, UAC
-  "Win32_System_Pipes",
-  "Win32_System_IO",
-  "Win32_Storage_FileSystem",
-  "Win32_System_LibraryLoader",
+  # family protection: the scheduled task that starts Deskmate again (family.rs)
   "Win32_System_TaskScheduler",
-  "Win32_System_Registry",
   "Win32_System_Power",
   "Win32_System_Com",
   "Win32_System_Ole",
-  "Win32_System_Performance",
   "Win32_System_Variant",
-  "Win32_System_Wmi",
   "Win32_Media_Audio",
   "Win32_Media_Audio_Endpoints",
   # camera in use: IMFSensorActivityMonitor (media_activity.rs)
@@ -110,7 +110,6 @@ features = [
   "Win32_Security_Authorization",
   # Credential Manager cleanup on uninstall (uninstall.rs)
   "Win32_Security_Credentials",
-  "Win32_Graphics_Dxgi",
   # toasts from our own XML (buttons need it, see notify.rs)
   "UI_Notifications",
   "Data_Xml_Dom",

@@ -24,6 +24,10 @@ pub struct HardwareCollector {
 }
 
 impl HardwareCollector {
+    #[allow(
+        clippy::new_without_default,
+        reason = "new() opens a PDH query and enumerates the DXGI adapters; Default would hide that work"
+    )]
     pub fn new() -> Self {
         Self {
             disk_primed: false,

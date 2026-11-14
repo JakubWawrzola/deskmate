@@ -162,7 +162,7 @@ pub fn status() -> Status {
 /// Starts this exe elevated with `arg` (UAC prompt) and waits for it. Also
 /// used for the family protection (family.rs).
 #[cfg(windows)]
-pub(crate) fn run_elevated(arg: &str) -> Result<(), String> {
+pub fn run_elevated(arg: &str) -> Result<(), String> {
     use windows::core::{w, HSTRING};
     use windows::Win32::Foundation::{CloseHandle, WAIT_OBJECT_0};
     use windows::Win32::System::Threading::{GetExitCodeProcess, WaitForSingleObject};
@@ -204,7 +204,7 @@ pub(crate) fn run_elevated(arg: &str) -> Result<(), String> {
 }
 
 #[cfg(not(windows))]
-pub(crate) fn run_elevated(_arg: &str) -> Result<(), String> {
+pub fn run_elevated(_arg: &str) -> Result<(), String> {
     Err("windows only".into())
 }
 
@@ -269,8 +269,8 @@ mod elevated {
     use windows::Win32::System::Threading::{CreateMutexW, ReleaseMutex, WaitForSingleObject};
     use windows::Win32::System::Variant::VARIANT;
 
-    static INTEL_MODULE: &[u8] = include_bytes!("../pawnio/IntelMSR.bin");
-    static AMD_MODULE: &[u8] = include_bytes!("../pawnio/AMDFamily17.bin");
+    static INTEL_MODULE: &[u8] = include_bytes!("../../../pawnio/IntelMSR.bin");
+    static AMD_MODULE: &[u8] = include_bytes!("../../../pawnio/AMDFamily17.bin");
 
     type OpenFn = unsafe extern "system" fn(*mut HANDLE) -> HRESULT;
     type LoadFn = unsafe extern "system" fn(HANDLE, *const u8, usize) -> HRESULT;
