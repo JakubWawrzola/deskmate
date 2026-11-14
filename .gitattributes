@@ -1,2 +1,10 @@
+# Text files are stored and checked out with LF on every platform: the
+# formatters and linters (Biome in particular) expect LF.
+* text=auto eol=lf
+
+# Windows batch files need CRLF to run.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
 # Signed PawnIO modules: byte-exact, never line-ending converted
 src-tauri/pawnio/*.bin binary
