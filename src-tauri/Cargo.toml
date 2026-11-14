@@ -57,7 +57,7 @@ base64 = "0.22"
 futures-util = "0.3"
 hkdf = "0.12"
 hmac = "0.12"
-rand = "0.8"
+rand = "0.9"
 sha2 = "0.10"
 tokio-tungstenite = { version = "0.28", default-features = false, features = ["connect", "native-tls"] }
 # Link v2: ephemeral X25519 per session (forward secrecy). Pure Rust, like the
