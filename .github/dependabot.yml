@@ -22,6 +22,18 @@ updates:
       default-days: 7
     open-pull-requests-limit: 5
     groups:
+      # The RustCrypto crates and the key exchange share trait versions, and
+      # the Link vector tests cover them as one stack: they move together.
+      rust-crypto:
+        patterns:
+          - aes-gcm
+          - chacha20poly1305
+          - hkdf
+          - hmac
+          - sha2
+          - x25519-dalek
+          - rand
+          - rand_core
       rust-minor-and-patch:
         update-types: [minor, patch]
     commit-message:
@@ -36,6 +48,18 @@ updates:
       default-days: 7
     open-pull-requests-limit: 5
     groups:
+      # The build tool and its React plugin: a major of one needs the other.
+      window-build:
+        patterns:
+          - vite
+          - "@vitejs/plugin-react"
+      # React, its DOM renderer and their types share one major version.
+      window-react:
+        patterns:
+          - react
+          - react-dom
+          - "@types/react"
+          - "@types/react-dom"
       window-minor-and-patch:
         update-types: [minor, patch]
     commit-message:
@@ -49,6 +73,11 @@ updates:
     cooldown:
       default-days: 7
     open-pull-requests-limit: 5
+    ignore:
+      # The plugin runs on the Node version Stream Deck ships (20): type
+      # definitions for a newer Node would describe APIs that are not there.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     groups:
       streamdeck-minor-and-patch:
         update-types: [minor, patch]
@@ -63,6 +92,10 @@ updates:
     cooldown:
       default-days: 7
     open-pull-requests-limit: 5
+    ignore:
+      # No CI job builds the TV app yet, so a major update cannot be checked.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       tv-minor-and-patch:
         update-types: [minor, patch]
