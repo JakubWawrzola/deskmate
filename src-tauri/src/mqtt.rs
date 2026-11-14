@@ -21,6 +21,7 @@ pub async fn restart(app: AppHandle) {
         let _ = tx.send(true);
     }
     *state.link_tx.lock().await = None;
+    state.set_link_info(None);
     {
         let mut cl = state.client.lock().await;
         if let Some(c) = cl.take() {
@@ -374,15 +375,23 @@ fn now_hms() -> String {
 
 pub fn set_status(app: &AppHandle, connected: bool, detail: &str) {
     let state = app.state::<AppState>();
+    // The integration's version belongs to a connected Link session only.
+    let integration = if connected {
+        state.link_info().map(|info| info.integration)
+    } else {
+        None
+    };
     if let Ok(mut st) = state.status.try_lock() {
         st.connected = connected;
         st.detail = detail.to_string();
+        st.integration = integration.clone();
     }
     let _ = app.emit(
         "deskmate://status",
         StatusView {
             connected,
             detail: detail.to_string(),
+            integration,
         },
     );
 }

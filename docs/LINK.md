@@ -234,6 +234,17 @@ value it received. Fields other than these three are ignored. A client that
 never sends `info`, such as Deskmate up to 0.8.5, gets no `info` from Home
 Assistant, and nothing else changes for it.
 
+Deskmate 0.9.0 and newer sends `info` right after `welcome`, before its first
+`declare`, and shows the integration's version on its Status page for as long
+as the session lasts. It checks the answer just as strictly. `integration`
+must be three numbers separated by dots, optionally followed by `-` or `+` and
+letters, digits, dots or hyphens, at most 40 characters in all. `caps` must be
+a list of at most 32 names, each a lowercase letter followed by lowercase
+letters, digits or underscores, at most 32 characters long. An answer that
+fails the check is ignored as a whole, and Deskmate logs a warning without the
+values it received. An integration that never answers, such as 0.8.5 and
+older, changes nothing for Deskmate.
+
 ### `declare`
 
 `device` holds `name`, `model` and `sw_version`. Each item of `entities` has a

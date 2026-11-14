@@ -172,6 +172,8 @@ export interface ConfigView {
 export interface StatusView {
   connected: boolean;
   detail: string;
+  /** Version of the Home Assistant integration, once it has said so in this Link session */
+  integration: string | null;
 }
 
 export interface SensorDef {

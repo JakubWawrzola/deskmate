@@ -29,7 +29,7 @@ use zeroize::Zeroizing;
 
 mod frames;
 
-pub use frames::state_frame;
+pub use frames::{info_frame, parse_info, state_frame, ClientPlatform, ClientRole, HubInfo};
 
 type HmacSha256 = Hmac<Sha256>;
 /// A 32-byte secret that is wiped from memory when dropped.

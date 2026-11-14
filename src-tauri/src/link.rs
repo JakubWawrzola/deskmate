@@ -7,14 +7,15 @@ use futures_util::{SinkExt, StreamExt};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::time::Duration;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 use tokio::sync::{mpsc, watch};
 use tokio_tungstenite::tungstenite::Message;
 use zeroize::Zeroizing;
 
 use deskmate_core::link::{
-    auth_retry_delay, classify_connect_error, client_handshake, state_frame, LinkError,
-    LinkFailure, SessionCodecs, PING_INTERVAL,
+    auth_retry_delay, classify_connect_error, client_handshake, info_frame, parse_info,
+    state_frame, ClientPlatform, ClientRole, HubInfo, LinkError, LinkFailure, SessionCodecs,
+    PING_INTERVAL,
 };
 pub use deskmate_core::link::{normalize_url, validate_pairing_key};
 
@@ -127,6 +128,7 @@ pub async fn restart(app: AppHandle) {
             )
             .await;
             *app_connection.state::<AppState>().link_tx.lock().await = None;
+            app_connection.state::<AppState>().set_link_info(None);
             // Half-written files from Home Assistant cannot be resumed on a
             // new session; remove them now.
             crate::link_files::abort_all();
@@ -236,6 +238,12 @@ async fn run_session(
     } = client_handshake(&mut socket, &cfg.node_id, psk, cascade).await?;
     let (mut writer, mut reader) = socket.split();
     let (out_tx, mut out_rx) = mpsc::unbounded_channel::<Value>();
+    // `info` goes first: it is queued before any other task can reach the
+    // channel. An integration older than 0.9.0 ignores it and never answers.
+    app.state::<AppState>().set_link_info(None);
+    out_tx
+        .send(info_frame(ClientRole::App, ClientPlatform::Windows))
+        .map_err(|e| e.to_string())?;
     *app.state::<AppState>().link_tx.lock().await = Some(out_tx.clone());
     let hardware_defs = app
         .state::<AppState>()
@@ -351,8 +359,30 @@ async fn handle_incoming(app: &AppHandle, tx: &mpsc::UnboundedSender<Value>, pay
             let _ = tx.send(json!({"t": "pong"}));
         }
         Some("pong") => {}
+        Some("info") => match parse_info(&payload) {
+            Some(info) => remember_hub_info(app, info).await,
+            // Only the fact is logged, never what was received.
+            None => log::warn!("ignoring an invalid info frame from Home Assistant"),
+        },
         _ => log::warn!("unknown Deskmate Link payload type"),
     }
+}
+
+/// Keeps the `info` answer for the rest of the session and shows the
+/// integration's version on the Status page.
+async fn remember_hub_info(app: &AppHandle, info: HubInfo) {
+    let state = app.state::<AppState>();
+    let status = {
+        let mut status = state.status.lock().await;
+        if !status.connected {
+            // The session is already going away.
+            return;
+        }
+        status.integration = Some(info.integration.clone());
+        status.clone()
+    };
+    state.set_link_info(Some(info));
+    let _ = app.emit("deskmate://status", status);
 }
 
 async fn handle_file_request(app: AppHandle, tx: mpsc::UnboundedSender<Value>, payload: Value) {

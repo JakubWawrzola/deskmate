@@ -4,12 +4,17 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::AtomicU64;
 use tokio::sync::{mpsc, watch, Mutex};
 
+use deskmate_core::link::HubInfo;
+
 use crate::config::AppConfig;
 
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct StatusView {
     pub connected: bool,
     pub detail: String,
+    /// Version of the Home Assistant integration. Known only while a Link
+    /// session is connected and the integration has answered `info`.
+    pub integration: Option<String>,
 }
 
 pub struct AppState {
@@ -25,6 +30,9 @@ pub struct AppState {
     pub client: Mutex<Option<rumqttc::AsyncClient>>,
     /// Outbound encrypted Link payloads for the currently established session.
     pub link_tx: Mutex<Option<mpsc::UnboundedSender<serde_json::Value>>>,
+    /// What Home Assistant said about itself in the current Link session.
+    /// A plain mutex: it is read where the status is set, outside async code.
+    link_info: std::sync::Mutex<Option<HubInfo>>,
     /// toast actions clicked (from the WinRT thread) -> the drain loop publishes to MQTT
     pub action_tx: mpsc::UnboundedSender<String>,
     pub action_rx: Mutex<Option<mpsc::UnboundedReceiver<String>>>,
@@ -42,6 +50,7 @@ impl AppState {
             status: Mutex::new(StatusView {
                 connected: false,
                 detail: "Starting...".into(),
+                integration: None,
             }),
             sensor_values: Mutex::new(HashMap::new()),
             hardware_sensor_defs: Mutex::new(Vec::new()),
@@ -51,10 +60,25 @@ impl AppState {
             stop_tx: Mutex::new(None),
             client: Mutex::new(None),
             link_tx: Mutex::new(None),
+            link_info: std::sync::Mutex::new(None),
             action_tx,
             action_rx: Mutex::new(Some(action_rx)),
             tts_tx: crate::tts::spawn(),
             keep_awake_tx: crate::sys_commands::spawn_keep_awake(),
         }
+    }
+
+    /// What Home Assistant said about itself in the current Link session.
+    pub fn link_info(&self) -> Option<HubInfo> {
+        self.link_info
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
+    }
+
+    /// Stores the `info` answer of a session, or forgets it with `None` when
+    /// a session starts or ends.
+    pub fn set_link_info(&self, info: Option<HubInfo>) {
+        *self.link_info.lock().unwrap_or_else(|e| e.into_inner()) = info;
     }
 }

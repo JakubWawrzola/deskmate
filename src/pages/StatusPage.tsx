@@ -87,6 +87,12 @@ export default function StatusPage({
           </dd>
           <dt className="text-muted">Transport</dt>
           <dd>{config.transport === "link" ? "Deskmate integration" : "MQTT"}</dd>
+          {snapshot.status.integration && (
+            <>
+              <dt className="text-muted">Integration</dt>
+              <dd className="mono">{snapshot.status.integration}</dd>
+            </>
+          )}
           <dt className="text-muted">Endpoint</dt>
           <dd className="mono">
             {config.transport === "link"
