@@ -1,0 +1,28 @@
+# The integration tests against the newest Home Assistant, pre-releases
+# included. ci.yml tests the release pinned in requirements-test.txt; this job
+# follows upstream on purpose, so a Home Assistant change that breaks the
+# integration shows up here before users install it.
+name: Home Assistant pre-release
+
+on:
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: Integration tests on the newest Home Assistant
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.14"
+      - run: python -m pip install --upgrade --pre pytest-homeassistant-custom-component
+      - run: python -m pip list | grep -i -E '^(homeassistant|pytest-homeassistant-custom-component) '
+      - run: python -m pytest
