@@ -6,7 +6,7 @@
 ┌────────────────────────────── Windows PC ──────────────────────────────┐
 │  Deskmate (Tauri 2)                                                    │
 │  ┌───────────────┐   tauri commands/events   ┌───────────────────────┐ │
-│  │ React UI      │ <───────────────────────> │ Rust core             │ │
+│  │ React UI      │ <───────────────────────> │ Rust backend          │ │
 │  │ (5 pages +    │                           │  config / state       │ │
 │  │  wizard)      │                           │  sensors (sysinfo +   │ │
 │  └───────────────┘                           │   WinAPI + SMTC)      │ │
@@ -80,7 +80,34 @@ Everything above is HA → PC over MQTT. v0.3 adds the opposite direction:
   (REST, 3 s) and toggles entities on click. Windows lifecycle: closing any
   window hides it; the app lives in the tray.
 
-## Crates / deps
+## Crates
+
+`src-tauri/` is a Cargo workspace with two crates.
+
+| Crate | Path | What it holds |
+|---|---|---|
+| `deskmate` | `src-tauri/` | The app: window, tray, Tauri commands, the connection loops (`mqtt.rs`, `link.rs`, `transport.rs`) and everything that reads or acts on the signed-in user's session (`sensors.rs`, `sys_commands.rs`, `audio.rs`, `media.rs`, `clipboard.rs`, `keys.rs`, `family.rs`, `notify.rs`, `link_files.rs`) |
+| `deskmate-core` | `src-tauri/crates/core/` | Code that does not depend on Tauri and works without a signed-in user. A program without a window, such as a service, is built on it |
+
+Modules of `deskmate-core`:
+
+| Module | What |
+|---|---|
+| `config`, `consts`, `security` | The settings file and Credential Manager, shared names, the confirmation dialog and the audit log |
+| `sensors` | The sensor registry (`SENSOR_DEFS`) and `MachineCollector`: CPU, memory, system drive, network, uptime, battery |
+| `hardware`, `cpu_temperature` | Drives, disk activity, GPU, temperatures |
+| `sys_commands` | The command descriptors (`COMMAND_DEFS`), the power commands and the URL checks |
+| `custom_sensors` | Key, component and icon of the sensors a user adds |
+| `discovery` | The MQTT discovery messages and the Link `declare` frame |
+| `link` | The Link protocol: URL and key checks, the handshake, the frame codec, the `info` and `state` frames |
+| `machine` | The machine scope: descriptors, collector, `declare` and `state` frames and the power commands for a client without a signed-in user |
+| `seat` | One connection per computer when several Windows users run Deskmate |
+
+The app's `sensors`, `sys_commands`, `discovery` and `link` modules add the
+session part and re-export what they use from the core, so the rest of the app
+reaches both through `crate::sensors` and so on.
+
+## Dependencies
 
 Rust: tauri 2, tauri-plugin-autostart, tauri-plugin-single-instance,
 tauri-plugin-global-shortcut, rumqttc, sysinfo, keyring,
@@ -89,12 +116,17 @@ tokio, serde. Frontend: React 18, Tailwind 4, @tauri-apps/api.
 
 ## Adding a sensor (checklist)
 
-1. Add a `SensorDef` to `SENSOR_DEFS` in `src-tauri/src/sensors.rs`
-   (set `privacy: true` + `default_enabled: false` if it exposes user activity).
-2. Add the collection branch in `Collector::collect`.
+1. Add a `SensorDef` to `SENSOR_DEFS` in
+   `src-tauri/crates/core/src/sensors.rs` (set `privacy: true` +
+   `default_enabled: false` if it exposes user activity).
+2. Add the collection branch. A sensor that reads the user's session goes
+   into `Collector::collect` in `src-tauri/src/sensors.rs`. One that works
+   without a signed-in user goes into `MachineCollector` in the core, and its
+   key into `machine::SENSOR_KEYS`.
 3. Done — discovery, UI list, toggles and publishing pick it up automatically.
 
 ## Adding a built-in command
 
-1. Add a `CommandDef` to `COMMAND_DEFS` in `src-tauri/src/sys_commands.rs`.
-2. Add the match arm in `run_builtin`.
+1. Add a `CommandDef` to `COMMAND_DEFS` in
+   `src-tauri/crates/core/src/sys_commands.rs`.
+2. Add the match arm in `run_builtin` in `src-tauri/src/sys_commands.rs`.

@@ -17,7 +17,7 @@ by anyone, and so is the history.
 | Path | What | Stack |
 |---|---|---|
 | `src-tauri/` | Windows app, x64 and ARM64, and the root of the Cargo workspace | Rust, Tauri 2 |
-| `src-tauri/crates/core/` | `deskmate-core`, the library for code that must not depend on Tauri | Rust |
+| `src-tauri/crates/core/` | `deskmate-core`, the library for code that must not depend on Tauri: configuration, the Link protocol, the entity descriptors, and the sensors and commands that work without a signed-in user | Rust |
 | `src/` | The app's window | React 18, TypeScript strict, Tailwind 4 |
 | `custom_components/deskmate_link/` | Home Assistant integration, in the default HACS catalog | Python |
 | `streamdeck-plugin/` | Stream Deck plugin, versioned on its own | Node, TypeScript |
@@ -282,7 +282,7 @@ most mistakes.
 | `src/` | `npx tsc --noEmit`, `npm run lint` | no errors |
 | `streamdeck-plugin/` | `npx tsc --noEmit` in that folder | no errors |
 | The integration | `ruff check` and `ruff format --check` on `custom_components scripts tests`, `python -m py_compile` on the changed files, `python -m pytest` | no errors, all tests pass |
-| Link protocol or crypto | the vector tests in Rust and in `tv/` | all pass |
+| Link protocol or crypto | the vector tests in Rust (`cargo test -p deskmate-core link`) and in `tv/` | all pass |
 
 Run the tests, do not only compile them: `cargo check --tests` passes while a
 test fails. Use the ruff version pinned in `.github/workflows/ci.yml`
