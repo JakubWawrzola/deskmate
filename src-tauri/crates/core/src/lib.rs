@@ -4,6 +4,10 @@
 pub mod config;
 pub mod consts;
 pub mod cpu_temperature;
+pub mod custom_sensors;
+pub mod discovery;
 pub mod hardware;
+pub mod seat;
 pub mod security;
 pub mod sensors;
+pub mod sys_commands;

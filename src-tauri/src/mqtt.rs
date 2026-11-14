@@ -94,7 +94,11 @@ pub async fn restart(app: AppHandle) {
         'hosts: loop {
             // Another Windows account on this computer may use the same node
             // (and MQTT client id); only one of them connects at a time.
-            if !crate::seat::wait_for_turn(&app_ev, &node_ev, &mut stop_ev).await {
+            if !crate::seat::wait_for_turn(&node_ev, &mut stop_ev, |status| {
+                set_status(&app_ev, false, status)
+            })
+            .await
+            {
                 break 'hosts;
             }
             let (host, port) = hosts[idx].clone();

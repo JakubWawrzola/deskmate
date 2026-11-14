@@ -13,7 +13,6 @@
 //! this, and an RDP session left disconnected keeps reporting.
 
 use std::time::Duration;
-use tauri::AppHandle;
 use tokio::sync::watch;
 
 /// Called before connecting and every few seconds while connected. Returns
@@ -31,9 +30,18 @@ pub fn turn(_node: &str) -> bool {
 /// How often a connected session checks whether to hand over.
 pub const CHECK_EVERY: Duration = Duration::from_secs(5);
 
+/// What a waiting process tells its user.
+pub const WAITING_STATUS: &str =
+    "Another Windows user on this computer holds the connection. Waiting...";
+
 /// Waits until this process may connect as `node`. Returns false if `stop`
-/// fired first.
-pub async fn wait_for_turn(app: &AppHandle, node: &str, stop: &mut watch::Receiver<bool>) -> bool {
+/// fired first. `announce` is called once, with `WAITING_STATUS`, when the
+/// seat turns out to be taken.
+pub async fn wait_for_turn(
+    node: &str,
+    stop: &mut watch::Receiver<bool>,
+    mut announce: impl FnMut(&str),
+) -> bool {
     let mut announced = false;
     loop {
         if *stop.borrow() {
@@ -44,11 +52,7 @@ pub async fn wait_for_turn(app: &AppHandle, node: &str, stop: &mut watch::Receiv
             return true;
         }
         if !announced {
-            crate::mqtt::set_status(
-                app,
-                false,
-                "Another Windows user on this computer holds the connection. Waiting...",
-            );
+            announce(WAITING_STATUS);
             announced = true;
         }
         tokio::select! {
@@ -102,6 +106,8 @@ mod imp {
     }
 
     fn close(handle: isize) {
+        // SAFETY: every caller passes a handle this module opened and still
+        // owns, and forgets it right after this call.
         unsafe {
             let _ = CloseHandle(HANDLE(handle as *mut _));
         }
@@ -111,6 +117,9 @@ mod imp {
     /// a connected remote desktop). Locked still counts as active; only
     /// switching to another account disconnects a session. Unknown = active.
     fn session_active() -> bool {
+        // SAFETY: `buffer` and `bytes` are valid out-pointers. On success WTS
+        // returns a buffer holding one WTS_CONNECTSTATE_CLASS; it is read once
+        // and released with WTSFreeMemory, as the API requires.
         unsafe {
             let mut buffer = windows::core::PWSTR::null();
             let mut bytes = 0u32;
@@ -136,6 +145,7 @@ mod imp {
     /// object created by another Windows account is not accessible to us, and
     /// "access denied" still proves it exists.
     fn someone_waiting(node: &str) -> bool {
+        // SAFETY: the name is a valid HSTRING that outlives the call.
         match unsafe { OpenEventW(SYNCHRONIZATION_SYNCHRONIZE, false, &waiting_name(node)) } {
             Ok(handle) => {
                 close(handle.0 as isize);
@@ -157,6 +167,8 @@ mod imp {
         if waiting {
             // Fails with "access denied" when another account already waits;
             // the announcement exists then anyway.
+            // SAFETY: no security attributes are passed, and the name is a
+            // valid HSTRING that outlives the call.
             if let Ok(handle) = unsafe { CreateEventW(None, true, false, &waiting_name(node)) } {
                 *slot = Some(Held {
                     node: node.to_string(),
@@ -192,8 +204,12 @@ mod imp {
         if !active && someone_waiting(node) {
             return false;
         }
+        // SAFETY: no security attributes are passed, and the name is a valid
+        // HSTRING that outlives the call.
         match unsafe { CreateMutexW(None, false, &seat_name(node)) } {
             Ok(handle) => {
+                // SAFETY: reads this thread's last-error value, which the
+                // CreateMutexW call above has just set.
                 if unsafe { GetLastError() } == ERROR_ALREADY_EXISTS {
                     // Another process of this account holds it.
                     close(handle.0 as isize);

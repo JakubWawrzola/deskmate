@@ -19,7 +19,6 @@ mod media_activity;
 mod mqtt;
 mod notify;
 mod processes;
-mod seat;
 mod sensors;
 mod state;
 mod sys_commands;
@@ -29,8 +28,10 @@ mod uninstall;
 mod updates;
 
 // These modules live in deskmate-core. The re-export keeps them reachable as
-// `crate::config`, `crate::consts` and so on for the rest of the app.
-pub(crate) use deskmate_core::{config, consts, cpu_temperature, hardware, security};
+// `crate::config`, `crate::consts` and so on for the rest of the app. The
+// app's own `sensors`, `sys_commands` and `discovery` hold what needs the
+// user's session and re-export the rest from deskmate-core.
+pub(crate) use deskmate_core::{config, consts, cpu_temperature, seat, security};
 
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;

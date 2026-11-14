@@ -7,47 +7,20 @@
 //!   interval (30 s or more) and in the background, so a slow script never
 //!   delays the other sensors. Starts disabled, like custom commands.
 //!
-//! On/off sensors use keys "csb_<id>", the others "cs_<id>", so the Link
-//! encoder can send the on/off ones as booleans without looking up the config.
+//! How they are described to Home Assistant (key, component, icon) is in
+//! deskmate-core, next to the entity declarations.
 
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
+
+use deskmate_core::custom_sensors::key;
 
 use crate::config::{AppConfig, CustomSensor};
 
 pub const KINDS: [&str; 4] = ["process", "window", "service", "powershell"];
 const POWERSHELL_TIMEOUT: Duration = Duration::from_secs(20);
 const MAX_VALUE_CHARS: usize = 255;
-
-pub fn is_binary(kind: &str) -> bool {
-    matches!(kind, "process" | "window")
-}
-
-pub fn key(sensor: &CustomSensor) -> String {
-    if is_binary(&sensor.kind) {
-        format!("csb_{}", sensor.id)
-    } else {
-        format!("cs_{}", sensor.id)
-    }
-}
-
-pub fn component(sensor: &CustomSensor) -> &'static str {
-    if is_binary(&sensor.kind) {
-        "binary_sensor"
-    } else {
-        "sensor"
-    }
-}
-
-pub fn icon(sensor: &CustomSensor) -> &'static str {
-    match sensor.kind.as_str() {
-        "process" => "mdi:application-cog",
-        "window" => "mdi:application-outline",
-        "service" => "mdi:cog-outline",
-        _ => "mdi:console",
-    }
-}
 
 /// Values of every enabled custom sensor for this publish interval.
 pub fn collect(cfg: &AppConfig, out: &mut HashMap<String, String>) {

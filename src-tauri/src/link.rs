@@ -489,9 +489,9 @@ pub async fn restart(app: AppHandle) {
             // Another Windows account on this computer may be paired as the
             // same node; only one of them connects at a time.
             if !crate::seat::wait_for_turn(
-                &app_connection,
                 &cfg_connection.node_id,
                 &mut stop_connection,
+                |status| crate::mqtt::set_status(&app_connection, false, status),
             )
             .await
             {
