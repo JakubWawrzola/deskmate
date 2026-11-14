@@ -27,6 +27,10 @@ use tokio_tungstenite::WebSocketStream;
 use x25519_dalek::{EphemeralSecret, PublicKey};
 use zeroize::Zeroizing;
 
+mod frames;
+
+pub use frames::state_frame;
+
 type HmacSha256 = Hmac<Sha256>;
 /// A 32-byte secret that is wiped from memory when dropped.
 pub type SecretKey = Zeroizing<[u8; 32]>;

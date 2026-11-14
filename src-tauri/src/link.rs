@@ -4,7 +4,7 @@
 //! it.
 
 use futures_util::{SinkExt, StreamExt};
-use serde_json::{json, Map, Value};
+use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::time::Duration;
 use tauri::{AppHandle, Manager};
@@ -13,8 +13,8 @@ use tokio_tungstenite::tungstenite::Message;
 use zeroize::Zeroizing;
 
 use deskmate_core::link::{
-    auth_retry_delay, classify_connect_error, client_handshake, LinkError, LinkFailure,
-    SessionCodecs, PING_INTERVAL,
+    auth_retry_delay, classify_connect_error, client_handshake, state_frame, LinkError,
+    LinkFailure, SessionCodecs, PING_INTERVAL,
 };
 pub use deskmate_core::link::{normalize_url, validate_pairing_key};
 
@@ -249,7 +249,7 @@ async fn run_session(
     let cached = app.state::<AppState>().sensor_values.lock().await.clone();
     if !cached.is_empty() {
         out_tx
-            .send(json!({"t": "state", "s": typed_states(&cached)}))
+            .send(state_frame(&cached))
             .map_err(|e| e.to_string())?;
     }
     crate::mqtt::set_status(app, true, "Connected to Home Assistant");
@@ -398,49 +398,6 @@ async fn handle_file_request(app: AppHandle, tx: mpsc::UnboundedSender<Value>, p
     }
 }
 
-fn typed_states(values: &HashMap<String, String>) -> Value {
-    let mut states = Map::new();
-    for (key, value) in values {
-        let component = crate::sensors::SENSOR_DEFS
-            .iter()
-            .find(|definition| definition.id == key)
-            .map(|definition| definition.component);
-        let typed = match component {
-            Some("binary_sensor") => Value::Bool(
-                value.eq_ignore_ascii_case("ON")
-                    || value.eq_ignore_ascii_case("true")
-                    || value == "1",
-            ),
-            Some("number") => value
-                .parse::<f64>()
-                .ok()
-                .and_then(serde_json::Number::from_f64)
-                .map(Value::Number)
-                .unwrap_or_else(|| Value::String(value.clone())),
-            _ if matches!(
-                key.as_str(),
-                "keep_awake" | "audio_mute" | "mic_mute" | "family_rules" | "block_apps"
-            ) =>
-            {
-                Value::Bool(value.eq_ignore_ascii_case("ON"))
-            }
-            // no daily limit: unknown in Home Assistant
-            _ if key == "screen_time_left" && value == "None" => Value::Null,
-            _ if matches!(key.as_str(), "screen_time_limit" | "screen_time_bonus") => value
-                .parse::<f64>()
-                .ok()
-                .and_then(serde_json::Number::from_f64)
-                .map(Value::Number)
-                .unwrap_or_else(|| Value::String(value.clone())),
-            // on/off custom sensors; Home Assistant reads the text "OFF" as true
-            _ if key.starts_with("csb_") => Value::Bool(value.eq_ignore_ascii_case("ON")),
-            _ => Value::String(value.clone()),
-        };
-        states.insert(key.clone(), typed);
-    }
-    Value::Object(states)
-}
-
 pub async fn send(app: &AppHandle, payload: Value) -> bool {
     app.state::<AppState>()
         .link_tx
@@ -452,7 +409,7 @@ pub async fn send(app: &AppHandle, payload: Value) -> bool {
 }
 
 pub async fn publish_states_network(app: &AppHandle, values: &HashMap<String, String>) -> usize {
-    if send(app, json!({"t": "state", "s": typed_states(values)})).await {
+    if send(app, state_frame(values)).await {
         values.len()
     } else {
         0

@@ -31,3 +31,28 @@ pub fn build_all(cfg: &AppConfig, hardware_defs: &[OwnedSensorDef]) -> Vec<Disco
 pub fn build_link_declare(cfg: &AppConfig, hardware_defs: &[OwnedSensorDef]) -> Value {
     deskmate_core::discovery::build_link_declare(cfg, hardware_defs, &session_entities(cfg))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A service declares the machine scope for the same computer, so Home
+    /// Assistant must get identical descriptors from both.
+    #[test]
+    fn app_declaration_contains_the_machine_scope_unchanged() {
+        let cfg = AppConfig::default();
+        let app = build_link_declare(&cfg, &[]);
+        let machine = deskmate_core::machine::declare_frame(&cfg, &[]);
+        let app_entities = app["entities"].as_array().unwrap();
+        let machine_entities = machine["entities"].as_array().unwrap();
+
+        assert_eq!(app["device"], machine["device"]);
+        assert!(!machine_entities.is_empty());
+        for entity in machine_entities {
+            let twin = app_entities
+                .iter()
+                .find(|candidate| candidate["key"] == entity["key"]);
+            assert_eq!(twin, Some(entity), "{}", entity["key"]);
+        }
+    }
+}

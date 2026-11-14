@@ -5,7 +5,7 @@
 
 use std::collections::HashMap;
 
-pub use deskmate_core::sensors::{is_enabled, static_defs, OwnedSensorDef, SENSOR_DEFS};
+pub use deskmate_core::sensors::{is_enabled, static_defs, OwnedSensorDef};
 
 /// Collector state kept between ticks.
 pub struct Collector {

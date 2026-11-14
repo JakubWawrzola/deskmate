@@ -492,3 +492,39 @@ fn battery() -> Option<(Option<u8>, bool)> {
     };
     Some((pct, st.ACLineStatus == 1))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::AppConfig;
+
+    /// The machine scope is declared from `machine::SENSOR_KEYS`. A built-in
+    /// sensor collected here but missing there would be sent without ever
+    /// being declared.
+    #[test]
+    fn machine_collector_reports_only_sensors_of_the_machine_scope() {
+        let mut collector = MachineCollector::new();
+        let mut values = HashMap::new();
+        collector.collect_builtin(&AppConfig::default(), 1.0, &mut values);
+        for key in values.keys() {
+            assert!(
+                crate::machine::SENSOR_KEYS.contains(&key.as_str()),
+                "{key} is collected but not in the machine scope"
+            );
+        }
+        for key in ["cpu", "memory", "net_down", "net_up", "uptime"] {
+            assert!(values.contains_key(key), "{key} was not collected");
+        }
+    }
+
+    #[test]
+    fn a_disabled_sensor_is_not_collected() {
+        let mut cfg = AppConfig::default();
+        cfg.sensors_enabled.insert("uptime".into(), false);
+        let mut collector = MachineCollector::new();
+        let mut values = HashMap::new();
+        collector.collect_builtin(&cfg, 1.0, &mut values);
+        assert!(!values.contains_key("uptime"));
+        assert!(values.contains_key("cpu"));
+    }
+}

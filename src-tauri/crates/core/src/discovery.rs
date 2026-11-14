@@ -7,8 +7,8 @@ use std::collections::HashMap;
 
 use crate::config::AppConfig;
 use crate::consts;
-use crate::sensors::{OwnedSensorDef, SENSOR_DEFS};
-use crate::sys_commands::{COMMAND_DEFS, PRESENT_DEFS};
+use crate::sensors::{OwnedSensorDef, SensorDef, SENSOR_DEFS};
+use crate::sys_commands::{CommandDef, COMMAND_DEFS, PRESENT_DEFS};
 
 fn device_block(cfg: &AppConfig) -> Value {
     json!({
@@ -451,28 +451,7 @@ pub fn build_link_declare(
         if !crate::sensors::is_enabled(cfg, def.id) {
             continue;
         }
-        let mut entity = json!({
-            "key": def.id,
-            "kind": def.component,
-            "name": def.name,
-        });
-        if let Some(unit) = def.unit {
-            entity["unit"] = json!(unit);
-        }
-        if let Some(device_class) = def.device_class {
-            entity["device_class"] = json!(device_class);
-        }
-        if let Some(icon) = def.icon {
-            entity["icon"] = json!(icon);
-        }
-        if def.unit.is_some() && def.component == "sensor" && def.device_class != Some("duration") {
-            entity["state_class"] = json!("measurement");
-        }
-        if def.component == "number" {
-            entity["min"] = json!(0);
-            entity["max"] = json!(100);
-            entity["step"] = json!(1);
-        }
+        let mut entity = link_sensor_entity(def);
         if def.component == "select" {
             // added once the first sensor tick has listed the devices
             let options = session.options_for(def.id);
@@ -487,22 +466,7 @@ pub fn build_link_declare(
         if !crate::sensors::is_hardware_enabled(cfg, &def.id) {
             continue;
         }
-        let mut entity = json!({
-            "key": def.id,
-            "kind": "sensor",
-            "name": def.name,
-            "state_class": "measurement",
-        });
-        if let Some(unit) = &def.unit {
-            entity["unit"] = json!(unit);
-        }
-        if let Some(device_class) = &def.device_class {
-            entity["device_class"] = json!(device_class);
-        }
-        if let Some(icon) = &def.icon {
-            entity["icon"] = json!(icon);
-        }
-        entities.push(entity);
+        entities.push(link_hardware_entity(def));
     }
     for sensor in cfg.custom_sensors.iter().filter(|sensor| sensor.enabled) {
         let mut entity = json!({
@@ -520,7 +484,7 @@ pub fn build_link_declare(
         entities.push(entity);
     }
     for def in COMMAND_DEFS {
-        entities.push(json!({"key": def.id, "kind": "button", "name": def.name, "icon": def.icon}));
+        entities.push(link_command_entity(def));
     }
     for command in cfg.custom_commands.iter().filter(|command| command.enabled) {
         let kind = match command.kind.as_str() {
@@ -607,13 +571,70 @@ pub fn build_link_declare(
 
     json!({
         "t": "declare",
-        "device": {
-            "name": cfg.device_name,
-            "model": "Deskmate for Windows",
-            "sw_version": env!("CARGO_PKG_VERSION"),
-        },
+        "device": link_device(cfg),
         "entities": entities,
     })
+}
+
+/// The `device` block of a Link `declare`.
+pub(crate) fn link_device(cfg: &AppConfig) -> Value {
+    json!({
+        "name": cfg.device_name,
+        "model": "Deskmate for Windows",
+        "sw_version": env!("CARGO_PKG_VERSION"),
+    })
+}
+
+/// Link descriptor of a built-in sensor. A select still needs its options.
+pub(crate) fn link_sensor_entity(def: &SensorDef) -> Value {
+    let mut entity = json!({
+        "key": def.id,
+        "kind": def.component,
+        "name": def.name,
+    });
+    if let Some(unit) = def.unit {
+        entity["unit"] = json!(unit);
+    }
+    if let Some(device_class) = def.device_class {
+        entity["device_class"] = json!(device_class);
+    }
+    if let Some(icon) = def.icon {
+        entity["icon"] = json!(icon);
+    }
+    if def.unit.is_some() && def.component == "sensor" && def.device_class != Some("duration") {
+        entity["state_class"] = json!("measurement");
+    }
+    if def.component == "number" {
+        entity["min"] = json!(0);
+        entity["max"] = json!(100);
+        entity["step"] = json!(1);
+    }
+    entity
+}
+
+/// Link descriptor of a hardware sensor detected on this computer.
+pub(crate) fn link_hardware_entity(def: &OwnedSensorDef) -> Value {
+    let mut entity = json!({
+        "key": def.id,
+        "kind": "sensor",
+        "name": def.name,
+        "state_class": "measurement",
+    });
+    if let Some(unit) = &def.unit {
+        entity["unit"] = json!(unit);
+    }
+    if let Some(device_class) = &def.device_class {
+        entity["device_class"] = json!(device_class);
+    }
+    if let Some(icon) = &def.icon {
+        entity["icon"] = json!(icon);
+    }
+    entity
+}
+
+/// Link descriptor of a built-in command: a button.
+pub(crate) fn link_command_entity(def: &CommandDef) -> Value {
+    json!({"key": def.id, "kind": "button", "name": def.name, "icon": def.icon})
 }
 
 /// MQTT discovery for an entity described like a Link `declare` entry.

@@ -8,6 +8,7 @@ pub mod custom_sensors;
 pub mod discovery;
 pub mod hardware;
 pub mod link;
+pub mod machine;
 pub mod seat;
 pub mod security;
 pub mod sensors;
