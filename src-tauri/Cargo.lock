@@ -1021,7 +1021,7 @@ dependencies = [
  "ureq",
  "url",
  "windows 0.61.3",
- "windows-core 0.61.2",
+ "windows-core 0.62.2",
  "winreg",
  "x25519-dalek",
  "zeroize",
@@ -1036,7 +1036,7 @@ dependencies = [
  "serde_json",
  "sysinfo",
  "windows 0.61.3",
- "winreg 0.55.0",
+ "winreg",
  "zeroize",
 ]
 
