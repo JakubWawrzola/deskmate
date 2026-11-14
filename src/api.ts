@@ -15,6 +15,7 @@ import type {
   StatusView,
   TrayAction,
   UpdateInfo,
+  UpdateMode,
   WidgetItem,
   WidgetState,
 } from "./types";
@@ -50,6 +51,9 @@ export const api = {
   unprotectFamilyAccount: () => invoke<void>("unprotect_family_account"),
   setStartWithWindows: (enabled: boolean) => invoke<void>("set_start_with_windows", { enabled }),
   openUpdatePage: () => invoke<void>("open_update_page"),
+  installUpdateNow: () => invoke<void>("install_update_now"),
+  postponeUpdate: () => invoke<void>("postpone_update"),
+  setUpdateMode: (mode: UpdateMode) => invoke<void>("set_update_mode", { mode }),
   addCustomCommand: (
     id: string,
     name: string,
@@ -131,4 +135,12 @@ export function onSensorDefs(cb: () => void): Promise<UnlistenFn> {
 /** The config changed outside the window (tray: Connect / Disconnect). */
 export function onConfigChanged(cb: () => void): Promise<UnlistenFn> {
   return listen("deskmate://config", () => cb());
+}
+/** A newer release was found, or its download or install moved on. */
+export function onUpdate(cb: (update: UpdateInfo | null) => void): Promise<UnlistenFn> {
+  return listen<UpdateInfo | null>("deskmate://update", (e) => cb(e.payload));
+}
+/** The tray entry for an update was clicked: its banner is on the Status page. */
+export function onShowUpdate(cb: () => void): Promise<UnlistenFn> {
+  return listen("deskmate://show-update", () => cb());
 }

@@ -3,8 +3,26 @@ import { api } from "../api";
 import { Button, Field, Panel, Toggle } from "../components";
 import { parsePairingCode } from "../pairing";
 import { applyTheme } from "../theme";
-import type { AppConfig, MqttTransport, ThemeMode, TransportKind } from "../types";
+import type { AppConfig, MqttTransport, ThemeMode, TransportKind, UpdateMode } from "../types";
 import CpuTemperaturePanel from "./CpuTemperaturePanel";
+
+const UPDATE_MODES: { value: UpdateMode; label: string; hint: string }[] = [
+  {
+    value: "auto",
+    label: "Install automatically",
+    hint: "Deskmate downloads the new version and installs it once the computer has not been used for five minutes.",
+  },
+  {
+    value: "ask",
+    label: "Ask first",
+    hint: "A notification and the Status page offer Install now and Later. Later asks again the next day.",
+  },
+  {
+    value: "notify",
+    label: "Only tell me",
+    hint: "Deskmate says that a new version is out and links to its download page. Nothing is downloaded.",
+  },
+];
 
 export default function SettingsPage({
   config,
@@ -54,7 +72,20 @@ export default function SettingsPage({
   const [allowedOrigins, setAllowedOrigins] = useState(config.allowed_url_origins.join("\n"));
   const [branding, setBranding] = useState(config.toast_branding);
   const [updateCheck, setUpdateCheck] = useState(config.update_check ?? true);
+  const [updateMode, setUpdateMode] = useState<UpdateMode>(config.update_mode ?? "ask");
   const [updateMsg, setUpdateMsg] = useState<string | null>(null);
+  // Applies immediately, like the switch above it.
+  const chooseUpdateMode = async (mode: UpdateMode) => {
+    setUpdateMode(mode);
+    setUpdateMsg(null);
+    try {
+      await api.setUpdateMode(mode);
+      await onSaved();
+    } catch (e) {
+      setUpdateMode(config.update_mode ?? "ask");
+      setUpdateMsg(String(e));
+    }
+  };
   const checkUpdates = async () => {
     setUpdateMsg("Checking...");
     try {
@@ -484,8 +515,7 @@ export default function SettingsPage({
           <div>
             <span className="text-[13px]">Check for updates once a day</span>
             <p className="text-[12px] text-muted">
-              Asks GitHub for the latest release. Nothing is downloaded or installed: a new version
-              shows up in the tray menu and on the Status page.
+              Off: Deskmate never looks for a new version by itself.
             </p>
           </div>
           <Toggle
@@ -493,6 +523,29 @@ export default function SettingsPage({
             onChange={(v) => void toggleFeature("update_check", v, setUpdateCheck)}
           />
         </div>
+        <fieldset className="mt-4">
+          <legend className="microlabel">When a new version is out</legend>
+          {UPDATE_MODES.map((mode) => (
+            <label key={mode.value} className="mt-2 flex items-start gap-3">
+              <input
+                type="radio"
+                name="update-mode"
+                value={mode.value}
+                checked={updateMode === mode.value}
+                onChange={() => void chooseUpdateMode(mode.value)}
+                className="mt-[3px] accent-ink"
+              />
+              <span>
+                <span className="block text-[13px]">{mode.label}</span>
+                <span className="block text-[12px] text-muted">{mode.hint}</span>
+              </span>
+            </label>
+          ))}
+        </fieldset>
+        <p className="mt-3 text-[12px] text-muted leading-relaxed">
+          An installer runs only when it carries Deskmate's signature. Home Assistant cannot start
+          an update.
+        </p>
         <div className="mt-3 flex items-center gap-3">
           <Button onClick={() => void checkUpdates()}>Check now</Button>
           {updateMsg && <span className="text-[13px] text-muted">{updateMsg}</span>}

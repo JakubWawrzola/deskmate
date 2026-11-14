@@ -117,6 +117,27 @@ export interface FileEvent {
   result: string;
 }
 
+/** What happens when a newer release is found (Settings > Updates). */
+export type UpdateMode = "auto" | "ask" | "notify";
+
+/** An update install that was started; settled at the next start. */
+export interface UpdateAttempt {
+  from: string;
+  to: string;
+  auto: boolean;
+  hidden: boolean;
+  /** Unix seconds */
+  started_at: number;
+}
+
+/** What the updater remembers between runs. Changed only by the app. */
+export interface UpdateState {
+  /** "Later": no question before this time, Unix seconds */
+  later_until: number;
+  installing: UpdateAttempt | null;
+  failed_version: string;
+}
+
 export interface AppConfig {
   configured: boolean;
   transport: TransportKind;
@@ -147,6 +168,8 @@ export interface AppConfig {
   allowed_url_origins: string[];
   toast_branding: boolean;
   update_check: boolean;
+  update_mode?: UpdateMode;
+  update_state?: UpdateState;
   theme?: ThemeMode;
   dashboard_path?: string;
   dashboard_on_top?: boolean;
@@ -214,7 +237,22 @@ export interface Snapshot {
   update: UpdateInfo | null;
 }
 
+export type UpdatePhase = "available" | "downloading" | "installing" | "failed";
+
+/** The newer release found by the update check. */
 export interface UpdateInfo {
   version: string;
+  /** the release page */
   url: string;
+  /** a signed installer for this computer is on offer; false: link only */
+  installable: boolean;
+  phase: UpdatePhase;
+  downloaded_bytes: number;
+  total_bytes: number | null;
+  /** why the last attempt stopped */
+  error: string | null;
+  /** "Later" holds until tomorrow */
+  postponed: boolean;
+  /** installs itself once the computer is idle */
+  auto_install: boolean;
 }

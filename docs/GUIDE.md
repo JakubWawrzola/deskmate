@@ -526,7 +526,8 @@ beyond the built-in buttons, is off until you turn it on:
 | Receive files | Files | Off |
 | Shared folders | Files | No folders |
 | Screen time and family rules | Family | Off |
-| Daily update check (asks GitHub only) | Settings → Updates | On |
+| Daily update check | Settings → Updates | On, asks before it installs |
+| Installing updates without asking | Settings → Updates | Off |
 
 Every security-relevant action is logged locally in
 `%APPDATA%\Deskmate\security.log`, without contents. The full threat model is in
@@ -534,14 +535,31 @@ Every security-relevant action is logged locally in
 
 ## 13. Updates
 
-Deskmate asks GitHub once a day whether a newer release exists. It does not
-download or install anything: a new version shows up in the tray menu, on the
-Status page and once as a notification. Settings → **Updates** turns it off or
-checks right away.
+Deskmate asks GitHub once a day whether a newer release exists. A new version
+shows up in the tray menu, on the Status page and once as a notification.
+Settings → **Updates** decides what happens next:
 
-To update, run the new installer over the old version. Settings and pairing are
-kept. Update the Home Assistant integration through HACS; the release notes say
-when the order matters.
+- **Ask first** (the default). The notification and the Status page offer
+  *Install now* and *Later*. *Install now* downloads the installer, checks its
+  signature and installs it; Deskmate restarts by itself. *Later* asks again
+  the next day, and the tray entry brings the choice back sooner.
+- **Install automatically.** Deskmate does the same without asking, once the
+  computer has not been used for five minutes and nothing runs full screen. A
+  notification tells you afterwards.
+- **Only tell me.** Nothing is downloaded. The tray entry and the Status page
+  lead to the release page, and you run the installer yourself.
+
+The same panel turns the daily check off or checks right away. With the check
+off, Deskmate never looks for, downloads or installs an update by itself.
+
+An update keeps your settings, the pairing, *Start with Windows*, the CPU
+temperature helper and the family protection. Deskmate runs only an installer
+signed with its release key, and Home Assistant cannot start an update; see
+[SECURITY.md](SECURITY.md#updates).
+
+You can always update by hand: run the new installer over the old version.
+Update the Home Assistant integration through HACS; the release notes say when
+the order matters.
 
 ## 14. Troubleshooting
 
@@ -566,6 +584,11 @@ inside the app and start no PowerShell for notifications. The installers are
 also not code-signed, which makes heuristics more suspicious. Restore the file,
 update, and if it happens again report it as a false positive to your antivirus
 vendor; custom commands you define yourself do run PowerShell by design.
+
+**An update does not install.** The Status page says why the last attempt
+stopped, and *Release page* opens the download: running that installer over
+the old version always works. If Deskmate does not come back after an update,
+start it again; the Status page then offers the update once more.
 
 **Entities are unavailable after switching Windows users.** The other account
 needs Deskmate as well, paired with *Show the pairing code* (section 10).

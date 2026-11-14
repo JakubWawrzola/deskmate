@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
-import { api, onConfigChanged, onNotify, onSensorDefs, onSensors, onStatus } from "./api";
+import {
+  api,
+  onConfigChanged,
+  onNotify,
+  onSensorDefs,
+  onSensors,
+  onShowUpdate,
+  onStatus,
+  onUpdate,
+} from "./api";
 import { StatusDot } from "./components";
 import ClipboardPage from "./pages/ClipboardPage";
 import CommandsPage from "./pages/CommandsPage";
@@ -71,6 +80,8 @@ export default function App() {
         void reloadConfig();
         void reloadSnapshot();
       }),
+      onUpdate((update) => setSnapshot((prev) => (prev ? { ...prev, update } : prev))),
+      onShowUpdate(() => setPage("Status")),
     ];
     return () => {
       for (const sub of subs) {

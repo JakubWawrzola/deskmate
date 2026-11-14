@@ -2,6 +2,7 @@ import { useState } from "react";
 import { api } from "../api";
 import { Button, Panel, StatusDot } from "../components";
 import type { AppConfig, Snapshot } from "../types";
+import UpdateBanner from "./UpdateBanner";
 
 /** Duze odczyty mono - sygnatura wizualna aplikacji. */
 function Readout({ label, value, unit }: { label: string; value: string; unit?: string }) {
@@ -43,17 +44,7 @@ export default function StatusPage({
 
   return (
     <>
-      {snapshot.update && (
-        <div className="mb-3 flex items-center justify-between gap-3 border border-hairline-strong rounded-md px-4 py-3 bg-panel">
-          <p className="text-[13px]">
-            Deskmate <span className="mono">{snapshot.update.version}</span> is available. Install
-            it over this version; settings and pairing are kept.
-          </p>
-          <Button kind="primary" onClick={() => void api.openUpdatePage()}>
-            Download
-          </Button>
-        </div>
-      )}
+      {snapshot.update && <UpdateBanner update={snapshot.update} />}
       <div className="grid grid-cols-3 gap-3">
         <Readout label="CPU" value={num("cpu")} unit="%" />
         <Readout label="Memory" value={num("memory")} unit="%" />
