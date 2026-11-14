@@ -34,6 +34,12 @@ updates:
           - x25519-dalek
           - rand
           - rand_core
+      # The windows crate and windows-core (used by the COM callback macro)
+      # are released together and must be on the same version.
+      rust-windows:
+        patterns:
+          - windows
+          - windows-core
       rust-minor-and-patch:
         update-types: [minor, patch]
     commit-message:
