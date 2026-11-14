@@ -22,6 +22,7 @@ what is on by default.
 | A Home Assistant administrator, add-on or automation | Everything Home Assistant can do | Trusted by design: they can use every capability that is switched on. The risky ones are off by default and several ask on the PC first. |
 | An MQTT client with broad topic access (MQTT transport only) | Other computers' command and state topics | One broker user and one ACL block per computer, described below. |
 | Another Windows account on the same PC | The named objects that decide which account connects | It can keep Deskmate from connecting, nothing more. |
+| Someone who can change what GitHub serves for Deskmate's releases, or who sits between the PC and GitHub | The release manifest and the installer that the updater downloads | An installer runs only with a valid signature from the release key, for a version higher than the running one. The key is not on GitHub. See [Updates](#updates). |
 | A program running as the Windows user or as administrator | The user's session, `config.json`, the `deskmate:` link handler | Outside the boundary: such a program can already read the clipboard and run programs. |
 
 ## What is on and what is off
@@ -46,7 +47,9 @@ On once the computer is paired:
 - the built-in controls: lock, sleep, hibernate, shut down, restart, sign out,
   monitor off, media keys, empty the recycle bin, keep awake, volume and mute.
   Whoever controls Home Assistant can press them;
-- the daily update check, which sends one request and installs nothing.
+- the daily update check. It asks before it installs anything: a new version
+  is installed after you choose *Install now*, or by itself only if you
+  switch to automatic installs in Settings (see [Updates](#updates)).
 
 New installs use Deskmate Link. The key is stored in Windows Credential
 Manager, and a plain `ws://` address is accepted only inside a private network.
@@ -332,13 +335,96 @@ nothing else. It accepts no input: each connection to
 with a temperature or an error code. It stops serving once Deskmate is
 uninstalled for that user; *Remove* in Settings deletes the task and the copy.
 
-## Update check
+## Updates
 
-Once a day, and when *Check now* is pressed, the app sends one HTTPS request to
-`api.github.com` for the latest Deskmate release, with a `Deskmate/<version>`
-user agent and no other data. Only the version number is taken from the
-answer; the link the app opens is built locally. Nothing is downloaded or
-installed. Settings → Updates turns it off.
+Deskmate executes nothing that it receives over the network, with one
+exception: a Deskmate installer that carries a valid signature from the
+release key. This section describes that exception. Home Assistant has no part
+in it.
+
+### The three modes
+
+Once a day, and when *Check now* is pressed, the app looks for a newer
+release. Settings → Updates decides what follows:
+
+| Mode | What is requested | What happens with a newer release |
+|---|---|---|
+| *Only tell me* (`notify`) | One HTTPS request to `api.github.com` for the latest release. Only the version number is taken from the answer. | A tray entry, a banner on the Status page and one notification, each leading to the release page. Nothing is downloaded. |
+| *Ask first* (`ask`, the default) | One HTTPS request to `github.com` for the release manifest, `latest.json`, of the latest release. | The same, with *Install now* and *Later*. The installer is downloaded only after *Install now*. *Later* hides the question for a day. |
+| *Install automatically* (`auto`) | The same manifest. | The installer is downloaded and run without a question, but only once the computer has had no keyboard or mouse input for five minutes and nothing runs full screen. |
+
+Every request carries a `Deskmate/<version>` user agent and no other data.
+When a release has no manifest, or its manifest is refused, the app falls
+back to the request and the behaviour of *Only tell me*. Links to the release
+page are built locally from the version number.
+
+*Check for updates once a day* is the main switch. Off, Deskmate sends no
+request, downloads nothing and installs nothing by itself, whatever the mode.
+
+### What is checked before an installer runs
+
+The manifest names a version and, for each processor architecture, a download
+address and a signature. It is not trusted: it only says where to look. Before
+anything is downloaded:
+
+- The offered version must be strictly higher than the running one. An equal
+  or lower version, a pre-release and a version that cannot be read are
+  refused.
+- The download address must be
+  `https://github.com/JakubWawrzola/deskmate/releases/download/<tag>/<file>`.
+  Another host, repository, scheme or port, a user name, a query or a deeper
+  path is refused, and the refusal is logged.
+
+The download stays on HTTPS, including the redirect to GitHub's file storage,
+and stops after 64 MiB or ten minutes. Then:
+
+- The file must carry a valid minisign (Ed25519) signature from Deskmate's
+  release key. The public key is compiled into the app.
+- The signature must name the version that the manifest offered. That version
+  is part of what the key signed, so an older installer with a genuine
+  signature cannot be passed off under a newer number.
+
+Only a file that passed every check is written to the user's temporary folder
+and started. It runs as the Windows user, in the installer's update mode:
+it replaces the program files and starts Deskmate again. Settings, pairing,
+*Start with Windows*, the CPU temperature helper and the family protection are
+not touched.
+
+The window cannot reach the updater: every step above runs in the app's
+backend, and the window only sends *Install now*, *Later* and the chosen
+mode.
+
+### The release key
+
+The private key signs the installers when a release is built. The maintainer
+keeps it outside the repository; the build reads it from the environment. The
+repository and the app hold only the public key.
+
+Whoever can publish files under Deskmate's name on GitHub, or intercept the
+connection, but does not have the key, cannot make Deskmate run anything: the
+worst they can do is hide a new release. Whoever has the key and can also
+change what the release address serves can run code on every computer that
+installs updates. If the key is ever exposed, a new key ships with a new
+release, and computers on older versions have to install that release by
+hand.
+
+### What Home Assistant cannot do
+
+Link and MQTT have no update command. Home Assistant cannot start a check, an
+install or a postponement, cannot change the mode, and cannot supply a
+manifest, an address or a file. The buttons on the update notification use
+their own `deskmate:update` link with single-use tokens; a notification sent
+by Home Assistant cannot carry that link, and a click on it is not reported to
+Home Assistant. The idle time that *Install automatically* waits for is
+measured on the PC.
+
+### Limits
+
+- A valid signature says who built the installer, not that it is free of
+  faults. *Only tell me* leaves every install to you.
+- Updated installers are still not Authenticode-signed (see below).
+- The copies of `deskmate.exe` used by the CPU temperature helper and the
+  family watchdog stay at the version they were installed with.
 
 ## MQTT transport
 
@@ -438,6 +524,13 @@ timestamp, the event and a result such as `approved`, `denied`,
 path. It never contains clipboard data, URLs, command scripts, file contents
 or credentials. It rotates at 1 MiB to `security.log.1`.
 
+An update install is recorded as `update_install from=<version> to=<version>
+result=<result>`: `installer_started` when the verified installer is run, and
+at the next start `ok` or `not_applied`. An attempt that stopped earlier
+carries the reason instead: `version`, `address`, `too_large`, `network`,
+`signature`, `format` or `launch`. A refused manifest is recorded as
+`update_manifest refused_address`.
+
 ## The app itself
 
 - The window runs under a Content Security Policy: scripts only from the
@@ -447,7 +540,9 @@ or credentials. It rotates at 1 MiB to `security.log.1`.
   token) are in Windows Credential Manager, never in `config.json`, logs,
   diagnostics or error messages.
 - Release installers are not Authenticode-signed. Windows SmartScreen may warn
-  on first run; verify the SHA-256 sums published with each release.
+  on first run; verify the SHA-256 sums published with each release. An
+  update that the app installs itself is verified against the release key
+  instead (see [Updates](#updates)).
 
 ## Known limits
 
@@ -460,6 +555,7 @@ or credentials. It rotates at 1 MiB to `security.log.1`.
 - With MQTT, TLS protects the traffic, not a broker account with too broad an
   ACL. Plain MQTT is unsafe by design even though the app warns about it.
 - Deskmate cannot protect against malware already running as the Windows user.
+- Updates are as trustworthy as the release key and the person who holds it.
 
 ## Checklist
 

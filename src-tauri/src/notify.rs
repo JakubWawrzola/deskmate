@@ -74,6 +74,17 @@ pub struct NotifyPayload {
     pub actions: Vec<NotifyAction>,
 }
 
+/// A button on a notification Deskmate shows about itself. `link` is a
+/// complete `deskmate:` link that the caller issued and redeems on its own
+/// (updates/prompt.rs). A click on it is never sent to Home Assistant, and no
+/// notification from Home Assistant can carry such a link: its buttons always
+/// get `deskmate:action?...` from `toast_xml`.
+#[derive(Debug, Clone)]
+pub struct OwnButton {
+    pub title: String,
+    pub link: String,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct NotifyRecord {
     pub title: String,
@@ -543,7 +554,11 @@ pub fn register_protocol() {}
 /// `deskmate:action?name=...&t=...`, single-instance hands the URL to the
 /// running app, and the app only accepts tokens it put on a toast itself.
 #[cfg(windows)]
-fn toast_xml(p: &NotifyPayload, img: Option<&std::path::Path>) -> String {
+fn toast_xml(
+    p: &NotifyPayload,
+    img: Option<&std::path::Path>,
+    own_buttons: &[OwnButton],
+) -> String {
     let image_xml = match img {
         Some(path) => format!(
             "<image placement=\"appLogoOverride\" src=\"{}\"/>",
@@ -565,6 +580,13 @@ fn toast_xml(p: &NotifyPayload, img: Option<&std::path::Path>) -> String {
                 pct_encode(&a.action),
                 issue_action_token(&a.action),
             )),
+        ));
+    }
+    for button in own_buttons {
+        actions_xml.push_str(&format!(
+            "<action content=\"{}\" arguments=\"{}\" activationType=\"protocol\"/>",
+            xml_escape(&button.title),
+            xml_escape(&button.link),
         ));
     }
     if !actions_xml.is_empty() {
@@ -590,6 +612,12 @@ const POWERSHELL_AUMID: &str =
 /// no COM apartment yet.
 #[cfg(windows)]
 pub fn show_toast(p: &NotifyPayload) -> Result<(), String> {
+    show_toast_with(p, &[])
+}
+
+/// A notification from Deskmate itself, with buttons handled inside the app.
+#[cfg(windows)]
+pub fn show_toast_with(p: &NotifyPayload, own_buttons: &[OwnButton]) -> Result<(), String> {
     use windows::core::HSTRING;
     use windows::Data::Xml::Dom::XmlDocument;
     use windows::UI::Notifications::{ToastNotification, ToastNotificationManager};
@@ -603,7 +631,7 @@ pub fn show_toast(p: &NotifyPayload) -> Result<(), String> {
     if let Some(path) = &img {
         schedule_image_removal(path.clone());
     }
-    let xml = toast_xml(p, img.as_deref());
+    let xml = toast_xml(p, img.as_deref(), own_buttons);
     let show = || -> windows::core::Result<()> {
         let doc = XmlDocument::new()?;
         doc.LoadXml(&HSTRING::from(xml.as_str()))?;
@@ -615,5 +643,10 @@ pub fn show_toast(p: &NotifyPayload) -> Result<(), String> {
 
 #[cfg(not(windows))]
 pub fn show_toast(_p: &NotifyPayload) -> Result<(), String> {
+    Err("windows only".into())
+}
+
+#[cfg(not(windows))]
+pub fn show_toast_with(_p: &NotifyPayload, _own_buttons: &[OwnButton]) -> Result<(), String> {
     Err("windows only".into())
 }

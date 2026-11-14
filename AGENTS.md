@@ -183,7 +183,15 @@ keep. Weakening one is Jakub's decision, and the change updates
 `docs/SECURITY.md` in the same commit.
 
 - Nothing received over the network is executed. Commands map to fixed
-  actions, looked up by ID in the local configuration.
+  actions, looked up by ID in the local configuration. The one exception is a
+  Deskmate installer with a valid signature from the release key, fetched by
+  the updater.
+- The updater installs only a release that is higher than the running
+  version, comes from this project's GitHub releases address and is signed
+  for that version (`src-tauri/src/updates/policy.rs`). Home Assistant cannot
+  trigger it: Link and MQTT have no update command, and none is added. The
+  WebView gets no permission for the updater plugin. The private release key
+  never enters the repository.
 - Whatever reveals what the user is doing, or lets Home Assistant act beyond
   the built-in controls, is off until the user turns it on in the app.
 - Secrets live in Windows Credential Manager. They are not written to
@@ -320,7 +328,12 @@ A release happens when Jakub orders one, in this order:
    `docs/LINK.md` and `docs/SECURITY.md` where behaviour changed.
 2. The checks from section 8 pass.
 3. On his instruction, build both installers from that tree and record their
-   SHA-256 sums.
+   SHA-256 sums. The build signs each installer for the updater and writes a
+   `.sig` file next to it, so it needs the release key in the environment:
+   `TAURI_SIGNING_PRIVATE_KEY` holds the path of the key file, which lives
+   outside the repository, and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` its
+   password. Without the key `tauri build` fails after the installer is
+   written. Never print the key, its password or its path.
 4. Jakub tests. Nothing below happens before he accepts.
 5. With his go-ahead for each step: commit, push, wait for green CI, tag,
    GitHub release with both installers and `SHA256SUMS.txt`, replies on the

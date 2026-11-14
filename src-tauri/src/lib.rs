@@ -182,6 +182,8 @@ async fn save_config(
     // update check, never by a stale copy the settings page sends back.
     new_config.start_with_windows = old.start_with_windows;
     new_config.update_notified = old.update_notified.clone();
+    new_config.update_mode = old.update_mode.clone();
+    new_config.update_state = old.update_state.clone();
     new_config.family = old.family.clone();
     new_config.connection_paused = old.connection_paused;
     let link_key = link_key
@@ -261,27 +263,6 @@ async fn get_snapshot(state: State<'_, AppState>) -> Result<Snapshot, String> {
         ha_configured: ha_api::is_configured(&cfg),
         update: updates::available(),
     })
-}
-
-/// "Check now" in Settings. Returns the newer release, if there is one.
-#[tauri::command]
-async fn check_updates_now(app: AppHandle) -> Result<Option<updates::UpdateInfo>, String> {
-    let found = tauri::async_runtime::spawn_blocking(updates::check_now)
-        .await
-        .map_err(|e| e.to_string())??;
-    match &found {
-        Some(info) => updates::announce(&app, info).await,
-        None => {
-            let cfg = app.state::<AppState>().config.lock().await.clone();
-            let _ = rebuild_tray_menu(&app, &cfg);
-        }
-    }
-    Ok(found)
-}
-
-#[tauri::command]
-fn open_update_page() -> Result<(), String> {
-    updates::open_release_page()
 }
 
 // ---------- Home Assistant API (F1) ----------
@@ -1007,7 +988,9 @@ pub fn run() {
 
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
     let cfg = config::load();
-    let launch_hidden = cfg.launch_hidden || std::env::args().any(|arg| arg == family::HIDDEN_ARG);
+    let launch_hidden = cfg.launch_hidden
+        || std::env::args().any(|arg| arg == family::HIDDEN_ARG)
+        || updates::restarted_hidden(&cfg);
     let toast_branding = cfg.toast_branding;
 
     tauri::Builder::default()
@@ -1022,6 +1005,9 @@ pub fn run() {
                 if let Some(action) = notify::redeem_action_url(arg) {
                     let _ = app.state::<AppState>().action_tx.send(action);
                 }
+                if updates::handle_link(app, arg) {
+                    toast_click = true;
+                }
             }
             // Started again from Start or the desktop while already running in
             // the tray: show the window instead of doing nothing. The family
@@ -1034,6 +1020,9 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             None,
         ))
+        // Driven from Rust only (the updates module): the window has no permission
+        // for the plugin's own commands.
+        .plugin(tauri_plugin_updater::Builder::new().build())
         // global hotkeys: a single handler, dispatch based on config (hotkeys.rs)
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
@@ -1097,11 +1086,7 @@ pub fn run() {
                     let id = event.id.as_ref().to_string();
                     match id.as_str() {
                         "open" => actions::show_main_window(app),
-                        "update" => {
-                            if let Err(e) = updates::open_release_page() {
-                                log::warn!("cannot open the release page: {e}");
-                            }
-                        }
+                        "update" => updates::on_tray_click(app),
                         "widgets" => actions::toggle_widget_window(app),
                         "dashboard" => {
                             let app = app.clone();
@@ -1208,8 +1193,11 @@ pub fn run() {
             widget_toggle,
             toggle_widget_window,
             update_tray_actions,
-            check_updates_now,
-            open_update_page,
+            updates::check_updates_now,
+            updates::open_update_page,
+            updates::install_update_now,
+            updates::postpone_update,
+            updates::set_update_mode,
             autostart::get_start_with_windows,
             autostart::set_start_with_windows,
             add_custom_sensor,

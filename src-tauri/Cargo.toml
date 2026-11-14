@@ -33,6 +33,10 @@ tauri-plugin-autostart = "2"
 tauri-plugin-single-instance = "2"
 # globalne skroty klawiszowe (dzialaja gdy apka w trayu)
 tauri-plugin-global-shortcut = "2"
+# Signed updates (src/updates). native-tls only: the default features bring in
+# rustls and ring, which need a C toolchain and break the ARM64 build. No
+# "zip" either: the NSIS installer is the update artifact as it is.
+tauri-plugin-updater = { version = "2.14.1", default-features = false, features = ["native-tls"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync"] }

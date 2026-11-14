@@ -30,6 +30,11 @@ fn default_clipboard_mode() -> String {
 fn default_files_max_mb() -> u64 {
     256
 }
+/// Configs written before automatic updates existed have no `update_mode`.
+/// They get the default: Deskmate asks before it installs anything.
+fn default_update_mode() -> String {
+    "ask".into()
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
@@ -173,6 +178,35 @@ pub struct FamilyConfig {
     pub time_up_action: String,
 }
 
+/// An update install that was started. Written before the installer runs,
+/// because the installer ends this process, and settled at the next start.
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+#[serde(default)]
+pub struct UpdateAttempt {
+    pub from: String,
+    pub to: String,
+    /// Started by the `auto` mode, not by a click.
+    pub auto: bool,
+    /// The window was hidden when the install started, so the restarted app
+    /// stays in the tray as well.
+    pub hidden: bool,
+    /// Unix seconds.
+    pub started_at: u64,
+}
+
+/// What the updater remembers between runs (updates.rs). Changed only by the
+/// app itself, never by a stale copy the settings page sends back.
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+#[serde(default)]
+pub struct UpdateState {
+    /// "Later": do not ask again before this time, in Unix seconds.
+    pub later_until: u64,
+    pub installing: Option<UpdateAttempt>,
+    /// The version whose install did not go through. The `auto` mode does not
+    /// try that version again by itself.
+    pub failed_version: String,
+}
+
 /// Widget panel tile.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(default)]
@@ -262,12 +296,19 @@ pub struct AppConfig {
     /// App colours: system (follow Windows) | light | dark.
     #[serde(default = "default_theme")]
     pub theme: String,
-    /// Daily check for a newer release on GitHub (nothing is downloaded).
+    /// Daily check for a newer release on GitHub. Off: Deskmate never looks
+    /// for, downloads or installs an update by itself.
     #[serde(default = "default_true")]
     pub update_check: bool,
+    /// What happens when the check finds a newer release: auto (install while
+    /// the computer is idle) | ask (default) | notify (tell only).
+    #[serde(default = "default_update_mode")]
+    pub update_mode: String,
     /// Last version announced with a notification, so each is announced once.
     #[serde(default)]
     pub update_notified: String,
+    #[serde(default)]
+    pub update_state: UpdateState,
     /// Home Assistant URL (local), e.g. http://192.168.1.10:8123. Empty = API channel disabled.
     pub ha_url: String,
     /// fallback URL (Tailscale/public) - failover like the MQTT broker
@@ -333,7 +374,9 @@ impl Default for AppConfig {
             theme: default_theme(),
             dashboard_path: String::new(),
             dashboard_on_top: false,
+            update_mode: default_update_mode(),
             update_notified: String::new(),
+            update_state: UpdateState::default(),
             ha_url: String::new(),
             ha_url_remote: String::new(),
             hotkeys: Vec::new(),
@@ -542,6 +585,46 @@ mod tests {
         let raw = serde_json::to_string(&stored).unwrap();
         let stored: AppConfig = serde_json::from_str(&raw).unwrap();
         assert!(!stored.launch_hidden);
+    }
+
+    /// A config written before automatic updates: the daily check keeps its
+    /// stored value, and the new mode starts at "ask".
+    #[test]
+    fn config_without_update_mode_asks_first() {
+        let mut old = serde_json::to_value(AppConfig::default()).unwrap();
+        let fields = old.as_object_mut().unwrap();
+        fields.remove("update_mode");
+        fields.remove("update_state");
+        fields.insert("update_check".into(), false.into());
+        fields.insert("update_notified".into(), "0.8.4".into());
+
+        let cfg: AppConfig = serde_json::from_value(old).unwrap();
+        assert_eq!(cfg.update_mode, "ask");
+        assert!(!cfg.update_check);
+        assert_eq!(cfg.update_notified, "0.8.4");
+        assert_eq!(cfg.update_state.later_until, 0);
+        assert!(cfg.update_state.installing.is_none());
+        assert!(cfg.update_state.failed_version.is_empty());
+    }
+
+    #[test]
+    fn update_mode_and_state_survive_a_save() {
+        let mut cfg = AppConfig::default();
+        assert_eq!(cfg.update_mode, "ask");
+        cfg.update_mode = "auto".into();
+        cfg.update_state.later_until = 1_800_000_000;
+        cfg.update_state.installing = Some(super::UpdateAttempt {
+            from: "0.8.5".into(),
+            to: "0.9.0".into(),
+            auto: true,
+            hidden: true,
+            started_at: 1_799_999_000,
+        });
+
+        let raw = serde_json::to_string(&cfg).unwrap();
+        let stored: AppConfig = serde_json::from_str(&raw).unwrap();
+        assert_eq!(stored.update_mode, "auto");
+        assert_eq!(stored.update_state, cfg.update_state);
     }
 
     #[test]

@@ -1,5 +1,13 @@
 ; Deskmate uninstall cleanup (GitHub issue #2: a full uninstall left settings,
 ; keys and registry entries behind, and a reinstall picked them up again).
+;
+; An update must touch none of this. The in-app updater starts the installer
+; with /UPDATE, which copies the new files over the old ones and does not run
+; the uninstaller at all, so these hooks do not run. If an installer ever runs
+; the uninstaller in update mode, $UpdateMode is 1 there and both hooks skip.
+; Start with Windows, the settings, the saved keys, the CPU temperature helper
+; and the family protection therefore survive. Keep every step added here
+; behind the same $UpdateMode check.
 
 !macro NSIS_HOOK_PREUNINSTALL
   ; "Delete the application data" ticked and not an update: settings, logs and
