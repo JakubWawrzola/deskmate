@@ -140,14 +140,14 @@ jobs:
       # for these checks, so the window is not built here.
       - name: Stand in for the built window
         run: mkdir -p ../dist && echo '<!doctype html>' > ../dist/index.html
-      - run: cargo fmt --check
-      - run: cargo clippy --all-targets -- -D warnings
-      - run: cargo test
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace
       - name: The ARM64 target still compiles
-        run: cargo check --target aarch64-pc-windows-msvc
+        run: cargo check --workspace --target aarch64-pc-windows-msvc
       - name: No C toolchain in the dependency tree
         run: |
-          if cargo tree --prefix none | grep -E '^(ring|openssl|openssl-sys|rustls) '; then
+          if cargo tree --workspace --prefix none | grep -E '^(ring|openssl|openssl-sys|rustls) '; then
             echo "::error::ring, openssl and rustls break the ARM64 build (AGENTS.md section 5.5)"
             exit 1
           fi
