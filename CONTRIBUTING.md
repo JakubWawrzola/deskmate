@@ -56,13 +56,15 @@ git config core.hooksPath .githooks
 
 Before a pull request, the same checks CI runs:
 
-- in `src-tauri`: `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`
-  and `cargo test`;
+- in `src-tauri`: `cargo fmt --all --check`,
+  `cargo clippy --workspace --all-targets -- -D warnings` and
+  `cargo test --workspace`;
 - in the root: `npx tsc --noEmit` and `npm run lint` (`npm run format` fixes
   the formatting);
 - for the integration: `ruff check` and `ruff format --check` on
-  `custom_components scripts`; it loads in Home Assistant, and the HACS and
-  hassfest checks of this repository stay green;
+  `custom_components scripts tests`, and `python -m pytest` on Linux or in
+  WSL, in a virtual environment built from `requirements-test.txt`; the HACS
+  and hassfest checks of this repository stay green;
 - user-facing text in plain English, without jargon;
 - docs updated when behaviour changes (`docs/GUIDE.md`, `CHANGELOG.md`).
 

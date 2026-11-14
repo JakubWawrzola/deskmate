@@ -201,7 +201,7 @@ keep. Weakening one is Jakub's decision, and the change updates
 - The WebView keeps its strict CSP and the Tauri capabilities stay minimal. A
   new command or permission is a security change and is reviewed as one.
 - No address, name or user path is hardcoded. Values come from configuration,
-  and shared names live in `src-tauri/src/consts.rs`.
+  and shared names live in `consts.rs` of `deskmate-core`.
 
 A change to the Link protocol or its cryptography updates `docs/LINK.md`,
 regenerates the test vectors with `scripts/generate_link_vectors.py`, and
