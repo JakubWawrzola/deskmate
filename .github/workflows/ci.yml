@@ -100,6 +100,23 @@ jobs:
       - run: pipx run "ruff==${RUFF_VERSION}" format --check custom_components scripts
       - run: python3 -m compileall -q custom_components scripts
 
+  integration-tests:
+    name: Integration tests (Python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The Home Assistant release pinned in requirements-test.txt decides
+      # the Python version.
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: requirements-test.txt
+      - run: python -m pip install -r requirements-test.txt
+      - run: python -m pytest
+
   app:
     name: App (Rust)
     runs-on: windows-latest
