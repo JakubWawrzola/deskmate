@@ -22,6 +22,7 @@ from .const import (
 )
 from .files import async_setup_files, async_unload_files
 from .hub import DeskmateHub
+from .service_role import refuse_service_only
 from .tv import (
     async_camera_data_uri,
     async_register_tv_services,
@@ -86,6 +87,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     f"Deskmate: no paired computer with node id {node_id!r}"
                 )
             for h in targets:
+                refuse_service_only(h)
                 image = call.data.get("image")
                 if h.is_tv and image and image.startswith("camera."):
                     # TV nie ma tokenu do HA - klatka z kamery idzie w wiadomosci

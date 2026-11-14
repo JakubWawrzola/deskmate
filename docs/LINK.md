@@ -240,6 +240,13 @@ A client sends a machine declaration only to an integration that lists
 every entity that it does not name. A `bye` is harmless there: the frame is
 ignored, and the session ends as it does without one.
 
+While the role of the session is `service`, Home Assistant sends it no
+`notify` and no `fs`. The `deskmate_link.notify`, `send_file` and `fetch_file`
+actions and the file requests of the Deskmate page fail at once, with an
+error that says notifications and files need the Deskmate app with a
+signed-in user. The roles `app` and `daemon` are not limited, and neither is
+a client that sends no `info`.
+
 An `info` with a missing or invalid value is ignored: it gets no answer and
 changes nothing. Home Assistant logs a warning that names the field, never the
 value it received. Fields other than these three are ignored. A client that

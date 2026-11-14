@@ -54,6 +54,7 @@ from .const import (
     SERVICE_SEND_FILE,
 )
 from .device_compat import async_entry_device
+from .service_role import refuse_service_only
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -255,6 +256,7 @@ class FilesActionView(HomeAssistantView):
             return denied
         hub = self._hub(request, entry_id)
         try:
+            refuse_service_only(hub)
             if action == "roots":
                 return self.json(await hub.async_fs_roots())
             if action == "list":
@@ -312,6 +314,7 @@ class FilesActionView(HomeAssistantView):
         hub = self._hub(request, entry_id)
         user = request["hass_user"]
         try:
+            refuse_service_only(hub)
             if action == "upload_start":
                 return await self._upload_start(request, hass, hub, entry_id, user)
             if action == "upload_chunk":
@@ -525,6 +528,7 @@ async def _async_send_file(hass: HomeAssistant, call: ServiceCall) -> ServiceRes
     """Plik z Home Assistanta (np. zdjecie z kamery) do skrzynki komputera."""
     by = await _check_admin(hass, call)
     hub = _select_hub(hass, call.data.get("node_id"))
+    refuse_service_only(hub)
     path = call.data["path"]
     if not hass.config.is_allowed_path(path):
         raise HomeAssistantError(f"Deskmate: {path} is not in allowlist_external_dirs")
@@ -556,6 +560,7 @@ async def _async_fetch_file(hass: HomeAssistant, call: ServiceCall) -> ServiceRe
     """Plik z udostepnionego folderu komputera do Home Assistanta."""
     await _check_admin(hass, call)
     hub = _select_hub(hass, call.data.get("node_id"))
+    refuse_service_only(hub)
     source = call.data["path"]
     stat = await hub.async_fs_stat(source)
     if stat.get("dir"):

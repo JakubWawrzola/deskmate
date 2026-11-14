@@ -55,7 +55,8 @@ DIR_S2C = b"\x02\x00\x00\x00"
 
 # The `info` frame (docs/LINK.md, "Session frames"): what a client may say
 # about itself, and the optional frame types this integration announces.
-INFO_ROLES = frozenset({"app", "service", "daemon"})
+ROLE_SERVICE = "service"
+INFO_ROLES = frozenset({"app", ROLE_SERVICE, "daemon"})
 INFO_PLATFORMS = frozenset({"windows", "linux", "android_tv"})
 INFO_APP_VERSION_PATTERN = r"^\d+\.\d+\.\d+([-+][0-9A-Za-z.-]{1,20})?$"
 LINK_CAPS = ("info", "scoped_declare", "bye")
