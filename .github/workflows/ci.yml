@@ -88,6 +88,11 @@ jobs:
           cache-dependency-path: streamdeck-plugin/package-lock.json
       - run: npm ci
       - run: npx tsc --noEmit
+      - run: npm run lint
+      - run: npm test
+      # Bundles the plugin, then checks the built folder and starts the bundle
+      # against a stand-in for the Stream Deck app (scripts/check-bundle.mjs).
+      - run: npm run build
 
   integration:
     name: Integration (Python)
