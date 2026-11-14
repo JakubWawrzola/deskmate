@@ -13,7 +13,6 @@ export default defineConfig({
   envPrefix: ["VITE_", "TAURI_"],
   build: {
     target: "chrome120",
-    minify: "esbuild",
     sourcemap: false,
   },
 });
