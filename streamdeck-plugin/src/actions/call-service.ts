@@ -49,7 +49,7 @@ export class CallService extends SingletonAction<CallServiceSettings> {
 
     const entity = entityId?.trim();
     if (entity) {
-      payload["entity_id"] = entity;
+      payload.entity_id = entity;
     }
 
     try {

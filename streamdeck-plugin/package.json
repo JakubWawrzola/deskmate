@@ -7,13 +7,16 @@
 	"scripts": {
 		"build": "rollup -c && node scripts/check-bundle.mjs",
 		"watch": "rollup -c -w",
-		"icons": "node scripts/generate-icons.mjs"
+		"icons": "node scripts/generate-icons.mjs",
+		"lint": "biome ci",
+		"format": "biome check --write --linter-enabled=false"
 	},
 	"dependencies": {
 		"@elgato/streamdeck": "^3.0.4",
 		"ws": "^8.22.1"
 	},
 	"devDependencies": {
+		"@biomejs/biome": "2.6.6",
 		"@rollup/plugin-commonjs": "^29.0.3",
 		"@rollup/plugin-node-resolve": "^16.0.0",
 		"@rollup/plugin-typescript": "^12.3.1",
