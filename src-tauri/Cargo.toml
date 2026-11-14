@@ -49,21 +49,14 @@ native-tls = "0.2"
 url = "2"
 log = "0.4"
 env_logger = "0.11"
-aes-gcm = "0.10"
-# Second cipher for the optional cascade layer. Pure Rust like the rest of the
-# crypto stack - no ring, no C toolchain, so ARM64 keeps building.
-chacha20poly1305 = "0.10"
+# Link Files: transfer encoding and checksums (link_files.rs). The Link
+# protocol and its crypto are in deskmate-core.
 base64 = "0.22"
-futures-util = "0.3"
-hkdf = "0.12"
-hmac = "0.12"
-rand = "0.8"
 sha2 = "0.10"
+futures-util = "0.3"
+rand = "0.8"
 tokio-tungstenite = { version = "0.28", default-features = false, features = ["connect", "native-tls"] }
-# Link v2: ephemeral X25519 per session (forward secrecy). Pure Rust, like the
-# rest of the crypto stack, so ARM64 keeps building without a C toolchain.
-x25519-dalek = { version = "2", features = ["static_secrets", "zeroize"] }
-# Wipes pairing keys and session keys from memory when they go out of scope.
+# Wipes pairing keys from memory when they go out of scope.
 zeroize = "1"
 
 # Unit tests exercise audited code paths. This feature keeps them from writing

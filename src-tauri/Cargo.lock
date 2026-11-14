@@ -993,15 +993,11 @@ dependencies = [
 name = "deskmate"
 version = "0.8.5"
 dependencies = [
- "aes-gcm",
  "arboard",
  "base64 0.22.1",
- "chacha20poly1305",
  "deskmate-core",
  "env_logger",
  "futures-util",
- "hkdf",
- "hmac",
  "keyring",
  "log",
  "native-tls",
@@ -1023,7 +1019,6 @@ dependencies = [
  "windows 0.61.3",
  "windows-core 0.61.2",
  "winreg",
- "x25519-dalek",
  "zeroize",
 ]
 
@@ -1031,15 +1026,25 @@ dependencies = [
 name = "deskmate-core"
 version = "0.8.5"
 dependencies = [
+ "aes-gcm",
+ "base64 0.22.1",
+ "chacha20poly1305",
+ "futures-util",
+ "hkdf",
+ "hmac",
  "keyring",
  "log",
+ "rand 0.8.7",
  "serde",
  "serde_json",
+ "sha2",
  "sysinfo",
  "tokio",
+ "tokio-tungstenite",
  "url",
  "windows 0.61.3",
  "winreg",
+ "x25519-dalek",
  "zeroize",
 ]
 

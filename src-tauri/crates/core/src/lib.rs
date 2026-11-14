@@ -7,6 +7,7 @@ pub mod cpu_temperature;
 pub mod custom_sensors;
 pub mod discovery;
 pub mod hardware;
+pub mod link;
 pub mod seat;
 pub mod security;
 pub mod sensors;

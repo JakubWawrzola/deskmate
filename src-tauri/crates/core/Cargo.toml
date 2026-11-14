@@ -24,10 +24,32 @@ keyring = { version = "3", features = ["windows-native"] }
 # Wipes a secret from memory once it has been moved to its new entry.
 zeroize = "1"
 log = "0.4"
-# Web URL checks for the URL allowlist (sys_commands.rs).
+# Link URL checks (link.rs) and the URL allowlist (sys_commands.rs).
 url = "2"
-# The stop signal and the wait between seat checks (seat.rs).
+# The stop signal and the wait between seat checks (seat.rs), the welcome
+# timeout (link.rs).
 tokio = { version = "1", features = ["macros", "sync", "time"] }
+
+# Deskmate Link (link.rs): handshake and frame encryption. The crypto stack is
+# pure Rust - no ring, no C toolchain, so ARM64 keeps building.
+aes-gcm = "0.10"
+# Second cipher for the optional cascade layer.
+chacha20poly1305 = "0.10"
+base64 = "0.22"
+hkdf = "0.12"
+hmac = "0.12"
+rand = "0.8"
+sha2 = "0.10"
+# Ephemeral X25519 per session (forward secrecy).
+x25519-dalek = { version = "2", features = ["static_secrets", "zeroize"] }
+futures-util = "0.3"
+# Only the WebSocket stream type and its messages; connecting and TLS belong
+# to the program that uses this crate.
+tokio-tungstenite = { version = "0.28", default-features = false, features = ["handshake"] }
+
+[dev-dependencies]
+# The handshake tests run a stand-in hub over an in-memory stream.
+tokio = { version = "1", features = ["io-util", "macros", "rt"] }
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.55"
