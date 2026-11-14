@@ -21,6 +21,8 @@ from .const import (
     CONF_KEY,
     CONF_MIN_VERSION,
     CONF_NODE_ID,
+    DECLARE_SCOPE_FULL,
+    DECLARE_SCOPE_MACHINE,
     DIR_C2S,
     DIR_S2C,
     DOMAIN,
@@ -33,7 +35,6 @@ from .const import (
     REJECT_AUTH,
     REJECT_CASCADE,
     REJECT_VERSION,
-    SIGNAL_AVAILABLE,
     SIGNAL_DECLARED,
     SIGNAL_STATE,
     SIGNAL_TRIGGER,
@@ -55,6 +56,13 @@ from .crypto import (
     v2_session_keys,
     v2_welcome_bytes,
 )
+from .declare_scope import (
+    NEEDS_APP_ERROR,
+    declared_keys,
+    is_machine_declare,
+    merge_machine_declaration,
+)
+from .presence import Presence
 from .session_info import async_info_answer, invalid_info_field
 
 _LOGGER = logging.getLogger(__name__)
@@ -84,8 +92,11 @@ class DeskmateHub:
 
         self.device_info: dict[str, Any] = {}
         self.entities: list[dict[str, Any]] = []  # deskryptory z declare
+        # Scope of the declaration kept in `entities`: full, machine, or None
+        # while the computer has never declared anything.
+        self._declared_scope: str | None = None
         self.states: dict[str, Any] = {}
-        self.available: bool = False
+        self.presence = Presence(hass, entry.entry_id)
         # What the client of the current session said about itself in `info`.
         # None when it sent no `info`, and when there is no session.
         self.session_role: str | None = None
@@ -117,10 +128,20 @@ class DeskmateHub:
             return
         self.device_info = data.get("device", {}) or {}
         self.entities = list(data.get("entities", []) or [])
+        # Files written before the scope existed hold a full declaration.
+        self._declared_scope = (
+            DECLARE_SCOPE_MACHINE
+            if data.get("scope") == DECLARE_SCOPE_MACHINE
+            else DECLARE_SCOPE_FULL
+        )
 
     def _persist(self) -> None:
         self._store.async_delay_save(
-            lambda: {"device": self.device_info, "entities": self.entities},
+            lambda: {
+                "device": self.device_info,
+                "entities": self.entities,
+                "scope": self._declared_scope,
+            },
             PERSIST_DELAY_S,
         )
 
@@ -345,7 +366,7 @@ class DeskmateHub:
         self._tx = tx
         # The replaced session may have handled one more frame while it closed.
         self._clear_session_info()
-        self._set_available(True)
+        self.presence.session_started()
         try:
             async for msg in ws:
                 if msg.type != WSMsgType.TEXT:
@@ -369,7 +390,7 @@ class DeskmateHub:
                 self._tx = None
                 self._rx = None
                 self._clear_session_info()
-                self._set_available(False)
+                self.presence.session_ended()
                 self._fail_pending("disconnected")
 
     async def _close_current(self) -> None:
@@ -385,9 +406,9 @@ class DeskmateHub:
     def cascade_enabled(self) -> bool:
         return bool(self._cascade_key)
 
-    def _set_available(self, value: bool) -> None:
-        self.available = value
-        async_dispatcher_send(self.hass, f"{SIGNAL_AVAILABLE}_{self.entry.entry_id}")
+    @property
+    def available(self) -> bool:
+        return self.presence.available
 
     def _clear_session_info(self) -> None:
         self.session_role = None
@@ -404,16 +425,20 @@ class DeskmateHub:
 
     async def _handle(self, msg: dict) -> None:
         mtype = msg.get("t")
-        if mtype == "declare":
+        if mtype == "declare" and is_machine_declare(msg):
+            self._declare_machine(msg)
+        elif mtype == "declare":
             self.device_info = msg.get("device", {}) or {}
             self.entities = list(msg.get("entities", []) or [])
+            self._declared_scope = DECLARE_SCOPE_FULL
             self._prune_stale_registry_entries()
             self._persist()
             async_dispatcher_send(self.hass, f"{SIGNAL_DECLARED}_{self.entry.entry_id}")
+            self.presence.serve_all()
         elif mtype == "state":
             updates = msg.get("s", {}) or {}
             if isinstance(updates, dict):
-                self.states.update(updates)
+                self.states.update(self.presence.only_served(updates))
                 async_dispatcher_send(
                     self.hass, f"{SIGNAL_STATE}_{self.entry.entry_id}"
                 )
@@ -473,6 +498,26 @@ class DeskmateHub:
         self.session_app = msg["app"]
         await self._send(await async_info_answer(self.hass))
 
+    def _declare_machine(self, msg: dict) -> None:
+        """`declare` from a client that serves machine-level entities only.
+
+        It removes no entity and leaves a stored full declaration as it is.
+        """
+        entities = list(msg.get("entities", []) or [])
+        keys = declared_keys(entities)
+        if self._declared_scope == DECLARE_SCOPE_FULL:
+            # Only what the app declared as well: a sensor that the user
+            # switched off there must not come back through this client.
+            keys &= declared_keys(self.entities)
+        else:
+            # The app has not declared anything yet, so this is all there is.
+            self.device_info = msg.get("device", {}) or {}
+            self.entities = merge_machine_declaration(self.entities, entities)
+            self._declared_scope = DECLARE_SCOPE_MACHINE
+            self._persist()
+            async_dispatcher_send(self.hass, f"{SIGNAL_DECLARED}_{self.entry.entry_id}")
+        self.presence.serve_only(keys)
+
     def _prune_stale_registry_entries(self) -> None:
         """Usuwa z rejestru encje, ktorych nie ma w nowym declare."""
         from homeassistant.helpers import entity_registry as er
@@ -513,6 +558,9 @@ class DeskmateHub:
             self._pending.pop(cmd_id, None)
 
     async def async_command(self, key: str, action: str, value: Any = None) -> None:
+        # Without a session the command fails below as "not connected".
+        if self._ws is not None and not self.presence.serves(key):
+            raise HomeAssistantError(NEEDS_APP_ERROR)
         payload: dict[str, Any] = {"t": "cmd", "key": key, "action": action}
         if value is not None:
             payload["value"] = value

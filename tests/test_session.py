@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import Any
 
+import pytest
 from homeassistant.const import STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
@@ -116,3 +117,44 @@ async def test_entities_become_unavailable_when_the_session_ends(
 
     assert not hub.available
     assert hass.states.get(sensor).state == STATE_UNAVAILABLE
+
+
+async def test_state_frame_may_name_any_key(hub: DeskmateHub, connect: Connect) -> None:
+    client = await connect()
+
+    await client.send({"t": "state", "s": {"never_declared": 1}})
+    await client.sync()
+
+    assert hub.states == {"never_declared": 1}
+
+
+async def test_command_is_sent_and_waits_for_the_ack(
+    hass: HomeAssistant, entry: MockConfigEntry, connect: Connect
+) -> None:
+    client = await connect()
+    await declare(hass, client, [LOCK_BUTTON])
+    button = entity_id(hass, entry, "button", "lock")
+
+    press = hass.async_create_task(
+        hass.services.async_call(
+            "button", "press", {"entity_id": button}, blocking=True
+        )
+    )
+    command = await client.receive()
+    assert not press.done()
+    await client.send({"t": "ack", "id": command["id"], "ok": True})
+    await press
+
+    assert command == {
+        "t": "cmd",
+        "id": command["id"],
+        "key": "lock",
+        "action": "press",
+    }
+
+
+async def test_command_without_a_session_fails_as_not_connected(
+    hub: DeskmateHub,
+) -> None:
+    with pytest.raises(ConnectionError, match="deskmate not connected"):
+        await hub.async_command("lock", "press")

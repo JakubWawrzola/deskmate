@@ -60,6 +60,11 @@ INFO_PLATFORMS = frozenset({"windows", "linux", "android_tv"})
 INFO_APP_VERSION_PATTERN = r"^\d+\.\d+\.\d+([-+][0-9A-Za-z.-]{1,20})?$"
 LINK_CAPS = ("info",)
 
+# `declare` with the scope "machine" lists only what a client without a
+# signed-in user can serve. Every other declaration is a full one.
+DECLARE_SCOPE_MACHINE = "machine"
+DECLARE_SCOPE_FULL = "full"
+
 SIGNAL_STATE = f"{DOMAIN}_state"  # + entry_id
 SIGNAL_AVAILABLE = f"{DOMAIN}_available"  # + entry_id
 SIGNAL_DECLARED = f"{DOMAIN}_declared"  # + entry_id

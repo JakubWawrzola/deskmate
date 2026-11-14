@@ -54,7 +54,7 @@ class DeskmateEntity(Entity):
 
     @property
     def available(self) -> bool:
-        return self.hub.available
+        return self.hub.presence.serves(self.key)
 
     @property
     def _value(self) -> Any:
@@ -150,7 +150,7 @@ class DeskmateOwnedEntity(DeskmateEntity, RestoreEntity):
     @callback
     def _keep_owned_value(self) -> None:
         reported = self._value
-        if reported is None or not self.hub.available:
+        if reported is None or not self.available:
             return
         try:
             reported = self._normalize(reported)

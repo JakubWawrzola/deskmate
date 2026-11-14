@@ -183,7 +183,7 @@ the session. `p` decrypts to the frame, and its `t` field names the type:
 |---|---|---|---|
 | `info` | Client | `role`, `platform`, `app` | Says what the client is. Sent first, by clients that know the frame. |
 | `info` | Home Assistant | `integration`, `caps` | Answers a valid `info` from the client. |
-| `declare` | Client | `device`, `entities` | Replaces the device details and the complete list of entities. |
+| `declare` | Client | `device`, `entities`, `scope` | Replaces the device details and the complete list of entities. With `"scope": "machine"` it names the entities that this session serves instead. |
 | `state` | Client | `s` | Updates entity states. `s` maps entity keys to values and may hold any subset of them. |
 | `cmd` | Home Assistant | `id`, `key`, `action`, `value` | Acts on the entity `key`. `action` is `press` for a button and `set`, with `value`, for everything else. |
 | `ack` | Client | `id`, `ok`, `error` | Result of the `cmd` or `notify` with that `id`. `error` is a text, present when `ok` is false. |
@@ -266,9 +266,50 @@ and may add fields that its kind reads:
 set from its side and sends it again when the computer reports a different
 one.
 
-Every `declare` is complete. An entity whose key is missing from it is removed
-from Home Assistant. The last `declare` is stored, so the entities exist after
-a Home Assistant restart, before the computer reconnects.
+Every `declare` without a scope is complete. An entity whose key is missing
+from it is removed from Home Assistant. The last `declare` is stored, so the
+entities exist after a Home Assistant restart, before the computer reconnects.
+
+#### Machine scope
+
+A client that runs without a signed-in user, such as the Windows service,
+knows only part of the computer's entities. It says so with `scope`:
+
+```json
+{
+  "t": "declare",
+  "scope": "machine",
+  "device": {"name": "My PC", "model": "Deskmate for Windows", "sw_version": "0.9.0"},
+  "entities": [{"key": "cpu_usage", "kind": "sensor", "name": "CPU usage", "unit": "%"}]
+}
+```
+
+A machine declaration never removes an entity and never replaces a stored
+full declaration. What it does depends on what Home Assistant has stored for
+the computer:
+
+- **A full declaration.** The session serves the keys that both declarations
+  list. The stored descriptors and device details stay in use, and those of
+  the machine declaration are ignored. A key that only the machine declaration
+  lists is ignored too, so a sensor that the user switched off in the app does
+  not come back.
+- **Nothing, or an earlier machine declaration.** The machine declaration is
+  stored and used as the declaration, and the session serves all of its keys.
+  A later machine declaration adds entities and replaces descriptors, and
+  still removes nothing. The next full declaration replaces it as usual.
+
+While the session lasts:
+
+- entities outside the served keys are unavailable in Home Assistant;
+- a `state` frame updates the served keys only;
+- a command for any other entity fails in Home Assistant with a message that
+  the control needs the Deskmate app with a signed-in user, and no `cmd` is
+  sent;
+- the entity declared with `link` stays on.
+
+A full declaration in the same session lifts the limit, and so does the end
+of the session. Any other value of `scope`, and a `declare` without one, is a
+full declaration.
 
 ### `fs` and `fs_res`
 
