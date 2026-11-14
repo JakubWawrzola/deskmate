@@ -31,9 +31,12 @@ graphify-out/
 .vite-dev.log
 .vite-dev.err.log
 
-# Build artifacts: installers are published as release assets, not committed
+# Build artifacts: installers, their signatures and the per-release folder
+# with the update manifest are published as release assets, not committed
 dist-installers/*.exe
 dist-installers/*.zip
+dist-installers/*.sig
+dist-installers/*/
 
 # Python bytecode (py_compile, test vector generator)
 __pycache__/

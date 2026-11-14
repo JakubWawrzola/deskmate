@@ -334,14 +334,24 @@ A release happens when Jakub orders one, in this order:
    outside the repository, and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` its
    password. Without the key `tauri build` fails after the installer is
    written. Never print the key, its password or its path.
-4. Jakub tests. Nothing below happens before he accepts.
-5. With his go-ahead for each step: commit, push, wait for green CI, tag,
-   GitHub release with both installers and `SHA256SUMS.txt`, replies on the
-   issues.
+4. Write the update manifest and the checksums from the two installers and
+   their `.sig` files:
+   `python scripts/make_release_manifest.py --version x.y.z --x64 <x64 installer> --arm64 <ARM64 installer> --notes-file docs/releases/RELEASE-x.y.z.md --out-dir dist-installers/x.y.z`.
+   It writes `latest.json` and `SHA256SUMS.txt`, refuses a signature made for
+   another file, version or key, and never replaces an existing file.
+5. Jakub tests. Nothing below happens before he accepts.
+6. With his go-ahead for each step: commit, push, wait for green CI, tag,
+   GitHub release with both installers, both `.sig` files, `latest.json` and
+   `SHA256SUMS.txt`, replies on the issues.
 
-Installers are release assets and are not committed. A published release is
-never replaced: a fix ships as the next patch version. A release that was not
-tested end to end against a live Home Assistant says so in its notes.
+Installed apps find an update through `latest.json` of the release that
+GitHub marks as latest. A draft or a pre-release does not reach them, and a
+release without `latest.json` is only announced, not installed.
+
+Installers, signatures and `latest.json` are release assets and are not
+committed. A published release is never replaced: a fix ships as the next
+patch version. A release that was not tested end to end against a live Home
+Assistant says so in its notes.
 
 ## 10. State and notes
 

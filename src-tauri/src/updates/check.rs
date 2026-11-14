@@ -92,6 +92,38 @@ pub(super) async fn installable_release(app: &AppHandle) -> Result<Option<Update
 
 #[cfg(test)]
 mod tests {
+    use super::policy;
+
+    /// The shape scripts/make_release_manifest.py writes: the plugin has to
+    /// read it, and its addresses have to pass the address rule.
+    #[test]
+    fn a_manifest_from_the_release_script_is_understood() {
+        let manifest = r#"{
+          "version": "0.9.0",
+          "notes": "Signed automatic updates.",
+          "pub_date": "2026-11-14T12:30:00Z",
+          "platforms": {
+            "windows-x86_64": {
+              "signature": "c2FtcGxl",
+              "url": "https://github.com/JakubWawrzola/deskmate/releases/download/v0.9.0/Deskmate_0.9.0_x64-setup.exe"
+            },
+            "windows-aarch64": {
+              "signature": "c2FtcGxl",
+              "url": "https://github.com/JakubWawrzola/deskmate/releases/download/v0.9.0/Deskmate_0.9.0_arm64-setup.exe"
+            }
+          }
+        }"#;
+        let release: tauri_plugin_updater::RemoteRelease = serde_json::from_str(manifest).unwrap();
+
+        assert!(policy::is_newer("0.8.5", &release.version.to_string()));
+        for target in ["windows-x86_64", "windows-aarch64"] {
+            let address = release.download_url(target).unwrap();
+            assert!(policy::download_address_allowed(address.as_str()));
+            assert_eq!(release.signature(target).unwrap(), "c2FtcGxl");
+        }
+        assert!(release.download_url("linux-x86_64").is_err());
+    }
+
     /// tauri.conf.json is read by the updater plugin when the app starts. A
     /// typo there would stop the app, and a relaxed setting would widen what
     /// it installs.
