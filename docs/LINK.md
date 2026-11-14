@@ -166,6 +166,117 @@ Both ends must agree. A handshake where one side asks for cascade and the other
 does not is rejected rather than negotiated down. The flag is covered by the
 handshake MAC, so it cannot be flipped on the way.
 
+## Session frames
+
+After `welcome`, both sides send JSON objects called frames. Each frame travels
+encrypted, as one WebSocket text message:
+
+```json
+{"t": "e", "n": 1, "p": "<base64 ciphertext>"}
+```
+
+`n` is the sender's frame counter. It starts at 1 and each direction counts on
+its own. A frame whose counter is not higher than the last one accepted ends
+the session. `p` decrypts to the frame, and its `t` field names the type:
+
+| `t` | Sent by | Other fields | What it does |
+|---|---|---|---|
+| `info` | Client | `role`, `platform`, `app` | Says what the client is. Sent first, by clients that know the frame. |
+| `info` | Home Assistant | `integration`, `caps` | Answers a valid `info` from the client. |
+| `declare` | Client | `device`, `entities` | Replaces the device details and the complete list of entities. |
+| `state` | Client | `s` | Updates entity states. `s` maps entity keys to values and may hold any subset of them. |
+| `cmd` | Home Assistant | `id`, `key`, `action`, `value` | Acts on the entity `key`. `action` is `press` for a button and `set`, with `value`, for everything else. |
+| `ack` | Client | `id`, `ok`, `error` | Result of the `cmd` or `notify` with that `id`. `error` is a text, present when `ok` is false. |
+| `notify` | Home Assistant | `id`, `title`, `message`, `image`, `actions` | Shows a notification. `image` and `actions`, a list of `{"id", "title"}` buttons, are optional. |
+| `notify_action` | Client | `action` | A notification button was clicked; `action` is its `id`. Fires `deskmate_link_notify_action`. |
+| `trigger` | Client | `key`, `event` | An event entity fired, for example a hotkey. `event` is `press` when left out. Fires `deskmate_link_trigger`. |
+| `fs` | Home Assistant | `id`, `op` and its arguments | A Link Files request. |
+| `fs_res` | Client | `id`, `ok`, then `error` or the result | The answer to the `fs` with that `id`. |
+| `ping` | Either side | none | Asks for a `pong`. Deskmate sends one every 30 seconds. |
+| `pong` | Either side | none | Answers a `ping`. |
+
+Home Assistant numbers `cmd`, `notify` and `fs` from one counter per computer
+and matches each answer by its `id`. It waits 10 seconds for an `ack` and 15
+seconds for an `fs_res` (180 for `put_begin`, which may need a click on the
+computer, and 60 for `put_end`).
+
+The integration ignores a frame type it does not know. Deskmate does the same
+and writes a warning to its log.
+
+### `info`
+
+```json
+{"t": "info", "role": "app", "platform": "windows", "app": "0.9.0"}
+```
+
+- `role` is `app`, `service` or `daemon`.
+- `platform` is `windows`, `linux` or `android_tv`.
+- `app` is the client's version: three numbers separated by dots, optionally
+  followed by `-` or `+` and up to 20 letters, digits, dots or hyphens, such as
+  `0.9.0-beta.1`.
+
+Home Assistant keeps the three values for the length of the session, shows
+them in the entry's diagnostics, and answers:
+
+```json
+{"t": "info", "integration": "0.9.0", "caps": ["info"]}
+```
+
+`integration` is the version of the integration. `caps` lists the optional
+frame types it understands, so a client can tell what an older integration
+lacks.
+
+An `info` with a missing or invalid value is ignored: it gets no answer and
+changes nothing. Home Assistant logs a warning that names the field, never the
+value it received. Fields other than these three are ignored. A client that
+never sends `info`, such as Deskmate up to 0.8.5, gets no `info` from Home
+Assistant, and nothing else changes for it.
+
+### `declare`
+
+`device` holds `name`, `model` and `sw_version`. Each item of `entities` has a
+`key` and a `kind`, normally a `name` (the key stands in for a missing one),
+and may add fields that its kind reads:
+
+| `kind` | Optional fields |
+|---|---|
+| `sensor` | `icon`, `unit`, `device_class`, `state_class` |
+| `binary_sensor` | `icon`, `device_class`, `link` (true marks the entity that shows whether the computer is connected) |
+| `switch` | `icon`, `restore` |
+| `number` | `icon`, `min`, `max`, `step`, `unit`, `restore` |
+| `button` | `icon` |
+| `text` | `icon`, `max`, `mode`, `pattern`, `restore` |
+| `select` | `icon`, `options`, `restore` |
+| `event` | `icon`, `event_types` |
+
+`restore` marks a value that Home Assistant owns: it remembers the last value
+set from its side and sends it again when the computer reports a different
+one.
+
+Every `declare` is complete. An entity whose key is missing from it is removed
+from Home Assistant. The last `declare` is stored, so the entities exist after
+a Home Assistant restart, before the computer reconnects.
+
+### `fs` and `fs_res`
+
+| `op` | Arguments | Result in `fs_res` |
+|---|---|---|
+| `roots` | none | `roots`, `inbox`, `max_bytes` |
+| `list` | `path` | `entries` |
+| `stat` | `path` | `stat` |
+| `read` | `path`, `offset`, `len` (at most 262144) | `data` (base64), `eof` |
+| `put_begin` | `name`, `size`, `by` | `upload`, `name` |
+| `put_chunk` | `upload`, `offset`, `data` (base64) | `written` (bytes received so far) |
+| `put_end` | `upload`, `sha256` | `name`, `dir`, `size`, `sha256` |
+| `put_abort` | `upload` | none |
+
+`stat` and each item of `entries` hold `name`, `dir` (true for a folder),
+`size` and `mtime`. In the result of `put_end`, `dir` is the folder the file
+was saved in. `by` names who is sending the file, for the confirmation dialog.
+`upload` is the token that `put_begin` returns for the transfer. What the
+computer checks before it answers is listed under
+[Link Files](#link-files-sending-and-fetching-files).
+
 ## Text controls, presentation and hotkeys
 
 Link declares the existing sensor, binary sensor, number, button, switch and
