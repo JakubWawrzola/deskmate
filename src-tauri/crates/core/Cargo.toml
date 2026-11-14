@@ -1,0 +1,10 @@
+[package]
+name = "deskmate-core"
+version.workspace = true
+description = "Deskmate code shared by the app and by programs that run without a window"
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
+
+[lints]
+workspace = true

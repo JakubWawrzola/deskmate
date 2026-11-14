@@ -1,11 +1,21 @@
+[workspace]
+members = [".", "crates/core"]
+resolver = "2"
+
+[workspace.package]
+version = "0.8.5"
+edition = "2021"
+license = "MIT"
+authors = ["Jakub Wawrzola"]
+
 [package]
 name = "deskmate"
-version = "0.8.5"
+version.workspace = true
 description = "Deskmate - a modern Windows companion for Home Assistant"
-authors = ["Jakub Wawrzola"]
-license = "MIT"
+authors.workspace = true
+license.workspace = true
 repository = ""
-edition = "2021"
+edition.workspace = true
 
 [lib]
 name = "deskmate_lib"
@@ -106,9 +116,12 @@ features = [
   "Data_Xml_Dom",
 ]
 
+[lints]
+workspace = true
+
 # CI runs clippy with -D warnings (AGENTS.md section 8). These two are on top
 # of the default set: leftovers that must not reach a release.
-[lints.clippy]
+[workspace.lints.clippy]
 dbg_macro = "deny"
 todo = "deny"
 
