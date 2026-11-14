@@ -22,7 +22,7 @@ const logger = streamDeck.logger.createScope("toggle-entity");
  * The key shows the live state (WebSocket subscription):
  * state 1 = ON (bright icon), state 0 = OFF (dimmed).
  */
-@action({ UUID: "com.homeos.homeassistant.toggle" })
+@action({ UUID: "com.deskmate.streamdeck.toggle" })
 export class ToggleEntity extends SingletonAction<ToggleSettings> {
 	/** action.id -> state unsubscribe function. */
 	private readonly subscriptions = new Map<string, () => void>();

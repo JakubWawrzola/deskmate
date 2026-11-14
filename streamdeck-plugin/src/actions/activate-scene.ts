@@ -12,7 +12,7 @@ const logger = streamDeck.logger.createScope("activate-scene");
 /**
  * Activate Scene — key press calls scene.turn_on on the configured scene.
  */
-@action({ UUID: "com.homeos.homeassistant.scene" })
+@action({ UUID: "com.deskmate.streamdeck.scene" })
 export class ActivateScene extends SingletonAction<SceneSettings> {
 	override async onKeyDown(ev: KeyDownEvent<SceneSettings>): Promise<void> {
 		let sceneId = ev.payload.settings.sceneId?.trim();

@@ -19,7 +19,7 @@ const SERVICE_PATTERN = /^([a-z0-9_]+)\.([a-z0-9_]+)$/i;
  * Call Service — pressing the key calls an arbitrary HA service
  * (POST /api/services/{domain}/{service}) with an optional entity_id and JSON data.
  */
-@action({ UUID: "com.homeos.homeassistant.call-service" })
+@action({ UUID: "com.deskmate.streamdeck.call-service" })
 export class CallService extends SingletonAction<CallServiceSettings> {
 	override async onKeyDown(ev: KeyDownEvent<CallServiceSettings>): Promise<void> {
 		const { service, entityId, data } = ev.payload.settings;

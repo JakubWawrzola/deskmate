@@ -1,4 +1,4 @@
-# HomeOS for Home Assistant — Elgato Stream Deck plugin
+# Deskmate for Home Assistant: Stream Deck plugin
 
 A standalone Stream Deck plugin (SDK v2, Node 20, TypeScript) that controls
 Home Assistant directly through its API — it works independently of the
@@ -31,8 +31,8 @@ npm install
 npm run build
 ```
 
-Output: `com.homeos.homeassistant.sdPlugin\bin\plugin.js` (rollup bundle) and
-`com.homeos.homeassistant.sdPlugin\manifest.json`, written from
+Output: `com.deskmate.streamdeck.sdPlugin\bin\plugin.js` (rollup bundle) and
+`com.deskmate.streamdeck.sdPlugin\manifest.json`, written from
 `manifest.template.json`. The repository keeps only the template, because the
 HACS checks for the Home Assistant integration allow one `manifest.json` per
 repository. Edit the template, not the copy.
@@ -42,22 +42,22 @@ repository. Edit the template, not the copy.
 
 Option A — copy the folder:
 1. Quit the Stream Deck app (tray → Quit Stream Deck).
-2. Copy the WHOLE `com.homeos.homeassistant.sdPlugin` folder to
+2. Copy the WHOLE `com.deskmate.streamdeck.sdPlugin` folder to
    `%AppData%\Elgato\StreamDeck\Plugins\`.
 3. Start Stream Deck again.
 
 Option B — developer link (nicer while working on the code):
 ```powershell
 npm install -g @elgato/cli
-streamdeck link <path>\streamdeck-plugin\com.homeos.homeassistant.sdPlugin
-streamdeck restart com.homeos.homeassistant
+streamdeck link <path>\streamdeck-plugin\com.deskmate.streamdeck.sdPlugin
+streamdeck restart com.deskmate.streamdeck
 ```
 
 ## Configuration
 
 1. In HA: your profile → Security → Long-lived access tokens → Create token.
    Copy it (it is shown only once).
-2. In Stream Deck: drag any action from the "Home Assistant" category onto a
+2. In Stream Deck: drag any action from the "Deskmate" category onto a
    key and fill in **HA URL** and **Access token** in the Property Inspector
    (global fields — once is enough).
 3. Fill in the action fields (entity / service / scene).
@@ -68,7 +68,7 @@ The first time you open the inspector the computer needs internet access; the
 plugin itself (keys, REST/WS to HA) runs fine on LAN only.
 
 Missing URL/token or a network error = a yellow alert triangle on key press;
-details in `com.homeos.homeassistant.sdPlugin\logs\`.
+details in `com.deskmate.streamdeck.sdPlugin\logs\`.
 
 ## Layout
 
@@ -83,7 +83,7 @@ streamdeck-plugin/
 │       └── activate-scene.ts  # scene.turn_on
 ├── scripts/generate-icons.mjs # placeholder PNG generator (pure Node)
 ├── manifest.template.json     # plugin manifest: SDK v2, Node 20 runtime, 3 actions
-├── com.homeos.homeassistant.sdPlugin/
+├── com.deskmate.streamdeck.sdPlugin/
 │   ├── manifest.json          # written by npm run build (not in git)
 │   ├── bin/plugin.js          # npm run build output
 │   ├── ui/*.html              # Property Inspectors (sdpi-components)
@@ -97,7 +97,7 @@ Needs: a physical Stream Deck (or the Stream Deck app's key preview) and an
 HA instance reachable from this computer.
 
 1. Build (`npm install`, `npm run build`), install the plugin (option A or B),
-   restart the Stream Deck app. Expected: a "Home Assistant" category with 3
+   restart the Stream Deck app. Expected: a "Deskmate" category with 3
    actions and icons appears in the action list.
 2. Drag "Toggle Entity" onto a key. Expected: the Property Inspector shows
    Entity ID / HA URL / Access token fields (no fields = no internet for the

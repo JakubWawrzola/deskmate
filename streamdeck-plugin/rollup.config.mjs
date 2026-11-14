@@ -6,11 +6,11 @@ import path from "node:path";
 import url from "node:url";
 
 const isWatching = !!process.env.ROLLUP_WATCH;
-const sdPlugin = "com.homeos.homeassistant.sdPlugin";
+const sdPlugin = "com.deskmate.streamdeck.sdPlugin";
 
 /**
- * Konfiguracja wzorowana na oficjalnym streamdeck-plugin-template Elgato.
- * Bundluje src/plugin.ts (razem z @elgato/streamdeck i ws) do bin/plugin.js.
+ * Modelled on Elgato's streamdeck-plugin-template. Bundles src/plugin.ts,
+ * together with @elgato/streamdeck and ws, into bin/plugin.js.
  * @type {import('rollup').RollupOptions}
  */
 const config = {
@@ -23,8 +23,8 @@ const config = {
 			return url.pathToFileURL(path.resolve(path.dirname(sourcemapPath), relativeSourcePath)).href;
 		}
 	},
-	// ws probuje opcjonalnie require('bufferutil') i require('utf-8-validate')
-	// w try/catch — brak tych modulow jest poprawny (fallback JS).
+	// ws requires 'bufferutil' and 'utf-8-validate' inside try/catch; they are
+	// optional, and without them it falls back to its JavaScript code.
 	onwarn: (warning, warn) => {
 		if (warning.code === "CIRCULAR_DEPENDENCY") return;
 		warn(warning);

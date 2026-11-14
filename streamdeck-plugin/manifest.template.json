@@ -1,10 +1,10 @@
 {
 	"$schema": "https://schemas.elgato.com/streamdeck/plugins/manifest.json",
-	"Name": "HomeOS for Home Assistant",
-	"Version": "0.1.0.0",
+	"Name": "Deskmate for Home Assistant",
+	"Version": "0.2.0.0",
 	"Author": "Jakub Wawrzola",
-	"Description": "Control Home Assistant directly from Stream Deck: toggle entities with live state, call any service, activate scenes.",
-	"Category": "Home Assistant",
+	"Description": "Control Home Assistant from Stream Deck: toggle entities with live state, call any service, activate scenes.",
+	"Category": "Deskmate",
 	"CategoryIcon": "imgs/plugin/category-icon",
 	"CodePath": "bin/plugin.js",
 	"Icon": "imgs/plugin/marketplace",
@@ -22,11 +22,11 @@
 		"Version": "20",
 		"Debug": "disabled"
 	},
-	"UUID": "com.homeos.homeassistant",
+	"UUID": "com.deskmate.streamdeck",
 	"Actions": [
 		{
 			"Name": "Toggle Entity",
-			"UUID": "com.homeos.homeassistant.toggle",
+			"UUID": "com.deskmate.streamdeck.toggle",
 			"Icon": "imgs/actions/toggle/icon",
 			"Tooltip": "Toggle a Home Assistant entity. The key shows its live on/off state.",
 			"PropertyInspectorPath": "ui/toggle-entity.html",
@@ -45,7 +45,7 @@
 		},
 		{
 			"Name": "Call Service",
-			"UUID": "com.homeos.homeassistant.call-service",
+			"UUID": "com.deskmate.streamdeck.call-service",
 			"Icon": "imgs/actions/service/icon",
 			"Tooltip": "Call any Home Assistant service with optional entity and JSON data.",
 			"PropertyInspectorPath": "ui/call-service.html",
@@ -59,7 +59,7 @@
 		},
 		{
 			"Name": "Activate Scene",
-			"UUID": "com.homeos.homeassistant.scene",
+			"UUID": "com.deskmate.streamdeck.scene",
 			"Icon": "imgs/actions/scene/icon",
 			"Tooltip": "Activate a Home Assistant scene.",
 			"PropertyInspectorPath": "ui/activate-scene.html",

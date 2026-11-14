@@ -1,6 +1,6 @@
-// Generator placeholderowych ikon PNG dla pluginu Stream Deck.
-// Czysty Node (zlib) — zadnych zaleznosci, zadnego pobierania z sieci.
-// Uruchomienie: npm run icons (albo: node scripts/generate-icons.mjs)
+// Draws the plugin's PNG icons.
+// Plain Node (zlib): no dependencies and nothing fetched from the network.
+// Run it with: npm run icons
 
 import { deflateSync } from "node:zlib";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -8,9 +8,9 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const IMGS = join(__dirname, "..", "com.homeos.homeassistant.sdPlugin", "imgs");
+const IMGS = join(__dirname, "..", "com.deskmate.streamdeck.sdPlugin", "imgs");
 
-// ---------- kodowanie PNG ----------
+// ---------- PNG encoding ----------
 
 const CRC_TABLE = (() => {
 	const table = new Int32Array(256);
@@ -50,7 +50,7 @@ function encodePng(size, rgba) {
 	const raw = Buffer.alloc((size * 4 + 1) * size);
 	for (let y = 0; y < size; y++) {
 		const rowStart = y * (size * 4 + 1);
-		raw[rowStart] = 0; // filtr: none
+		raw[rowStart] = 0; // filter type: none
 		rgba.copy(raw, rowStart + 1, y * size * 4, (y + 1) * size * 4);
 	}
 	return Buffer.concat([
@@ -61,7 +61,7 @@ function encodePng(size, rgba) {
 	]);
 }
 
-// ---------- rysowanie (supersampling 3x3, wspolrzedne logiczne 0..72) ----------
+// ---------- drawing (3x3 supersampling, logical coordinates 0..72) ----------
 
 function render(size, paint) {
 	const ss = 3;
@@ -85,7 +85,7 @@ function render(size, paint) {
 			}
 			const n = ss * ss;
 			const i = (py * size + px) * 4;
-			// kolory usredniane z waga alfa (tlo przezroczyste)
+			// a pixel no sample touched stays transparent
 			if (a > 0) {
 				rgba[i] = Math.round(r / n);
 				rgba[i + 1] = Math.round(g / n);
@@ -97,7 +97,7 @@ function render(size, paint) {
 	return encodePng(size, rgba);
 }
 
-// predykaty geometryczne
+// geometry predicates
 const inRoundRect = (x, y, rx, ry, w, h, r) => {
 	const qx = Math.abs(x - (rx + w / 2)) - (w / 2 - r);
 	const qy = Math.abs(y - (ry + h / 2)) - (h / 2 - r);
@@ -126,9 +126,9 @@ const inPolygon = (x, y, pts) => {
 	return inside;
 };
 
-// symbole (przestrzen logiczna 72x72)
+// symbols (72x72 logical space)
 const powerSymbol = (x, y) => {
-	// pierscien z przerwa u gory + pionowa kreska
+	// a ring with a gap at the top, plus a vertical bar
 	const d = Math.hypot(x - 36, y - 40);
 	if (Math.abs(d - 13) <= 2.75) {
 		const angle = (Math.atan2(x - 36, -(y - 40)) * 180) / Math.PI;
@@ -166,20 +166,20 @@ const houseSymbol = (x, y) => {
 		return true;
 	}
 	if (x >= 19 && x <= 53 && y >= 35 && y <= 58) {
-		// wyciecie drzwi
+		// the door cut-out
 		return !(x >= 31 && x <= 41 && y >= 44 && y <= 58);
 	}
 	return false;
 };
 
-// palety (monochrom jak UI Deskmate)
+// palette (monochrome, like the Deskmate window)
 const WHITE = [255, 255, 255, 255];
 const NEAR_BLACK = [17, 17, 19, 255];
 const DIM_GRAY = [122, 122, 128, 255];
 const BG_DARK = [25, 25, 27, 255];
 const BG_LIGHT = [245, 245, 245, 255];
 
-// klawisz: ciemne zaokraglone tlo + symbol
+// a key: rounded background plus the symbol
 const key = (symbol, bg, fg) => (x, y) => {
 	if (!inRoundRect(x, y, 3, 3, 66, 66, 14)) {
 		return null;
@@ -187,19 +187,19 @@ const key = (symbol, bg, fg) => (x, y) => {
 	return symbol(x, y) ? fg : bg;
 };
 
-// ikona do listy akcji: sam symbol, bez tla
+// an icon for the action list: the symbol alone, no background
 const bare = (symbol, fg) => (x, y) => (symbol(x, y) ? fg : null);
 
-// ---------- pliki ----------
+// ---------- files ----------
 
 const files = [
-	// ikona pluginu (marketplace) + ikona kategorii
+	// plugin icon (marketplace) and category icon
 	["plugin/marketplace.png", 72, key(houseSymbol, BG_DARK, WHITE)],
 	["plugin/marketplace@2x.png", 144, key(houseSymbol, BG_DARK, WHITE)],
 	["plugin/category-icon.png", 28, bare(houseSymbol, WHITE)],
 	["plugin/category-icon@2x.png", 56, bare(houseSymbol, WHITE)],
 
-	// Toggle Entity: OFF = przygaszony na ciemnym, ON = czarny symbol na jasnym
+	// Toggle Entity: off is dimmed on dark, on is a black symbol on light
 	["actions/toggle/icon.png", 20, bare(powerSymbol, WHITE)],
 	["actions/toggle/icon@2x.png", 40, bare(powerSymbol, WHITE)],
 	["actions/toggle/off.png", 72, key(powerSymbol, BG_DARK, DIM_GRAY)],
@@ -213,7 +213,7 @@ const files = [
 	["actions/service/key.png", 72, key(chevronSymbol, BG_DARK, WHITE)],
 	["actions/service/key@2x.png", 144, key(chevronSymbol, BG_DARK, WHITE)],
 
-	// Activate Scene: slonce
+	// Activate Scene: sun
 	["actions/scene/icon.png", 20, bare(sunSymbol, WHITE)],
 	["actions/scene/icon@2x.png", 40, bare(sunSymbol, WHITE)],
 	["actions/scene/key.png", 72, key(sunSymbol, BG_DARK, WHITE)],
