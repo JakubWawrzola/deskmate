@@ -192,13 +192,15 @@ the session. `p` decrypts to the frame, and its `t` field names the type:
 | `trigger` | Client | `key`, `event` | An event entity fired, for example a hotkey. `event` is `press` when left out. Fires `deskmate_link_trigger`. |
 | `fs` | Home Assistant | `id`, `op` and its arguments | A Link Files request. |
 | `fs_res` | Client | `id`, `ok`, then `error` or the result | The answer to the `fs` with that `id`. |
+| `tv` | Home Assistant | `id`, `op` and its arguments | A request to DeskmateTV, described in [TV.md](TV.md). Sent only to a device that declared itself a TV. |
+| `tv_res` | Client | `id`, `ok`, then `error` or the result | The answer to the `tv` with that `id`. |
 | `ping` | Either side | none | Asks for a `pong`. Deskmate sends one every 30 seconds. |
 | `pong` | Either side | none | Answers a `ping`. |
 
-Home Assistant numbers `cmd`, `notify` and `fs` from one counter per computer
-and matches each answer by its `id`. It waits 10 seconds for an `ack` and 15
-seconds for an `fs_res` (180 for `put_begin`, which may need a click on the
-computer, and 60 for `put_end`).
+Home Assistant numbers `cmd`, `notify`, `fs` and `tv` from one counter per
+computer and matches each answer by its `id`. It waits 10 seconds for an `ack`
+and 15 seconds for an `fs_res` (180 for `put_begin`, which may need a click on
+the computer, and 60 for `put_end`).
 
 The integration ignores a frame type it does not know. Deskmate does the same
 and writes a warning to its log.
