@@ -93,9 +93,12 @@ updates:
       default-days: 7
     open-pull-requests-limit: 5
     ignore:
-      # The plugin runs on the Node version Stream Deck ships (20): type
+      # The plugin runs on the Node version Stream Deck ships (24): type
       # definitions for a newer Node would describe APIs that are not there.
       - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+      # TypeScript 7 breaks the build inside @rollup/plugin-typescript 12.
+      - dependency-name: "typescript"
         update-types: ["version-update:semver-major"]
     groups:
       streamdeck-minor-and-patch:

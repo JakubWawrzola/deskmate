@@ -23,10 +23,11 @@ const config = {
 			return url.pathToFileURL(path.resolve(path.dirname(sourcemapPath), relativeSourcePath)).href;
 		}
 	},
-	// ws requires 'bufferutil' and 'utf-8-validate' inside try/catch; they are
-	// optional, and without them it falls back to its JavaScript code.
+	// A warning about code inside a dependency cannot be fixed here; one about
+	// the plugin's own code still shows.
 	onwarn: (warning, warn) => {
-		if (warning.code === "CIRCULAR_DEPENDENCY") return;
+		const modules = warning.ids ?? [warning.id];
+		if (modules.every((id) => id?.includes("node_modules"))) return;
 		warn(warning);
 	},
 	plugins: [
