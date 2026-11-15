@@ -181,13 +181,14 @@ the session. `p` decrypts to the frame, and its `t` field names the type:
 
 | `t` | Sent by | Other fields | What it does |
 |---|---|---|---|
-| `info` | Client | `role`, `platform`, `app` | Says what the client is. Sent first, by clients that know the frame. |
+| `info` | Client | `role`, `platform`, `app`, `features` | Says what the client is and, in the optional `features`, which optional parts of the protocol it implements. Sent first, by clients that know the frame. |
 | `info` | Home Assistant | `integration`, `caps` | Answers a valid `info` from the client. |
 | `declare` | Client | `device`, `entities`, `scope` | Replaces the device details and the complete list of entities. With `"scope": "machine"` it names the entities that this session serves instead. |
 | `state` | Client | `s` | Updates entity states. `s` maps entity keys to values and may hold any subset of them. |
 | `cmd` | Home Assistant | `id`, `key`, `action`, `value` | Acts on the entity `key`. `action` is `press` for a button and `set`, with `value`, for everything else. |
-| `ack` | Client | `id`, `ok`, `error` | Result of the `cmd` or `notify` with that `id`. `error` is a text, present when `ok` is false. |
-| `notify` | Home Assistant | `id`, `title`, `message`, `image`, `actions` | Shows a notification. `image` and `actions`, a list of `{"id", "title"}` buttons, are optional. |
+| `ack` | Client | `id`, `ok`, `error` | Result of the `cmd`, `notify` or `notify_clear` with that `id`. `error` is a text, present when `ok` is false. |
+| `notify` | Home Assistant | `id`, `title`, `message`, `image`, `actions`, `tag`, `priority` | Shows a notification. `image` and `actions`, a list of `{"id", "title"}` buttons, are optional. `tag` and `priority` are [optional too](#notification-tags-and-priorities), and sent only to a client that lists `notify_tag`. |
+| `notify_clear` | Home Assistant | `id`, `tag` | Removes the notification with that tag. Sent only to a client that lists `notify_tag`. |
 | `notify_action` | Client | `action` | A notification button was clicked; `action` is its `id`. Fires `deskmate_link_notify_action`. |
 | `trigger` | Client | `key`, `event` | An event entity fired, for example a hotkey. `event` is `press` when left out. Fires `deskmate_link_trigger`. |
 | `fs` | Home Assistant | `id`, `op` and its arguments | A Link Files request. |
@@ -198,10 +199,10 @@ the session. `p` decrypts to the frame, and its `t` field names the type:
 | `pong` | Either side | none | Answers a `ping`. |
 | `bye` | Client | `reason` | Says why the client is about to close the socket. Sent last, by clients that know the frame. |
 
-Home Assistant numbers `cmd`, `notify`, `fs` and `tv` from one counter per
-computer and matches each answer by its `id`. It waits 10 seconds for an `ack`
-and 15 seconds for an `fs_res` (180 for `put_begin`, which may need a click on
-the computer, and 60 for `put_end`).
+Home Assistant numbers `cmd`, `notify`, `notify_clear`, `fs` and `tv` from one
+counter per computer and matches each answer by its `id`. It waits 10 seconds
+for an `ack` and 15 seconds for an `fs_res` (180 for `put_begin`, which may
+need a click on the computer, and 60 for `put_end`).
 
 The integration ignores a frame type it does not know. Deskmate does the same
 and writes a warning to its log.
@@ -209,7 +210,7 @@ and writes a warning to its log.
 ### `info`
 
 ```json
-{"t": "info", "role": "app", "platform": "windows", "app": "0.9.0"}
+{"t": "info", "role": "app", "platform": "windows", "app": "0.9.0", "features": ["media_player", "notify_tag"]}
 ```
 
 - `role` is `app`, `service` or `daemon`.
@@ -217,12 +218,15 @@ and writes a warning to its log.
 - `app` is the client's version: three numbers separated by dots, optionally
   followed by `-` or `+` and up to 20 letters, digits, dots or hyphens, such as
   `0.9.0-beta.1`.
+- `features` is optional. It lists the optional parts of the protocol that the
+  client implements, out of the names in the table below, and nothing it does
+  not implement.
 
-Home Assistant keeps the three values for the length of the session, shows
-them in the entry's diagnostics, and answers:
+Home Assistant keeps the values for the length of the session, shows them in
+the entry's diagnostics, and answers:
 
 ```json
-{"t": "info", "integration": "0.9.0", "caps": ["info", "scoped_declare", "bye"]}
+{"t": "info", "integration": "0.9.0", "caps": ["info", "scoped_declare", "bye", "media_player", "notify_tag"]}
 ```
 
 `integration` is the version of the integration. `caps` lists the optional
@@ -234,24 +238,39 @@ integration lacks:
 | `info` | the `info` frame |
 | `scoped_declare` | [`declare` with `"scope": "machine"`](#machine-scope) |
 | `bye` | the [`bye`](#bye) frame |
+| `media_player` | the [`media_player`](#media-player-entities) entity kind |
+| `notify_tag` | [tags and priorities of notifications](#notification-tags-and-priorities), and `notify_clear` |
 
 A client sends a machine declaration only to an integration that lists
 `scoped_declare`. An older one reads it as a full declaration and removes
 every entity that it does not name. A `bye` is harmless there: the frame is
-ignored, and the session ends as it does without one.
+ignored, and the session ends as it does without one. A client declares a
+`media_player` entity only to an integration that lists `media_player`.
+
+The names in `features` work the other way round. `media_player` and
+`notify_tag` mean the same as in `caps`, and Home Assistant sends `tag`,
+`priority` and `notify_clear` only to a session that listed `notify_tag`.
+`features` must be a list of at most 16 names, each a lowercase letter
+followed by lowercase letters, digits or underscores, at most 32 characters
+long. Names that the integration does not know are ignored. A list that fails
+the check counts as an empty one: the rest of the `info` still counts, and
+Home Assistant logs a warning without the values it received. A client that
+sends no `features`, or no `info` at all, is treated as one that lists
+nothing.
 
 While the role of the session is `service`, Home Assistant sends it no
-`notify` and no `fs`. The `deskmate_link.notify`, `send_file` and `fetch_file`
-actions and the file requests of the Deskmate page fail at once, with an
-error that says notifications and files need the Deskmate app with a
-signed-in user. The roles `app` and `daemon` are not limited, and neither is
-a client that sends no `info`.
+`notify`, no `notify_clear` and no `fs`. The `deskmate_link.notify`,
+`clear_notification`, `send_file` and `fetch_file` actions and the file
+requests of the Deskmate page fail at once, with an error that says
+notifications and files need the Deskmate app with a signed-in user. The roles
+`app` and `daemon` are not limited, and neither is a client that sends no
+`info`.
 
-An `info` with a missing or invalid value is ignored: it gets no answer and
-changes nothing. Home Assistant logs a warning that names the field, never the
-value it received. Fields other than these three are ignored. A client that
-never sends `info`, such as Deskmate up to 0.8.5, gets no `info` from Home
-Assistant, and nothing else changes for it.
+An `info` with a missing or invalid `role`, `platform` or `app` is ignored: it
+gets no answer and changes nothing. Home Assistant logs a warning that names
+the field, never the value it received. Fields other than these four are
+ignored. A client that never sends `info`, such as Deskmate up to 0.8.5, gets
+no `info` from Home Assistant, and nothing else changes for it.
 
 Deskmate 0.9.0 and newer sends `info` right after `welcome`, before its first
 `declare`, and shows the integration's version on its Status page for as long
@@ -280,6 +299,7 @@ and may add fields that its kind reads:
 | `text` | `icon`, `max`, `mode`, `pattern`, `restore` |
 | `select` | `icon`, `options`, `restore` |
 | `event` | `icon`, `event_types` |
+| `media_player` | `icon`. See [media player entities](#media-player-entities). |
 
 `restore` marks a value that Home Assistant owns: it remembers the last value
 set from its side and sends it again when the computer reports a different
@@ -401,6 +421,80 @@ During the handover window the sensor keeps the state of the session that
 said `bye`. That state, like `sleeping` and `off`, lasts until the next
 session sends `info` or makes the computer available, or until Home Assistant
 restarts. The sensor appears with the computer's first `declare`.
+
+### Media player entities
+
+A client that sees `media_player` in `caps` may declare one entity of that
+kind:
+
+```json
+{"key": "media", "kind": "media_player", "name": "Media"}
+```
+
+Its value in a `state` frame is an object:
+
+```json
+{"t": "state", "s": {"media": {"state": "playing", "title": "Song", "artist": "Band", "app": "Spotify", "volume": 0.5, "muted": false}}}
+```
+
+| Field | Value |
+|---|---|
+| `state` | `playing`, `paused`, `idle` or `off` |
+| `title`, `artist`, `app` | a text of at most 256 characters, or `null` |
+| `volume` | a number from 0 to 1, or `null` |
+| `muted` | `true`, `false` or `null` |
+
+Home Assistant checks each field. A field that fails, such as a longer text,
+a text with control characters or a volume outside 0 to 1, is dropped and
+shows as unknown, while the other fields still count. An object without a
+valid `state`, or a value that is not an object, makes the entity's state
+unknown. Fields other than these are ignored.
+
+The entity offers play, pause, play/pause, next track, previous track, volume
+and mute. Each is a `cmd` with the action `set` and an object as its value:
+
+```json
+{"t": "cmd", "id": 7, "key": "media", "action": "set", "value": {"op": "set_volume", "volume": 0.3}}
+```
+
+| `op` | Other fields |
+|---|---|
+| `play_pause`, `play`, `pause`, `next`, `previous` | none |
+| `set_volume` | `volume`, a number from 0 to 1 |
+| `mute` | `muted`, `true` or `false` |
+
+The client checks the op and its field, and answers with the usual `ack`.
+
+### Notification tags and priorities
+
+To a session that listed `notify_tag` in its `features`, a `notify` may carry
+two more fields:
+
+```json
+{"t": "notify", "id": 8, "title": "Doorbell", "message": "Someone is at the door", "tag": "doorbell", "priority": "urgent"}
+```
+
+- `tag` is 1 to 64 letters, digits, underscores or hyphens. A notification
+  with a tag replaces an earlier one with the same tag.
+- `priority` is `normal`, `high` or `urgent`. A notification without it is
+  `normal`. `urgent` asks Windows to show the notification even while Do not
+  disturb or Focus is on, as far as Windows lets an app do that.
+
+`notify_clear` removes the notification with that tag from the screen and
+from the notification centre:
+
+```json
+{"t": "notify_clear", "id": 9, "tag": "doorbell"}
+```
+
+The client answers with an `ack`. `ok` is true also when no notification had
+that tag.
+
+A session that did not list `notify_tag` gets neither field and no
+`notify_clear`. The `deskmate_link.notify` action leaves `tag` and `priority`
+out of the notification for it, and `deskmate_link.clear_notification` fails
+with an error that says the computer's Deskmate is too old to clear
+notifications.
 
 ### `fs` and `fs_res`
 

@@ -130,6 +130,11 @@ One device per PC, with:
 - **Privacy-sensitive sensors**, off until you enable them on the Sensors page:
   active window title, Wi-Fi name, what is playing, camera in use, microphone
   in use.
+- **Media player**: with a Deskmate that supports it, a *Media* entity shows
+  what the PC is playing (state, title, artist, app, volume and mute) and has
+  play/pause, next, previous, volume and mute controls that work in any media
+  card. It reveals what you play, so it stays off until you turn it on in
+  Deskmate.
 - **Connection**: a diagnostic sensor that Home Assistant adds itself. It says
   what is connected for this PC (*App*, *Service*, *Daemon*, or *Connected*
   for a Deskmate that does not say what it is) and, when nothing is, whether
@@ -208,6 +213,26 @@ actions:
 Images are downloaded by the PC, so their address must be allowed under
 Settings → **Allowed URL origins**. Addresses entered under Settings → Home
 Assistant API are allowed automatically.
+
+Two optional fields need a Deskmate that supports them. `tag` names a
+notification (letters, digits, `_` and `-`, up to 64): a new notification with
+the same tag replaces the old one, so a doorbell that rings twice shows one
+notification. `priority` is `normal` (the default), `high` or `urgent`;
+`urgent` asks Windows to show the notification even while Do not disturb is
+on, as far as Windows allows it. An older Deskmate shows the notification
+without them.
+
+`deskmate_link.clear_notification` removes a tagged notification from the
+screen and from the notification centre, for example once the door is open:
+
+```yaml
+action: deskmate_link.clear_notification
+data:
+  tag: doorbell
+```
+
+Like `notify`, it goes to every paired PC unless you set `node_id`. It fails
+for a PC whose Deskmate is too old to clear notifications.
 
 ## 6. Controlling the PC
 
