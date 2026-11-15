@@ -12,8 +12,9 @@ use tokio::sync::{mpsc, watch};
 use tokio_tungstenite::tungstenite::Message;
 use zeroize::Zeroizing;
 
+use deskmate_core::link::media::declares_media_player;
 use deskmate_core::link::{
-    auth_retry_delay, classify_connect_error, client_handshake, info_frame, parse_info,
+    auth_retry_delay, classify_connect_error, client_handshake, feature, info_frame, parse_info,
     state_frame, ClientPlatform, ClientRole, HubInfo, LinkError, LinkFailure, SessionCodecs,
     PING_INTERVAL,
 };
@@ -26,6 +27,10 @@ use deskmate_service::runner::bye_frame;
 
 /// Longest wait for the `bye` frame and for the close after it.
 const FAREWELL_SEND: Duration = Duration::from_secs(1);
+
+/// The optional protocol features that this app implements, for its `info`
+/// frame. Home Assistant uses a feature only with a session that lists it.
+const APP_FEATURES: &[&str] = &[feature::MEDIA_PLAYER];
 
 pub async fn restart(app: AppHandle) {
     let state = app.state::<AppState>();
@@ -217,6 +222,7 @@ pub async fn restart(app: AppHandle) {
                 collector = Some(returned);
                 crate::transport::update_hardware_defs(&app_sensors, hardware_defs).await;
                 crate::transport::publish_states(&app_sensors, &values).await;
+                crate::media_player::publish(&app_sensors, false).await;
                 secs
             };
             tokio::select! {
@@ -248,7 +254,11 @@ async fn run_session(
     // channel. An integration older than 0.9.0 ignores it and never answers.
     app.state::<AppState>().set_link_info(None);
     out_tx
-        .send(info_frame(ClientRole::App, ClientPlatform::Windows))
+        .send(info_frame(
+            ClientRole::App,
+            ClientPlatform::Windows,
+            APP_FEATURES,
+        ))
         .map_err(|e| e.to_string())?;
     *app.state::<AppState>().link_tx.lock().await = Some(out_tx.clone());
     let (farewell_tx, mut farewell_rx) = mpsc::unbounded_channel::<Farewell>();
@@ -259,8 +269,14 @@ async fn run_session(
         .lock()
         .await
         .clone();
+    // Home Assistant has not answered `info` yet, so nothing that needs a
+    // cap is declared here; the answer brings a new declaration if it does.
     out_tx
-        .send(crate::discovery::build_link_declare(cfg, &hardware_defs))
+        .send(crate::discovery::build_link_declare(
+            cfg,
+            &hardware_defs,
+            None,
+        ))
         .map_err(|e| e.to_string())?;
     let cached = app.state::<AppState>().sensor_values.lock().await.clone();
     if !cached.is_empty() {
@@ -410,8 +426,18 @@ async fn remember_hub_info(app: &AppHandle, info: HubInfo) {
         status.integration = Some(info.integration.clone());
         status.clone()
     };
+    let media_player = declares_media_player(&*state.config.lock().await, Some(&info));
     state.set_link_info(Some(info));
     let _ = app.emit("deskmate://status", status);
+    if media_player {
+        // The first declaration went out before this answer and could not
+        // include the media player. Its own task: the declaration reads the
+        // media session, and the session loop must not wait for that.
+        let app = app.clone();
+        tauri::async_runtime::spawn(async move {
+            crate::transport::refresh_entities(&app).await;
+        });
+    }
 }
 
 async fn handle_file_request(app: AppHandle, tx: mpsc::UnboundedSender<Value>, payload: Value) {
@@ -472,5 +498,16 @@ pub async fn publish_states_network(app: &AppHandle, values: &HashMap<String, St
         values.len()
     } else {
         0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_app_announces_exactly_what_it_implements() {
+        let frame = info_frame(ClientRole::App, ClientPlatform::Windows, APP_FEATURES);
+        assert_eq!(frame["features"], json!(["media_player"]));
     }
 }

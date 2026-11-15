@@ -198,11 +198,15 @@ pub async fn refresh_entities(app: &AppHandle) {
     let cfg = state.config.lock().await.clone();
     let hardware_defs = state.hardware_sensor_defs.lock().await.clone();
     if cfg.transport == "link" {
+        let hub = state.link_info();
         crate::link::send(
             app,
-            crate::discovery::build_link_declare(&cfg, &hardware_defs),
+            crate::discovery::build_link_declare(&cfg, &hardware_defs, hub.as_ref()),
         )
         .await;
+        // A media player declared again, or for the first time, needs its
+        // state at once, not after the next change.
+        crate::media_player::publish(app, true).await;
     } else if let Some(client) = state.client.lock().await.clone() {
         for (topic, payload) in crate::discovery::build_all(&cfg, &hardware_defs) {
             let _ = client
@@ -240,6 +244,10 @@ pub async fn handle_command(
 ) -> Result<(), String> {
     if key.is_empty() || !matches!(action, "press" | "set") {
         return Err("invalid command envelope".into());
+    }
+    if key == deskmate_core::link::media::MEDIA_KEY {
+        log::info!("command from HA: {key}");
+        return crate::media_player::handle_command(app, action, value).await;
     }
     let payload = payload_string(value);
     log::info!("command from HA: {key}");

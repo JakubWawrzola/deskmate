@@ -91,16 +91,32 @@ impl ClientPlatform {
     }
 }
 
+/// Optional protocol features a client can name in the `features` field of
+/// its `info` frame. Each name is also the `caps` item with which Home
+/// Assistant announces that it understands the same feature.
+pub mod feature {
+    /// The `media_player` entity kind and its commands.
+    pub const MEDIA_PLAYER: &str = "media_player";
+    /// `tag` and `priority` on `notify`, and the `notify_clear` frame.
+    pub const NOTIFY_TAG: &str = "notify_tag";
+}
+
 /// The `info` frame: what this client is. A client sends it right after
 /// `welcome`, before `declare`. An integration older than 0.9.0 does not know
-/// the frame, ignores it and never answers.
-pub fn info_frame(role: ClientRole, platform: ClientPlatform) -> Value {
-    json!({
+/// the frame, ignores it and never answers. `features` lists the optional
+/// parts of the protocol that this client implements; an empty list leaves
+/// the field out, so the frame stays what older clients sent.
+pub fn info_frame(role: ClientRole, platform: ClientPlatform, features: &[&str]) -> Value {
+    let mut frame = json!({
         "t": "info",
         "role": role.as_str(),
         "platform": platform.as_str(),
         "app": env!("CARGO_PKG_VERSION"),
-    })
+    });
+    if !features.is_empty() {
+        frame["features"] = json!(features);
+    }
+    frame
 }
 
 const MAX_VERSION_CHARS: usize = 40;
@@ -230,7 +246,7 @@ mod tests {
     #[test]
     fn info_frame_says_what_the_client_is() {
         assert_eq!(
-            info_frame(ClientRole::App, ClientPlatform::Windows),
+            info_frame(ClientRole::App, ClientPlatform::Windows, &[]),
             json!({
                 "t": "info",
                 "role": "app",
@@ -238,11 +254,26 @@ mod tests {
                 "app": env!("CARGO_PKG_VERSION"),
             })
         );
-        let service = info_frame(ClientRole::Service, ClientPlatform::Windows);
+        let service = info_frame(ClientRole::Service, ClientPlatform::Windows, &[]);
         assert_eq!(service["role"], "service");
-        let daemon = info_frame(ClientRole::Daemon, ClientPlatform::Linux);
+        assert!(service.get("features").is_none());
+        let daemon = info_frame(ClientRole::Daemon, ClientPlatform::Linux, &[]);
         assert_eq!(daemon["role"], "daemon");
         assert_eq!(daemon["platform"], "linux");
+    }
+
+    #[test]
+    fn info_frame_lists_the_features_it_is_given() {
+        let frame = info_frame(
+            ClientRole::App,
+            ClientPlatform::Windows,
+            &[feature::MEDIA_PLAYER, feature::NOTIFY_TAG],
+        );
+        assert_eq!(frame["features"], json!(["media_player", "notify_tag"]));
+        // The integration accepts the names only in the form of a cap.
+        assert!([feature::MEDIA_PLAYER, feature::NOTIFY_TAG]
+            .iter()
+            .all(|name| is_cap(name)));
     }
 
     /// The integration ignores an `info` whose version it cannot read: three

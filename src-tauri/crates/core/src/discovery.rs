@@ -36,6 +36,9 @@ pub struct SessionEntities {
     pub family: Vec<Value>,
     /// Every family entity as (component, key), for removing them over MQTT.
     pub family_keys: &'static [(&'static str, &'static str)],
+    /// Whether a Link declaration includes the media player: see
+    /// `link::media::declares_media_player`. MQTT has no such entity.
+    pub media_player: bool,
 }
 
 impl SessionEntities {
@@ -555,6 +558,9 @@ pub fn build_link_declare(
         json!({"key": "mic_mute", "kind": "switch", "name": "Mute microphone", "icon": "mdi:microphone-off"}),
     );
     entities.extend(session.family.iter().cloned());
+    if session.media_player {
+        entities.push(crate::link::media::media_entity());
+    }
     for hotkey in &cfg.hotkeys {
         let display_name = if hotkey.name.is_empty() {
             &hotkey.id
@@ -784,6 +790,28 @@ mod tests {
         assert_eq!(event["kind"], "event");
         assert_eq!(event["name"], "hotkey: Desk lamp");
         assert_eq!(event["event_types"], json!(["press"]));
+    }
+
+    #[test]
+    fn the_media_player_is_declared_only_when_the_session_says_so() {
+        let cfg = AppConfig::default();
+        assert!(descriptor(&entities(&cfg), "media").is_none());
+        let session = SessionEntities {
+            media_player: true,
+            ..SessionEntities::default()
+        };
+        let declared = build_link_declare(&cfg, &[], &session)["entities"]
+            .as_array()
+            .unwrap()
+            .clone();
+        assert_eq!(
+            descriptor(&declared, "media"),
+            Some(&json!({"key": "media", "kind": "media_player", "name": "Media"}))
+        );
+        // MQTT has no media player.
+        assert!(build_all(&cfg, &[], &session)
+            .iter()
+            .all(|(topic, _)| !topic.contains("/media_player/")));
     }
 
     #[test]

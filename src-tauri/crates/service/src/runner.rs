@@ -639,7 +639,7 @@ impl<C: Connector> Runner<C> {
         cfg: &AppConfig,
     ) -> (Outcome, Option<Ack>) {
         let node = setup.config.node_id.as_str();
-        if let Err(error) = link.send(&info_frame(self.role, self.platform)).await {
+        if let Err(error) = link.send(&info_frame(self.role, self.platform, &[])).await {
             return (Outcome::Failed(error), None);
         }
         // None until Home Assistant has announced scoped declarations.

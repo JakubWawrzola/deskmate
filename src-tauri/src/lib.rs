@@ -17,6 +17,7 @@ mod link;
 mod link_files;
 mod media;
 mod media_activity;
+mod media_player;
 mod mqtt;
 mod notify;
 mod power_events;
