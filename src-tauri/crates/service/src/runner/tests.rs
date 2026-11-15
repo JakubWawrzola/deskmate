@@ -17,6 +17,7 @@ const REMOTE: &str = "wss://example.com/api/deskmate_link/ws";
 const ALL_CAPS: [&str; 3] = ["info", "scoped_declare", "bye"];
 /// Longer than any wait in the runner: reaching it means nothing came.
 const NOTHING_CAME: Duration = Duration::from_secs(3 * 60 * 60);
+const UNSUPPORTED: &str = SERVICE_WORDING.unsupported;
 
 /// What the stand-in hub and the seat saw, in order.
 #[derive(Debug, PartialEq)]
@@ -277,6 +278,23 @@ impl Rig {
 
     /// Like `start`; `prepare` runs before the runner does.
     fn start_with(stored: Stored, answer: Option<Value>, prepare: impl FnOnce(&Rig)) -> Self {
+        Self::start_as(
+            ClientRole::Service,
+            ClientPlatform::Windows,
+            stored,
+            answer,
+            prepare,
+        )
+    }
+
+    /// Like `start_with`, for a client of this role on this platform.
+    fn start_as(
+        role: ClientRole,
+        platform: ClientPlatform,
+        stored: Stored,
+        answer: Option<Value>,
+        prepare: impl FnOnce(&Rig),
+    ) -> Self {
         let (seen_tx, seen) = mpsc::unbounded_channel();
         let hub = Arc::new(Hub {
             seen: seen_tx.clone(),
@@ -311,8 +329,8 @@ impl Rig {
                 telemetry: Arc::new(move || {
                     Box::new(FakeTelemetry(Arc::clone(&for_factory))) as Box<dyn Telemetry>
                 }),
-                role: ClientRole::Service,
-                platform: ClientPlatform::Windows,
+                role,
+                platform,
             },
             events_rx,
         );
@@ -499,9 +517,15 @@ async fn says_info_first_and_declares_only_after_the_hub_announced_scoped_declar
         .iter()
         .map(|entity| entity["key"].as_str().unwrap())
         .collect();
-    for key in ["cpu", "uptime", "sleep", "hibernate", "shutdown", "restart"] {
+    for key in ["cpu", "uptime", "sleep", "shutdown", "restart"] {
         assert!(keys.contains(&key), "{key}");
     }
+    // Declared where the computer can hibernate, which on Linux depends on
+    // the machine the tests run on.
+    assert_eq!(
+        keys.contains(&"hibernate"),
+        machine::Offered::detect().hibernate
+    );
     assert!(!keys.contains(&"lock"), "nothing of a user's session");
     assert_eq!(
         rig.frame("state").await,
@@ -1132,4 +1156,80 @@ fn an_ack_tells_its_waiter_when_it_is_dropped() {
     let (ack, waiter) = Ack::pair();
     assert!(!waiter.wait(Duration::from_millis(10)));
     drop(ack);
+}
+
+// ---- the Linux daemon ----
+
+#[tokio::test(start_paused = true)]
+async fn the_daemon_says_what_it_is_and_names_itself_in_its_refusals() {
+    let mut rig = Rig::start_as(
+        ClientRole::Daemon,
+        ClientPlatform::Linux,
+        Stored::Config(config("test_pc", false)),
+        Some(hub_info(&ALL_CAPS)),
+        |_| {},
+    );
+    let session = rig.session_opens().await;
+    assert_eq!(
+        rig.frame("info").await,
+        json!({
+            "t": "info",
+            "role": "daemon",
+            "platform": "linux",
+            "app": env!("CARGO_PKG_VERSION"),
+        })
+    );
+    assert_eq!(rig.frame("declare").await["scope"], "machine");
+    rig.frame("state").await;
+
+    let refusal = "not supported by the Deskmate daemon";
+    rig.hub_sends(
+        session,
+        json!({"t": "notify", "id": 3, "title": "Hello", "message": "there"}),
+    );
+    assert_eq!(
+        rig.frame("ack").await,
+        json!({"t": "ack", "id": 3, "ok": false, "error": refusal})
+    );
+    rig.hub_sends(session, json!({"t": "fs", "id": 4, "op": "roots"}));
+    assert_eq!(
+        rig.frame("fs_res").await,
+        json!({"t": "fs_res", "id": 4, "ok": false, "error": refusal})
+    );
+    let ack = rig.command(session, 5, "lock", "press").await;
+    assert_eq!(ack["error"], refusal);
+    let ack = rig.command(session, 6, "restart", "press").await;
+    assert_eq!(ack, json!({"t": "ack", "id": 6, "ok": true}));
+    assert_eq!(rig.commands_run(), ["restart"]);
+}
+
+#[tokio::test(start_paused = true)]
+async fn the_daemon_tells_how_to_pair_it() {
+    let mut rig = Rig::start_as(
+        ClientRole::Daemon,
+        ClientPlatform::Linux,
+        Stored::Nothing,
+        None,
+        |_| {},
+    );
+    let status = rig.state_becomes(State::NotProvisioned).await;
+    assert!(
+        status.detail.contains("sudo deskmate-service pair"),
+        "{}",
+        status.detail
+    );
+
+    rig.hub
+        .refusals
+        .lock()
+        .unwrap()
+        .push_back(refusal(LinkFailure::Auth));
+    rig.store(Stored::Config(config("test_pc", false)));
+    rig.event(Event::Reload);
+    let status = rig.state_becomes(State::Error).await;
+    assert!(
+        status.detail.contains("Pair the daemon again"),
+        "{}",
+        status.detail
+    );
 }

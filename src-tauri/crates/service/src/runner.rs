@@ -59,7 +59,37 @@ const INVALID_RECHECK: Duration = Duration::from_secs(60);
 const FAREWELL_TIMEOUT: Duration = Duration::from_secs(1);
 
 const WAITING_FOR_APP: &str = "The Deskmate app holds the connection.";
-const UNSUPPORTED: &str = "not available from the Deskmate service";
+
+/// The texts that name the program and how it is set up: the Windows service
+/// is set up from the Deskmate app, the Linux daemon from its command line.
+struct Wording {
+    /// The `error` of a refused request that only an app can serve.
+    unsupported: &'static str,
+    not_provisioned: &'static str,
+    rejected: &'static str,
+    too_old: &'static str,
+}
+
+const SERVICE_WORDING: Wording = Wording {
+    unsupported: "not available from the Deskmate service",
+    not_provisioned: "The service has no settings yet. Set it up from the Deskmate app.",
+    rejected: "Home Assistant rejected the pairing. Set the service up again from the Deskmate app.",
+    too_old: "The Deskmate integration in Home Assistant is older than 0.9.0. Update it; the service looks again every hour.",
+};
+
+const DAEMON_WORDING: Wording = Wording {
+    unsupported: "not supported by the Deskmate daemon",
+    not_provisioned: "The daemon is not paired yet. Pair it with: sudo deskmate-service pair",
+    rejected: "Home Assistant rejected the pairing. Pair the daemon again with: sudo deskmate-service pair",
+    too_old: "The Deskmate integration in Home Assistant is older than 0.9.0. Update it; the daemon looks again every hour.",
+};
+
+fn wording(role: ClientRole) -> &'static Wording {
+    match role {
+        ClientRole::Daemon => &DAEMON_WORDING,
+        ClientRole::Service | ClientRole::App => &SERVICE_WORDING,
+    }
+}
 
 /// Held by whoever sent an event and wants to know when the runner has acted
 /// on it. The runner drops it at that moment.
@@ -262,6 +292,14 @@ fn ack_frame(id: Value, result: Result<(), String>) -> Value {
     ack
 }
 
+/// The status of a client of this role that has no settings.
+fn not_provisioned(role: ClientRole) -> Status {
+    Status {
+        detail: wording(role).not_provisioned.into(),
+        ..Status::not_provisioned()
+    }
+}
+
 fn frame_id(frame: &Value) -> Value {
     frame.get("id").cloned().unwrap_or(Value::Null)
 }
@@ -270,7 +308,7 @@ impl<C: Connector> Runner<C> {
     /// A runner that takes its events from `events`, and where to read its
     /// status.
     pub fn new(parts: Parts<C>, events: EventReceiver) -> (Self, watch::Receiver<Status>) {
-        let (status, status_rx) = watch::channel(Status::not_provisioned());
+        let (status, status_rx) = watch::channel(not_provisioned(parts.role));
         let runner = Self {
             connector: Arc::new(parts.connector),
             seat: parts.seat,
@@ -296,7 +334,7 @@ impl<C: Connector> Runner<C> {
         loop {
             let exit = match self.source.load() {
                 Provisioning::NotProvisioned => {
-                    self.set_status(Status::not_provisioned());
+                    self.set_status(not_provisioned(self.role));
                     self.idle(None).await
                 }
                 Provisioning::Invalid(detail) => {
@@ -412,21 +450,14 @@ impl<C: Connector> Runner<C> {
                     // Nothing is connected for the next hour, so an app may
                     // as well have the seat.
                     self.seat.release(node);
-                    self.report(
-                        setup,
-                        State::IntegrationTooOld,
-                        "The Deskmate integration in Home Assistant is older than 0.9.0. Update it; the service looks again every hour.",
-                    );
+                    self.report(setup, State::IntegrationTooOld, wording(self.role).too_old);
                     Pause::For(TOO_OLD_RETRY)
                 }
                 Outcome::Failed(error) => {
                     let label = retry.label();
                     let delay = retry.on_failure(error.kind);
                     let (state, detail) = match error.kind {
-                        LinkFailure::Auth => (
-                            State::Error,
-                            "Home Assistant rejected the pairing. Set the service up again from the Deskmate app.",
-                        ),
+                        LinkFailure::Auth => (State::Error, wording(self.role).rejected),
                         LinkFailure::Locked => (
                             State::Error,
                             "Home Assistant is refusing this computer after repeated failed attempts. That clears by itself within five minutes.",
@@ -795,12 +826,15 @@ impl<C: Connector> Runner<C> {
             }
             // Requests that only an app in a user's session can serve. Home
             // Assistant gets an answer at once and does not wait for a timeout.
-            Some("notify") => Reaction::Reply(ack_frame(frame_id(frame), Err(UNSUPPORTED.into()))),
+            Some("notify") => Reaction::Reply(ack_frame(
+                frame_id(frame),
+                Err(wording(self.role).unsupported.into()),
+            )),
             Some(kind @ ("fs" | "tv")) => Reaction::Reply(json!({
                 "t": format!("{kind}_res"),
                 "id": frame_id(frame),
                 "ok": false,
-                "error": UNSUPPORTED,
+                "error": wording(self.role).unsupported,
             })),
             _ => {
                 log::warn!("ignoring a frame of an unknown type");
@@ -819,7 +853,7 @@ impl<C: Connector> Runner<C> {
         else {
             self.audit
                 .record("power_command", "result=refused_not_a_power_command");
-            return Err(UNSUPPORTED.into());
+            return Err(wording(self.role).unsupported.into());
         };
         if action != "press" {
             self.audit
