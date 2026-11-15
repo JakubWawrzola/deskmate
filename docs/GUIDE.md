@@ -236,6 +236,10 @@ that is off, or whose Deskmate is too old to clear notifications, does not
 stop the others: every PC is tried, and the action then fails with an error
 that names each PC it could not clear and why.
 
+Windows asks you once whether to allow important notifications from
+Deskmate, and the choice stays yours under *Settings → System →
+Notifications*.
+
 ## 6. Controlling the PC
 
 Besides the built-in buttons:

@@ -498,6 +498,64 @@ notifications. Without `node_id`, the action still sends `notify_clear` to
 every other computer before it fails, and the error names each computer that
 was not cleared.
 
+### Media player and notification tags in Deskmate for Windows
+
+The Windows app lists `"features": ["media_player", "notify_tag"]` in its
+`info`. The Windows service and the Linux daemon list no features and send
+no `features` field.
+
+**Media player.** The first `declare` of a session goes out before Home
+Assistant answers `info`, so it never holds the media player. When the
+answer lists `media_player` and at least one of the media sensors (title,
+artist, app, status) is on, Deskmate sends a new full declaration with
+`{"key": "media", "kind": "media_player", "name": "Media"}` and then the
+state object at once. It reads the object on every publish interval and
+sends it in a `state` frame of its own when any field has changed, and again
+right after each command:
+
+```json
+{"t": "state", "s": {"media": {"state": "playing", "title": "Song",
+  "artist": "Band", "app": "Spotify.exe", "volume": 0.4, "muted": false}}}
+```
+
+- `title`, `artist` and `app` are null while their media sensor is off, and
+  when the text is empty. A longer text is cut to 256 characters.
+- `state` comes from the Windows media session: `playing` and `paused` as
+  they are, `idle` for a session that is stopped, opening or changing tracks,
+  `off` for a closed session or none at all.
+- `volume` and `muted` are the default output device, the same values as the
+  *Volume* control and the *Mute audio* switch.
+
+A `cmd` for `media` must have the action `set` and a `value` object whose
+`op` is one of the seven names. `set_volume` needs a `volume` from 0 to 1,
+`mute` a boolean `muted`; other fields are ignored. Anything else, and any
+command while the media player is not declared, gets `ok: false`. `play` and
+`pause` use the media session's own play and pause, `play_pause`, `next` and
+`previous` the same actions as the media buttons, `set_volume` and `mute`
+those of the volume control and the mute switch, whose states are sent again
+too.
+
+**Notification tags.** Deskmate reads `tag` and `priority` on every
+`notify`. A missing or null field means no tag and normal priority. A tag
+that does not match `^[A-Za-z0-9_-]{1,64}$`, or a priority other than
+`normal`, `high` or `urgent`, refuses the whole notification with
+`{"ok": false, "error": "invalid notification tag"}` (or `priority`), and
+nothing is shown.
+
+- A tag becomes the toast's Tag, with the Group `home_assistant`, so Windows
+  replaces the earlier toast with that tag. The Notifications page of the
+  window shows one entry per tag as well.
+- `high` and `urgent` set the toast's priority to High. `urgent` also adds
+  `scenario="urgent"` (an important notification, which may show during Do
+  Not Disturb) on Windows build 22546 and newer. Windows asks the user once
+  whether to allow important notifications from Deskmate.
+- `{"t": "notify_clear", "id": 7, "tag": "door"}` hides the toast if it is
+  still on screen and removes it from the notification centre with
+  `ToastNotificationHistory` by tag, group and app ID. The `ack` is `ok: true`
+  also when no notification had the tag, and `ok: false` with
+  `invalid notification tag` for a bad tag. The audit log records
+  `notification_clear` and its result, never the tag.
+
 ### `fs` and `fs_res`
 
 | `op` | Arguments | Result in `fs_res` |
