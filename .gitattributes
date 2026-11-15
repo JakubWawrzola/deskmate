@@ -8,3 +8,7 @@
 
 # Signed PawnIO modules: byte-exact, never line-ending converted
 src-tauri/pawnio/*.bin binary
+
+# Libraries shipped unmodified with the Stream Deck plugin, and their
+# licences: byte-exact, so that a test can hold them to a checksum
+streamdeck-plugin/com.deskmate.streamdeck.sdPlugin/ui/vendor/* -text

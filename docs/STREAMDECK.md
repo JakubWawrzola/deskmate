@@ -157,9 +157,10 @@ status line in its settings.
 | This plugin and the Deskmate app use different versions of their connection. | Update Deskmate and the plugin. |
 | Connected through the Deskmate app. / Using a direct connection to Home Assistant. | The connection is fine, so look at the key: the entity, service or scene may be misspelled or gone from Home Assistant, the data may not be a JSON object, or the Deskmate action may have been deleted. |
 
-**The settings of a key are empty.** The settings panel loads Elgato's form
-components from `sdpi-components.dev`. Without internet access the panel stays
-empty. Keys that are already set up keep working.
+**The settings of a key are empty.** The plugin's folder is incomplete.
+Install the plugin again from Deskmate (Settings, **Stream Deck**) and restart
+Stream Deck. Keys that are already set up keep working. The settings panel
+needs no internet access: its form components ship with the plugin.
 
 **The Pick list does not appear.** It is shown only when the connection in use
 returned at least one matching entity. Check the status line, then click the

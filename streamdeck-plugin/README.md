@@ -49,6 +49,7 @@ com.deskmate.streamdeck.sdPlugin/
 │   └── package.json   written by the build: marks the bundle as an ES module
 ├── imgs/              icons, in the repository
 └── ui/                property inspectors and their script and stylesheet, in the repository
+    └── vendor/        Elgato's sdpi-components and its licences, in the repository
 ```
 
 The three written files are ignored by git. `logs/` appears next to them once
@@ -65,7 +66,8 @@ copy.
 `scripts/check-bundle.mjs` runs at the end of every build:
 
 1. Every file the manifest and the property inspectors point at is in the
-   folder.
+   folder, and no property inspector loads a script or a stylesheet from
+   another address.
 2. The bundle is started the way Stream Deck starts it, against stand-ins that
    run on this computer: a WebSocket server in place of the Stream Deck app, a
    pipe in place of the Deskmate app's local channel, and an HTTP and
@@ -145,5 +147,21 @@ streamdeck link com.deskmate.streamdeck.sdPlugin
 streamdeck restart com.deskmate.streamdeck
 ```
 
-The property inspectors load Elgato's `sdpi-components` from
-`sdpi-components.dev`, like Elgato's plugin template does.
+## The property inspector library
+
+The property inspectors are built from Elgato's
+[sdpi-components](https://github.com/GeekyEggo/sdpi-components). Elgato's
+plugin template loads that script from `sdpi-components.dev` every time a
+settings panel opens. This plugin ships a copy instead,
+`ui/vendor/sdpi-components.js`, and loads nothing from the network: a script
+in a property inspector can read the plugin's settings, and one of them is the
+Home Assistant token.
+
+The copy is release 4.0.1, the file `dist/sdpi-components.js` of the tag
+`v4.0.1`, unmodified. It is MIT-licensed and contains Lit, which is
+BSD-3-Clause; both licence texts are next to it. `test/inspector-pages.test.ts`
+holds the file to its SHA-256 and the pages to local files only.
+
+To move to another release, replace the file, the licence texts if they
+changed, and the version and checksum in that test, in one commit. Read the
+diff of the release first: the file runs with access to the settings.

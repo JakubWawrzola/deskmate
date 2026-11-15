@@ -11,7 +11,8 @@
       "test/**",
       "scripts/**",
       "rollup.config.mjs",
-      "com.deskmate.streamdeck.sdPlugin/ui/**/*.js"
+      "com.deskmate.streamdeck.sdPlugin/ui/**/*.js",
+      "!com.deskmate.streamdeck.sdPlugin/ui/vendor"
     ]
   },
   "formatter": {

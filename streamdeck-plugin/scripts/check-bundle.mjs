@@ -50,7 +50,12 @@ function imageFiles(image) {
   return [`${image}.png`, `${image}@2x.png`];
 }
 
-/** Local scripts and stylesheets a property inspector loads, relative to the plugin folder. */
+/**
+ * Scripts and stylesheets a property inspector loads, relative to the plugin
+ * folder. All of them ship with the plugin: a page that loads one from
+ * another address fails the check, because a script from the network could
+ * read the plugin's settings, the Home Assistant token among them.
+ */
 function inspectorAssets(page) {
   const pagePath = join(pluginDir, page);
   if (!existsSync(pagePath)) {
@@ -59,9 +64,10 @@ function inspectorAssets(page) {
   const html = readFileSync(pagePath, "utf8");
   const assets = [];
   for (const match of html.matchAll(/(?:src|href)="([^"]+)"/g)) {
-    if (!/^[a-z]+:/i.test(match[1])) {
-      assets.push(join(dirname(page), match[1]));
+    if (/^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(match[1])) {
+      fail(`${page} loads ${match[1]}, which is not a file of the plugin`);
     }
+    assets.push(join(dirname(page), match[1]));
   }
   return assets;
 }
