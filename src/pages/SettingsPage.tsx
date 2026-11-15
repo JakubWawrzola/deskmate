@@ -5,6 +5,7 @@ import { parsePairingCode } from "../pairing";
 import { applyTheme } from "../theme";
 import type { AppConfig, MqttTransport, ThemeMode, TransportKind, UpdateMode } from "../types";
 import CpuTemperaturePanel from "./CpuTemperaturePanel";
+import ServicePanel from "./ServicePanel";
 import StreamDeckPanel from "./StreamDeckPanel";
 
 const UPDATE_MODES: { value: UpdateMode; label: string; hint: string }[] = [
@@ -376,6 +377,7 @@ export default function SettingsPage({
 
       <CpuTemperaturePanel />
 
+      <ServicePanel />
       <StreamDeckPanel />
 
       <Panel title="Home Assistant dashboard">

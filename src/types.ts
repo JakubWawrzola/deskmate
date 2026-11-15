@@ -282,3 +282,37 @@ export interface UpdateInfo {
   /** installs itself once the computer is idle */
   auto_install: boolean;
 }
+
+/** Settings > Deskmate service (service/view.rs). */
+export type ServicePhase =
+  | "not_installed"
+  | "not_answering"
+  | "running"
+  | "needs_update"
+  | "settings_differ"
+  | "integration_too_old"
+  | "error";
+
+export type ServiceActivity = "connected" | "waiting" | "connecting";
+
+export type ServiceSetupAction = "install" | "update" | "apply";
+
+export interface ServiceView {
+  phase: ServicePhase;
+  activity: ServiceActivity | null;
+  /** the service's own short text, or the app's */
+  detail: string;
+  running_version: string | null;
+  bundled_version: string;
+  /** the copy in this app is newer than the one that runs */
+  needs_update: boolean;
+  /** the service holds other settings or keys than the app, or none */
+  settings_differ: boolean;
+  /** the running service is newer than the copy in this app */
+  newer_than_app: boolean;
+  install_blocked: string | null;
+  apply_blocked: string | null;
+  update_blocked: string | null;
+  /** the service waits because the user pressed Disconnect */
+  paused_by_user: boolean;
+}
