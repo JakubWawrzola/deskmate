@@ -1,33 +1,57 @@
-import streamDeck, { action, type KeyDownEvent, SingletonAction } from "@elgato/streamdeck";
-import { haClient } from "../ha-client.ts";
+import {
+  action,
+  type KeyDownEvent,
+  SingletonAction,
+  type WillAppearEvent,
+  type WillDisappearEvent,
+} from "@elgato/streamdeck";
+import type { ConnectionHub } from "../connection/hub.ts";
+import { errorCode } from "../errors.ts";
+import { parseSceneId } from "../ha-ids.ts";
+import { ACTION_UUID } from "../plugin-info.ts";
+import { type ActionLog, VisibleKeys } from "./shared.ts";
 
-/** Action settings (per key). */
+/** Per-key settings. */
 type SceneSettings = {
-  /** Scene entity, e.g. "scene.film". A bare suffix ("film") also works. */
+  /** The scene entity, `scene.movie`; the part after the dot works too. */
   sceneId?: string;
 };
 
-const logger = streamDeck.logger.createScope("activate-scene");
+const SCENE_SERVICE = "scene.turn_on";
 
-/**
- * Activate Scene — key press calls scene.turn_on on the configured scene.
- */
-@action({ UUID: "com.deskmate.streamdeck.scene" })
+/** Activate Scene: a press turns the scene on. */
+@action({ UUID: ACTION_UUID.activateScene })
 export class ActivateScene extends SingletonAction<SceneSettings> {
+  private readonly hub: ConnectionHub;
+  private readonly log: ActionLog;
+  private readonly keys: VisibleKeys;
+
+  constructor(hub: ConnectionHub, log: ActionLog) {
+    super();
+    this.hub = hub;
+    this.log = log;
+    this.keys = new VisibleKeys(() => hub.retain("homeAssistant"));
+  }
+
+  override onWillAppear(ev: WillAppearEvent<SceneSettings>): void {
+    this.keys.appeared(ev.action.id);
+  }
+
+  override onWillDisappear(ev: WillDisappearEvent<SceneSettings>): void {
+    this.keys.disappeared(ev.action.id);
+  }
+
   override async onKeyDown(ev: KeyDownEvent<SceneSettings>): Promise<void> {
-    let sceneId = ev.payload.settings.sceneId?.trim();
-    if (!sceneId || !haClient.isConfigured) {
+    const sceneId = parseSceneId(ev.payload.settings.sceneId);
+    if (!sceneId) {
       await ev.action.showAlert();
       return;
     }
-    if (!sceneId.includes(".")) {
-      sceneId = `scene.${sceneId}`;
-    }
     try {
-      await haClient.callService("scene", "turn_on", { entity_id: sceneId });
+      await this.hub.callService({ service: SCENE_SERVICE, entityId: sceneId, data: undefined });
       await ev.action.showOk();
-    } catch (err) {
-      logger.error(`Scene ${sceneId} failed: ${err instanceof Error ? err.message : String(err)}`);
+    } catch (error) {
+      this.log.error(`Activating a scene failed: ${errorCode(error)}`);
       await ev.action.showAlert();
     }
   }

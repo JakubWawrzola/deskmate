@@ -1,4 +1,5 @@
-import streamDeck, {
+import {
+  type Action,
   action,
   type DidReceiveSettingsEvent,
   type KeyDownEvent,
@@ -6,82 +7,97 @@ import streamDeck, {
   type WillAppearEvent,
   type WillDisappearEvent,
 } from "@elgato/streamdeck";
-import { type HaEntityState, haClient } from "../ha-client.ts";
+import type { ConnectionHub } from "../connection/hub.ts";
+import { errorCode } from "../errors.ts";
+import { parseEntityId } from "../ha-ids.ts";
+import { ACTION_UUID } from "../plugin-info.ts";
+import type { ActionLog } from "./shared.ts";
 
-/** Per-key action settings. */
+/** Per-key settings. */
 type ToggleSettings = {
   entityId?: string;
 };
 
-type VisibleAction = WillAppearEvent<ToggleSettings>["action"];
+type VisibleKey = {
+  release: () => void;
+  unwatch: (() => void) | undefined;
+};
 
-const logger = streamDeck.logger.createScope("toggle-entity");
+const STATE_OFF = 0;
+const STATE_ON = 1;
 
 /**
- * Toggle Entity — pressing the key calls homeassistant.toggle on the target entity.
- * The key shows the live state (WebSocket subscription):
- * state 1 = ON (bright icon), state 0 = OFF (dimmed).
+ * Toggle Entity: a press toggles the entity, and the key shows whether it is
+ * on (bright icon) or off (dimmed), following every change.
  */
-@action({ UUID: "com.deskmate.streamdeck.toggle" })
+@action({ UUID: ACTION_UUID.toggleEntity })
 export class ToggleEntity extends SingletonAction<ToggleSettings> {
-  /** action.id -> state unsubscribe function. */
-  private readonly subscriptions = new Map<string, () => void>();
+  private readonly hub: ConnectionHub;
+  private readonly log: ActionLog;
+  private readonly visible = new Map<string, VisibleKey>();
+
+  constructor(hub: ConnectionHub, log: ActionLog) {
+    super();
+    this.hub = hub;
+    this.log = log;
+  }
 
   override onWillAppear(ev: WillAppearEvent<ToggleSettings>): void {
-    this.resubscribe(ev.action, ev.payload.settings);
+    this.show(ev.action, ev.payload.settings);
   }
 
   override onDidReceiveSettings(ev: DidReceiveSettingsEvent<ToggleSettings>): void {
-    this.resubscribe(ev.action, ev.payload.settings);
+    this.show(ev.action, ev.payload.settings);
   }
 
   override onWillDisappear(ev: WillDisappearEvent<ToggleSettings>): void {
-    this.subscriptions.get(ev.action.id)?.();
-    this.subscriptions.delete(ev.action.id);
+    const key = this.visible.get(ev.action.id);
+    key?.unwatch?.();
+    key?.release();
+    this.visible.delete(ev.action.id);
   }
 
   override async onKeyDown(ev: KeyDownEvent<ToggleSettings>): Promise<void> {
-    const entityId = ev.payload.settings.entityId?.trim();
-    if (!entityId || !haClient.isConfigured) {
+    const entityId = parseEntityId(ev.payload.settings.entityId);
+    if (!entityId) {
       await ev.action.showAlert();
       return;
     }
     try {
-      await haClient.callService("homeassistant", "toggle", { entity_id: entityId });
-      // no showOk — the key's state change from the WS subscription is the confirmation
-    } catch (err) {
-      logger.error(
-        `Toggle ${entityId} failed: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      // No "OK" mark: the key changing state is the confirmation.
+      await this.hub.toggle(entityId);
+    } catch (error) {
+      this.log.error(`Toggling an entity failed: ${errorCode(error)}`);
       await ev.action.showAlert();
     }
   }
 
-  private resubscribe(visibleAction: VisibleAction, settings: ToggleSettings): void {
-    this.subscriptions.get(visibleAction.id)?.();
-    this.subscriptions.delete(visibleAction.id);
+  /** Starts, or moves, the state subscription of a key. */
+  private show(visibleAction: Action<ToggleSettings>, settings: ToggleSettings): void {
+    const key = this.visible.get(visibleAction.id) ?? {
+      release: this.hub.retain("homeAssistant"),
+      unwatch: undefined,
+    };
+    this.visible.set(visibleAction.id, key);
+    key.unwatch?.();
 
-    const entityId = settings.entityId?.trim();
-    if (!entityId) {
-      return;
-    }
-    const unsubscribe = haClient.onEntityState(entityId, (state) => {
-      void this.render(visibleAction, state);
-    });
-    this.subscriptions.set(visibleAction.id, unsubscribe);
+    const entityId = parseEntityId(settings.entityId);
+    key.unwatch = entityId
+      ? this.hub.watchEntity(entityId, (state) => void this.render(visibleAction, state))
+      : undefined;
   }
 
   private async render(
-    visibleAction: VisibleAction,
-    state: HaEntityState | undefined,
+    visibleAction: Action<ToggleSettings>,
+    state: string | undefined,
   ): Promise<void> {
     if (!visibleAction.isKey()) {
       return;
     }
     try {
-      await visibleAction.setState(state?.state === "on" ? 1 : 0);
-    } catch (err) {
-      logger.error(`setState failed: ${err instanceof Error ? err.message : String(err)}`);
+      await visibleAction.setState(state === "on" ? STATE_ON : STATE_OFF);
+    } catch (error) {
+      this.log.error(`Showing a key state failed: ${errorCode(error)}`);
     }
   }
 }

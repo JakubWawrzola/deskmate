@@ -1,23 +1,49 @@
-<!DOCTYPE html>
-<html>
-	<head lang="en">
-		<meta charset="utf-8" />
-		<title>Activate Scene</title>
-		<!-- oficjalna biblioteka Elgato do Property Inspectorow (jak w streamdeck-plugin-template) -->
-		<script src="https://sdpi-components.dev/releases/v4/sdpi-components.js"></script>
-	</head>
-	<body>
-		<!-- ustawienia klawisza -->
-		<sdpi-item label="Scene">
-			<sdpi-textfield setting="sceneId" placeholder="scene.film"></sdpi-textfield>
-		</sdpi-item>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Activate Scene</title>
+    <!-- Elgato's property inspector components, as in the official plugin template -->
+    <script src="https://sdpi-components.dev/releases/v4/sdpi-components.js"></script>
+    <link rel="stylesheet" href="inspector.css" />
+  </head>
+  <body>
+    <!-- Key settings -->
+    <sdpi-item label="Scene">
+      <sdpi-textfield id="picker-target" setting="sceneId" placeholder="scene.movie"></sdpi-textfield>
+    </sdpi-item>
+    <sdpi-item id="picker-item" label="Pick" hidden>
+      <sdpi-select
+        id="picker"
+        datasource="getEntities"
+        placeholder="Choose from Home Assistant"
+        loading="Loading scenes..."
+        hot-reload
+        show-refresh
+      ></sdpi-select>
+    </sdpi-item>
 
-		<!-- ustawienia globalne pluginu (wspolne dla wszystkich klawiszy) -->
-		<sdpi-item label="HA URL">
-			<sdpi-textfield global setting="haUrl" placeholder="http://homeassistant.local:8123"></sdpi-textfield>
-		</sdpi-item>
-		<sdpi-item label="Access token">
-			<sdpi-password global setting="haToken" placeholder="Long-lived access token"></sdpi-password>
-		</sdpi-item>
-	</body>
+    <!-- Plugin settings, shared by every key -->
+    <sdpi-item label="Connection">
+      <sdpi-select global setting="connection" default="auto">
+        <option value="auto">Automatic</option>
+        <option value="deskmate">Deskmate app</option>
+        <option value="direct">Direct</option>
+      </sdpi-select>
+    </sdpi-item>
+    <sdpi-item label="Status">
+      <p id="status-text" class="status" role="status"></p>
+      <p id="status-hint" class="status hint" hidden></p>
+    </sdpi-item>
+    <div id="direct-settings">
+      <sdpi-item label="HA URL">
+        <sdpi-textfield global setting="haUrl" placeholder="http://homeassistant.local:8123"></sdpi-textfield>
+      </sdpi-item>
+      <sdpi-item label="Access token">
+        <sdpi-password global setting="haToken" placeholder="Long-lived access token"></sdpi-password>
+      </sdpi-item>
+    </div>
+
+    <script src="inspector.js"></script>
+  </body>
 </html>

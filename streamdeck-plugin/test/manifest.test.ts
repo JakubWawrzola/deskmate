@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
+import { ACTION_UUID, PLUGIN_UUID, PLUGIN_VERSION } from "../src/plugin-info.ts";
 
 type ManifestAction = {
   Name: string;
@@ -39,9 +40,18 @@ test("the manifest carries the package version", () => {
   assert.equal(manifest.Version, `${packageJson.version}.0`);
 });
 
+test("the version sent to the Deskmate app is the package version", () => {
+  assert.equal(PLUGIN_VERSION, packageJson.version);
+});
+
 test("the plugin folder is named after the plugin UUID", () => {
-  assert.equal(manifest.UUID, "com.deskmate.streamdeck");
+  assert.equal(manifest.UUID, PLUGIN_UUID);
   assert.ok(existsSync(pluginFolder));
+});
+
+test("the code and the manifest name the same actions", () => {
+  const inManifest = manifest.Actions.map((action) => action.UUID).sort();
+  assert.deepEqual(inManifest, Object.values(ACTION_UUID).sort());
 });
 
 test("every action UUID sits under the plugin UUID and is unique", () => {

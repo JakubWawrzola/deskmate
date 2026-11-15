@@ -1,64 +1,73 @@
-import streamDeck, { action, type KeyDownEvent, SingletonAction } from "@elgato/streamdeck";
-import { haClient } from "../ha-client.ts";
+import {
+  action,
+  type KeyDownEvent,
+  SingletonAction,
+  type WillAppearEvent,
+  type WillDisappearEvent,
+} from "@elgato/streamdeck";
+import type { ConnectionHub } from "../connection/hub.ts";
+import { errorCode } from "../errors.ts";
+import { parseEntityId, parseService, parseServiceData } from "../ha-ids.ts";
+import { ACTION_UUID } from "../plugin-info.ts";
+import { type ActionLog, VisibleKeys } from "./shared.ts";
 
-/** Per-key action settings. */
+/** Per-key settings. */
 type CallServiceSettings = {
-  /** Service in "domain.service" format, e.g. "light.turn_on". */
+  /** `domain.service`, for example `light.turn_on`. */
   service?: string;
   /** Optional target entity. */
   entityId?: string;
-  /** Optional service data as JSON (object). */
+  /** Optional service data: a JSON object, as text. */
   data?: string;
 };
 
-const logger = streamDeck.logger.createScope("call-service");
-
-const SERVICE_PATTERN = /^([a-z0-9_]+)\.([a-z0-9_]+)$/i;
-
 /**
- * Call Service — pressing the key calls an arbitrary HA service
- * (POST /api/services/{domain}/{service}) with an optional entity_id and JSON data.
+ * Call Service: a press calls any Home Assistant service, with an optional
+ * entity and optional JSON data.
  */
-@action({ UUID: "com.deskmate.streamdeck.call-service" })
+@action({ UUID: ACTION_UUID.callService })
 export class CallService extends SingletonAction<CallServiceSettings> {
+  private readonly hub: ConnectionHub;
+  private readonly log: ActionLog;
+  private readonly keys: VisibleKeys;
+
+  constructor(hub: ConnectionHub, log: ActionLog) {
+    super();
+    this.hub = hub;
+    this.log = log;
+    this.keys = new VisibleKeys(() => hub.retain("homeAssistant"));
+  }
+
+  override onWillAppear(ev: WillAppearEvent<CallServiceSettings>): void {
+    this.keys.appeared(ev.action.id);
+  }
+
+  override onWillDisappear(ev: WillDisappearEvent<CallServiceSettings>): void {
+    this.keys.disappeared(ev.action.id);
+  }
+
   override async onKeyDown(ev: KeyDownEvent<CallServiceSettings>): Promise<void> {
-    const { service, entityId, data } = ev.payload.settings;
-    const match = service?.trim().match(SERVICE_PATTERN);
-    if (!match || !haClient.isConfigured) {
+    const settings = ev.payload.settings;
+    const service = parseService(settings.service);
+    const data = parseServiceData(settings.data);
+    const typedEntity = settings.entityId?.trim() ?? "";
+    const entityId = parseEntityId(typedEntity);
+    // An entity that was typed in but is not an entity id is a mistake to
+    // show, not a reason to call the service without a target.
+    if (!service || !data.ok || (typedEntity !== "" && !entityId)) {
       await ev.action.showAlert();
       return;
     }
 
-    let payload: Record<string, unknown> = {};
-    const rawData = data?.trim();
-    if (rawData) {
-      try {
-        const parsed: unknown = JSON.parse(rawData);
-        if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-          throw new Error("data must be a JSON object");
-        }
-        payload = parsed as Record<string, unknown>;
-      } catch (err) {
-        logger.error(
-          `Invalid JSON in data field: ${err instanceof Error ? err.message : String(err)}`,
-        );
-        await ev.action.showAlert();
-        return;
-      }
-    }
-
-    const entity = entityId?.trim();
-    if (entity) {
-      payload.entity_id = entity;
-    }
-
     try {
-      await haClient.callService(match[1], match[2], payload);
+      await this.hub.callService({
+        service: `${service.domain}.${service.service}`,
+        entityId,
+        data: data.data,
+      });
       await ev.action.showOk();
-    } catch (err) {
-      logger.error(
-        `Service ${match[0]} failed: ${err instanceof Error ? err.message : String(err)}`,
-      );
+    } catch (error) {
+      this.log.error(`Calling a service failed: ${errorCode(error)}`);
       await ev.action.showAlert();
     }
   }

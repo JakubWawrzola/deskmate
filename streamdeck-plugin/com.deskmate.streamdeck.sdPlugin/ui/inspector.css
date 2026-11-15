@@ -1,0 +1,19 @@
+/* Shared by every property inspector of the plugin. The colors and the font
+   are the ones the sdpi components use, so the status lines match the fields. */
+
+.status {
+  color: #d8d8d8;
+  font-family: "Segoe UI", Arial, Roboto, Helvetica, sans-serif;
+  font-size: 9pt;
+  line-height: 1.4;
+  margin: 6px 0 0;
+}
+
+.status.hint {
+  color: #969696;
+}
+
+/* The components are custom elements, which do not hide by themselves. */
+[hidden] {
+  display: none !important;
+}
