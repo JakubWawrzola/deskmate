@@ -18,6 +18,7 @@ by anyone, and so is the history.
 |---|---|---|
 | `src-tauri/` | Windows app, x64 and ARM64, and the root of the Cargo workspace | Rust, Tauri 2 |
 | `src-tauri/crates/core/` | `deskmate-core`, the library for code that must not depend on Tauri: configuration, the Link protocol, the entity descriptors, and the sensors and commands that work without a signed-in user | Rust |
+| `src-tauri/crates/service/` | `deskmate-service`, the Windows service that keeps the computer connected while nobody is signed in. Everything outside its `win` module is platform-neutral | Rust |
 | `src/` | The app's window | React 19, TypeScript strict, Tailwind 4 |
 | `custom_components/deskmate_link/` | Home Assistant integration, in the default HACS catalog | Python |
 | `streamdeck-plugin/` | Stream Deck plugin, versioned on its own | Node 24, TypeScript strict, Stream Deck SDK 3 |
@@ -297,7 +298,8 @@ most mistakes.
 | You changed | Run | Expect |
 |---|---|---|
 | `src-tauri/`, `crates/core` included | `cargo fmt --all --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` | formatted, no warnings, all tests pass |
-| Rust dependencies | `cargo tree --workspace --prefix none --target <target>` for both Windows targets, `cargo tree -p deskmate-core` | no `ring`, `openssl`, `openssl-sys` or `rustls` for a Windows target; no `tauri` crate under `deskmate-core` |
+| `src-tauri/crates/service/` | the row above, then `cargo clippy -p deskmate-service --all-targets --features test-hooks -- -D warnings`, `cargo build -p deskmate-service --features test-hooks` and `python tests/service_e2e.py --console` | no warnings; the script ends with "end-to-end test passed" |
+| Rust dependencies | `cargo tree --workspace --prefix none --target <target>` for both Windows targets, `cargo tree -p deskmate-core`, `cargo tree -p deskmate-service` | no `ring`, `openssl`, `openssl-sys` or `rustls` for a Windows target; no `tauri` crate under `deskmate-core` or `deskmate-service` |
 | `src/` | `npx tsc --noEmit`, `npm run lint` | no errors |
 | `streamdeck-plugin/` | `npx tsc --noEmit`, `npm run lint`, `npm test`, `npm run build` in that folder | no errors, all tests pass, the check after the build passes |
 | The integration | `ruff check` and `ruff format --check` on `custom_components scripts tests`, `python -m py_compile` on the changed files, `python -m pytest` | no errors, all tests pass |
@@ -316,9 +318,20 @@ Stream Deck, the Deskmate app and Home Assistant, all on the same machine
 (`streamdeck-plugin/scripts/check-bundle.mjs`). It reaches no real system, so
 it runs without asking.
 
+`tests/service_e2e.py --console` runs the service in the foreground against
+`scripts/fake_link_hub.py`, with a temporary data folder, a key file and pipes
+of its own; it needs no administrator and leaves nothing behind. The fake hub
+needs `aiohttp` and `cryptography`: where the Windows Python lacks them, add
+`--wsl <distribution>` and the hub runs in WSL. Only a binary built with
+`--features test-hooks` may be used for it: that build records power commands
+and has no code that runs them. Release builds never enable the feature.
+
 These run only when Jakub asks: `tauri dev`, `tauri build`, starting or
 installing the app, anything that talks to Home Assistant, browser or
-screenshot verification, and multi-agent audit workflows.
+screenshot verification, and multi-agent audit workflows. Installing the
+service on a developer's computer belongs here too, and so does
+`tests/service_e2e.py --service`, which installs it for real: that mode is
+for the `service` job in CI.
 
 Most behaviour here needs real hardware or a live Home Assistant, which you
 cannot verify. So every reply that finishes code work ends with a manual test
@@ -391,6 +404,7 @@ it. This is the standard for this repository:
 | HACS and hassfest | `.github/workflows/validate.yml` |
 | Secret scan | gitleaks with `.gitleaks.toml`: locally in `.githooks/pre-commit`, in CI as the `secrets` job of `ci.yml` |
 | Code CI | `.github/workflows/ci.yml`: the checks from section 8 on every push and pull request, including the ARM64 target and the dependency-tree rule |
+| The service, end to end | the `service` job of `ci.yml`: installs `deskmate-service` as LocalSystem on the runner, drives it with the fake hub and checks that uninstalling leaves nothing |
 | Dependency audit | `.github/workflows/audit.yml` (`cargo audit`, `npm audit`) and `.github/dependabot.yml` |
 | Formatters and linters | rustfmt and clippy (`src-tauri/`), Biome (`src/`, `streamdeck-plugin/`), ruff (the integration and `scripts/`) |
 | Stream Deck plugin | the `streamdeck` job of `ci.yml`: type check, Biome, unit tests, and a build that checks the built folder and runs the bundle against stand-ins |
