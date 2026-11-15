@@ -237,13 +237,12 @@ fn volumes(disks: &Disks) -> Vec<Volume<'_>> {
 #[cfg(target_os = "linux")]
 fn volumes(disks: &Disks) -> Vec<Volume<'_>> {
     let list = disks.list();
-    let mounts: Vec<(String, std::path::PathBuf)> = list
+    let mounts: Vec<crate::linux::disks::Mount> = list
         .iter()
-        .map(|disk| {
-            (
-                disk.name().to_string_lossy().into_owned(),
-                disk.mount_point().to_path_buf(),
-            )
+        .map(|disk| crate::linux::disks::Mount {
+            device: disk.name().to_string_lossy().into_owned(),
+            point: disk.mount_point().to_path_buf(),
+            read_only: disk.is_read_only(),
         })
         .collect();
     crate::linux::disks::volumes(&mounts)

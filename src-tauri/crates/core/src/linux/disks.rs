@@ -15,6 +15,15 @@ const SKIPPED_ROOTS: [&str; 4] = ["/boot", "/efi", "/media", "/run/media"];
 /// Keeps `disk_<key>_usage` well inside what Home Assistant accepts.
 const MAX_KEY_CHARS: usize = 40;
 
+/// One entry of the mount table.
+pub struct Mount {
+    /// What is mounted: `/dev/sda2`, or a name such as `overlay`.
+    pub device: String,
+    /// Where it is mounted.
+    pub point: PathBuf,
+    pub read_only: bool,
+}
+
 /// A mounted file system with sensors of its own.
 #[derive(Debug, PartialEq, Eq)]
 pub struct Volume {
@@ -26,21 +35,24 @@ pub struct Volume {
     pub label: String,
 }
 
-/// Picks the volumes out of `mounts`, the device and mount point of every
-/// listed file system. The root always counts. Of the others, those on a
-/// block device do, once per device: a device mounted in several places
-/// (bind mounts, btrfs subvolumes) is one drive, named by its shortest mount
-/// point.
-pub fn volumes(mounts: &[(String, PathBuf)]) -> Vec<Volume> {
+/// Picks the volumes out of `mounts`, every listed file system. The root
+/// always counts. Of the others, those on a block device that can be written
+/// to do, once per device: a device mounted in several places (bind mounts,
+/// btrfs subvolumes) is one drive, named by its shortest mount point. A
+/// read-only mount is an image that never fills up.
+pub fn volumes(mounts: &[Mount]) -> Vec<Volume> {
     let mut candidates: Vec<(usize, &str, &Path)> = mounts
         .iter()
         .enumerate()
-        .map(|(index, (device, mount))| (index, device.as_str(), mount.as_path()))
-        .filter(|(_, device, mount)| {
-            *mount == Path::new(ROOT_MOUNT)
-                || (device.starts_with("/dev/")
-                    && !SKIPPED_ROOTS.iter().any(|root| mount.starts_with(root)))
+        .filter(|(_, mount)| {
+            mount.point == Path::new(ROOT_MOUNT)
+                || (mount.device.starts_with("/dev/")
+                    && !mount.read_only
+                    && !SKIPPED_ROOTS
+                        .iter()
+                        .any(|root| mount.point.starts_with(root)))
         })
+        .map(|(index, mount)| (index, mount.device.as_str(), mount.point.as_path()))
         .collect();
     candidates.sort_by_key(|(_, _, mount)| (mount.as_os_str().len(), mount.to_path_buf()));
 
@@ -85,20 +97,31 @@ fn key(mount: &Path) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{volumes, Volume};
+    use super::{volumes, Mount, Volume};
     use std::path::PathBuf;
 
-    fn mounts(list: &[(&str, &str)]) -> Vec<(String, PathBuf)> {
-        list.iter()
-            .map(|(device, mount)| (device.to_string(), PathBuf::from(mount)))
-            .collect()
+    fn mount(device: &str, point: &str, read_only: bool) -> Mount {
+        Mount {
+            device: device.into(),
+            point: PathBuf::from(point),
+            read_only,
+        }
     }
 
-    fn named(list: &[(&str, &str)]) -> Vec<(usize, String, String)> {
-        volumes(&mounts(list))
+    fn listed(mounts: &[Mount]) -> Vec<(usize, String, String)> {
+        volumes(mounts)
             .into_iter()
             .map(|Volume { index, key, label }| (index, key, label))
             .collect()
+    }
+
+    /// Writable mounts, as (device, mount point).
+    fn named(list: &[(&str, &str)]) -> Vec<(usize, String, String)> {
+        let mounts: Vec<Mount> = list
+            .iter()
+            .map(|(device, point)| mount(device, point, false))
+            .collect();
+        listed(&mounts)
     }
 
     fn volume(index: usize, key: &str, label: &str) -> (usize, String, String) {
@@ -165,6 +188,22 @@ mod tests {
             [volume(5, "bootstrap", "/bootstrap")]
         );
         assert!(named(&[]).is_empty());
+    }
+
+    #[test]
+    fn a_read_only_image_is_not_a_drive() {
+        assert_eq!(
+            listed(&[
+                mount("/dev/sdb", "/usr/src/linux-headers", true),
+                mount("/dev/sdc1", "/mnt/archive", true),
+                mount("/dev/sdc1", "/mnt/archive-rw", false),
+                mount("/dev/sda1", "/", true),
+            ]),
+            [
+                volume(3, "root", "/"),
+                volume(2, "mnt_archive_rw", "/mnt/archive-rw"),
+            ]
+        );
     }
 
     #[test]

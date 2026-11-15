@@ -121,7 +121,7 @@ behind `cfg(windows)` and `cfg(target_os = "linux")`.
 | Secrets (`secrets::SecretStore`) | `Keyring`: Credential Manager | `Keyring`: the Secret Service (GNOME Keyring, KWallet), built in with the `secret-service` feature. `Files`: one file per secret in a folder, mode 0600; a file that the group or others can read is refused. The program picks one with `secrets::select` |
 | `cpu`, `memory`, `uptime`, `net_down`, `net_up` | sysinfo | sysinfo, without the loopback interface |
 | `disk` | The system drive | The root file system |
-| Per-disk sensors | By drive letter: `disk_c_free`, "Disk C free" | By mount point: `disk_root_free`, "Disk / free". A device mounted in several places is one drive; boot partitions and media mounted for a signed-in user are left out |
+| Per-disk sensors | By drive letter: `disk_c_free`, "Disk C free" | By mount point: `disk_root_free`, "Disk / free". A device mounted in several places is one drive; read-only images, boot partitions and media mounted for a signed-in user are left out |
 | `battery`, `ac_power` | `GetSystemPowerStatus` | `/sys/class/power_supply`, without the batteries of peripherals |
 | `cpu_temperature` | The PawnIO helper, then LibreHardwareMonitor or OpenHardwareMonitor over WMI, then the ACPI thermal zone | The hardware monitor of the processor (`coretemp`, `k10temp`, `zenpower`), then a thermal zone of the processor, then the ACPI thermal zone |
 | `gpu_usage`, `gpu_memory`, `gpu_memory_total`, `gpu_temperature` | PDH counters, DXGI, WMI | The DRM devices in sysfs, for AMD and Intel, as far as the driver has the files. NVIDIA is not covered |
