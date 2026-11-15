@@ -289,6 +289,15 @@ Every `declare` without a scope is complete. An entity whose key is missing
 from it is removed from Home Assistant. The last `declare` is stored, so the
 entities exist after a Home Assistant restart, before the computer reconnects.
 
+The first `declare` of a session is also what makes the computer available.
+The handshake alone changes nothing: until that frame Home Assistant shows
+what it showed before, which is an unavailable computer after a disconnect,
+or the held state during a [handover](#bye). A machine declaration brings its
+limit and the availability in one step, so an entity outside the served keys
+is never available in between. A client that sends no `declare` makes the
+computer available 3 seconds after `welcome`, without a limit. Deskmate and
+DeskmateTV send `declare` right after `welcome`.
+
 #### Machine scope
 
 A client that runs without a signed-in user, such as the Windows service,
@@ -328,7 +337,7 @@ While the session lasts:
 
 A full declaration in the same session lifts the limit, and so does the end
 of the session. After a [`bye`](#bye) with the reason `handover` the limit
-stays until the next session starts or the handover window ends. Any other
+stays until the next session declares or the handover window ends. Any other
 value of `scope`, and a `declare` without one, is a full declaration.
 
 ### `bye`
@@ -349,11 +358,11 @@ Assistant does not answer it. The reason decides what the closed socket means:
 During the 15 seconds after a `handover`, entities keep their states and
 their availability, and the limit of a machine declaration stays in place.
 When the next session authenticates in that time, the computer was never
-unavailable in between. That session starts like any other: without the
-limit, and with the states that Home Assistant last had. When no session
-comes, the computer becomes unavailable at the end of the window. A command,
-a notification or a file request in the gap fails as it does for a computer
-that is not connected.
+unavailable in between, and nothing changes until that session declares: a
+full declaration lifts the limit, a machine declaration replaces it. When no
+session comes, the computer becomes unavailable at the end of the window. A
+command, a notification or a file request in the gap fails as it does for a
+computer that is not connected.
 
 The 15 seconds run from the moment Home Assistant sees the socket close to
 the `welcome` of the next session. A client that connects while the old
@@ -375,15 +384,16 @@ available. Its state follows `info` and `bye`:
 
 | State | When |
 |---|---|
-| `app`, `service`, `daemon` | A session is open and its client sent `info` with that role. |
-| `connected` | A session is open and its client sent no valid `info`. |
+| `app`, `service`, `daemon` | A session is open and its client sent `info` with that role. The state changes when the `info` arrives, before the `declare`. |
+| `connected` | A session whose client sent no valid `info` has made the computer available. |
 | `sleeping` | The last session ended after `bye` with the reason `suspend`. |
 | `off` | The last session ended after `bye` with the reason `shutdown`. |
 | `disconnected` | No session is open, for any other reason. |
 
 During the handover window the sensor keeps the state of the session that
-said `bye`. `sleeping` and `off` last until the next session starts or Home
-Assistant restarts. The sensor appears with the computer's first `declare`.
+said `bye`. That state, like `sleeping` and `off`, lasts until the next
+session sends `info` or makes the computer available, or until Home Assistant
+restarts. The sensor appears with the computer's first `declare`.
 
 ### `fs` and `fs_res`
 

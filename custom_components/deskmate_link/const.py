@@ -74,6 +74,9 @@ BYE_REASONS = frozenset({BYE_HANDOVER, BYE_SUSPEND, BYE_SHUTDOWN})
 # After `bye` with the reason `handover`, the computer's other client is about
 # to connect. The computer stays available for this long while it does.
 HANDOVER_WINDOW_S = 15
+# A session makes the computer available with its first `declare`. A client
+# that sends none gets there this long after the handshake.
+DECLARE_WAIT_S = 3
 
 # States of the Connection sensor, which the hub adds to every computer. A
 # session whose client sent `info` shows that client's role instead of

@@ -24,6 +24,7 @@ from custom_components.deskmate_link.const import (
     HANDOVER_WINDOW_S,
     INFO_ROLES,
 )
+from custom_components.deskmate_link.hub import DeskmateHub
 from custom_components.deskmate_link.presence import connection_unique_id
 
 from .link_client import Connect, LinkClient
@@ -254,8 +255,11 @@ async def test_bye_names_the_state_until_the_next_session(
     await wait_until_offline()
 
     assert connection(hass, entry) == state
+    # It stays until the next session says something about itself.
     second = await connect()
     await second.sync()
+    assert connection(hass, entry) == state
+    await declare(hass, second, [CPU_SENSOR])
     assert connection(hass, entry) == "connected"
 
 
@@ -294,11 +298,47 @@ async def test_session_that_takes_over_shows_its_own_role(
 
     service = await connect()
     await service.sync()
-    # The new session does not inherit the role of the one before it.
-    assert connection(hass, entry) == "connected"
+    # Nothing changes before the new session says what it is.
+    assert connection(hass, entry) == "app"
     await identify(service, "service")
 
     assert connection(hass, entry) == "service"
+
+
+async def test_session_that_takes_over_does_not_inherit_the_role(
+    hass: HomeAssistant,
+    entry: MockConfigEntry,
+    connect: Connect,
+    wait_until_session_ended: Wait,
+) -> None:
+    app = await paired_computer(hass, connect)
+    await identify(app, "app")
+    await app.send({"t": "bye", "reason": "handover"})
+    await app.close()
+    await wait_until_session_ended()
+
+    old_client = await connect()
+    await declare(hass, old_client, [CPU_SENSOR])
+
+    assert connection(hass, entry) == "connected"
+
+
+async def test_role_shows_before_the_session_makes_the_computer_available(
+    hass: HomeAssistant,
+    entry: MockConfigEntry,
+    hub: DeskmateHub,
+    connect: Connect,
+    wait_until_offline: Wait,
+) -> None:
+    first = await paired_computer(hass, connect)
+    await first.close()
+    await wait_until_offline()
+
+    second = await connect()
+    await identify(second, "service")
+
+    assert connection(hass, entry) == "service"
+    assert not hub.available
 
 
 # ── next to the entities that the client declares ────────────────

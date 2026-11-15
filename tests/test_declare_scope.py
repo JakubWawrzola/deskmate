@@ -325,9 +325,9 @@ async def test_end_of_the_session_clears_the_filter(
     assert hub.presence.active_keys is None
     assert state_of(hass, entry, "sensor", "cpu_usage") == STATE_UNAVAILABLE
     assert state_of(hass, entry, "switch", "keep_awake") == STATE_UNAVAILABLE
-    # A client that declares nothing gets every entity back, as before.
+    # The next session is not limited by what the last one declared.
     second = await connect()
-    await second.sync()
+    await declare(hass, second, [CPU_SENSOR, KEEP_AWAKE_SWITCH])
     assert state_of(hass, entry, "sensor", "cpu_usage") == "10"
     assert state_of(hass, entry, "switch", "keep_awake") == STATE_ON
 

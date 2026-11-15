@@ -592,7 +592,7 @@ class DeskmateHub:
 
     async def async_command(self, key: str, action: str, value: Any = None) -> None:
         # Without a session the command fails below as "not connected".
-        if self.connected and not self.presence.serves(key):
+        if self.connected and self.presence.limits_out(key):
             raise HomeAssistantError(NEEDS_APP_ERROR)
         payload: dict[str, Any] = {"t": "cmd", "key": key, "action": action}
         if value is not None:

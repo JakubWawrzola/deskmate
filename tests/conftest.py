@@ -7,8 +7,7 @@ from collections.abc import AsyncGenerator, Awaitable, Callable, Generator
 
 import pytest
 from aiohttp.test_utils import TestClient
-from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.dispatcher import async_dispatcher_connect
+from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
     mock_component,
@@ -22,7 +21,6 @@ from custom_components.deskmate_link.const import (
     CONF_NODE_ID,
     DOMAIN,
     PROTO_V2,
-    SIGNAL_AVAILABLE,
     UNBOUND_TITLE,
 )
 from custom_components.deskmate_link.crypto import gen_psk
@@ -131,28 +129,17 @@ async def connect(http: TestClient, entry: MockConfigEntry) -> AsyncGenerator[Co
 
 
 @pytest.fixture
-def wait_until_offline(
-    hass: HomeAssistant, hub: DeskmateHub
-) -> Callable[[], Awaitable[None]]:
-    """Wait until the hub has noticed that its session ended."""
+def wait_until_offline(hub: DeskmateHub) -> Callable[[], Awaitable[None]]:
+    """Wait until the hub has noticed that its session ended for good.
+
+    A session that never declared was never available, so the flag alone
+    does not tell that the socket closed.
+    """
 
     async def _wait() -> None:
-        changed = asyncio.Event()
-
-        @callback
-        def _on_change() -> None:
-            changed.set()
-
-        unsubscribe = async_dispatcher_connect(
-            hass, f"{SIGNAL_AVAILABLE}_{hub.entry.entry_id}", _on_change
-        )
-        try:
-            async with asyncio.timeout(WAIT_TIMEOUT_S):
-                while hub.available:
-                    await changed.wait()
-                    changed.clear()
-        finally:
-            unsubscribe()
+        async with asyncio.timeout(WAIT_TIMEOUT_S):
+            while hub.connected or hub.available:  # noqa: ASYNC110 - no event to wait for
+                await asyncio.sleep(0.01)
 
     return _wait
 

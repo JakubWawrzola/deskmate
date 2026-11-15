@@ -172,9 +172,12 @@ async def test_handover_after_a_machine_session_keeps_its_limit(
 
     assert state_of(hass, entry, "sensor", "cpu_usage") == "42"
     assert state_of(hass, entry, "switch", "keep_awake") == STATE_UNAVAILABLE
-    # The next session starts without the limit, like every session.
+    # The session that takes over changes nothing before it declares.
     second = await connect()
     await second.sync()
+    assert hub.presence.active_keys == {"cpu_usage"}
+    assert state_of(hass, entry, "switch", "keep_awake") == STATE_UNAVAILABLE
+    await declare(hass, second, [CPU_SENSOR, KEEP_AWAKE_SWITCH])
     assert hub.presence.active_keys is None
     assert state_of(hass, entry, "switch", "keep_awake") == "on"
 
@@ -308,6 +311,7 @@ async def test_stopping_home_assistant_closes_the_handover_window(
     wait_until_session_ended: Wait,
 ) -> None:
     client = await connect()
+    await declare(hass, client, [CPU_SENSOR])
     await say_bye_and_close(client, "handover")
     await wait_until_session_ended()
     signals = count_availability_signals(hass, hub)
@@ -329,6 +333,7 @@ async def test_unloading_the_entry_closes_the_handover_window(
     wait_until_session_ended: Wait,
 ) -> None:
     client = await connect()
+    await declare(hass, client, [CPU_SENSOR])
     await say_bye_and_close(client, "handover")
     await wait_until_session_ended()
     signals = count_availability_signals(hass, hub)
@@ -346,6 +351,8 @@ async def test_no_handover_window_opens_while_home_assistant_stops(
     wait_until_session_ended: Wait,
 ) -> None:
     client = await connect()
+    await declare(hass, client, [CPU_SENSOR])
+    assert hub.available
     await client.send({"t": "bye", "reason": "handover"})
     await client.sync()
     hass.set_state(CoreState.stopping)

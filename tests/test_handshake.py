@@ -25,7 +25,7 @@ async def test_v2_handshake_with_the_right_key_is_accepted(
     # LinkClient.connect has already checked the MAC of the welcome.
     assert client.welcome["v"] == PROTO_V2
     await client.sync()
-    assert hub.available
+    assert hub.connected
     # The entry that was waiting for pairing is now bound to this computer.
     assert hub.node_id == NODE_ID
     assert entry.data[CONF_NODE_ID] == NODE_ID
