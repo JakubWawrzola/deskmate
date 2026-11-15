@@ -310,7 +310,7 @@ most mistakes.
 | Rust dependencies | `cargo tree --workspace --prefix none --target <target>` for both Windows targets, `cargo tree -p deskmate-core`, `cargo tree -p deskmate-service` | no `ring`, `openssl`, `openssl-sys` or `rustls` for a Windows target; no `tauri` crate under `deskmate-core` or `deskmate-service` |
 | `src/` | `npx tsc --noEmit`, `npm run lint` | no errors |
 | `streamdeck-plugin/` | `npx tsc --noEmit`, `npm run lint`, `npm test`, `npm run build` in that folder | no errors, all tests pass, the check after the build passes |
-| The Stream Deck channel, on either side | the two rows above, then `cargo test -p deskmate plugin_client -- --ignored` in `src-tauri/` | the plugin's client passes against the app's server |
+| The Stream Deck channel, on either side | the rows for `src-tauri/` and `streamdeck-plugin/`, then `cargo test -p deskmate plugin_client -- --ignored` in `src-tauri/` | the plugin's client passes against the app's server |
 | The integration | `ruff check` and `ruff format --check` on `custom_components scripts tests`, `python -m py_compile` on the changed files, `python -m pytest` | no errors, all tests pass |
 | Link protocol or crypto | the vector tests in Rust (`cargo test -p deskmate-core link`) and in `tv/` | all pass |
 
@@ -338,8 +338,8 @@ and has no code that runs them. Release builds never enable the feature.
 The tests of the Stream Deck channel open named pipes with test-only names
 and talk to stand-ins. None of them uses the name of the real channel, writes
 into Stream Deck's folder or reaches Home Assistant, and a new test keeps to
-that. The test named `plugin_client` starts the plugin's own channel client
-with Node 24, which the Rust job of CI does not have, so it is marked
+that. The test that `plugin_client` selects starts the plugin's own channel
+client with Node 24, which the Rust job of CI does not have, so it is marked
 `#[ignore]` and run by hand.
 
 The app's build script needs the Stream Deck plugin only under `tauri build`.
