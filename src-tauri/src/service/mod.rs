@@ -301,3 +301,25 @@ fn remove() -> Result<(), String> {
 fn remove() -> Result<(), String> {
     Err("The Deskmate service exists for Windows only.".into())
 }
+
+/// For the uninstaller (`uninstall::REMOVE_SERVICE_ARG`): removes the
+/// service with one approval when it is installed. Returns the exit code.
+pub fn remove_for_uninstall() -> i32 {
+    #[cfg(windows)]
+    {
+        if !win::is_registered() {
+            return 0;
+        }
+        match remover().and_then(|program| win::run_elevated(&program, "uninstall")) {
+            Ok(()) => 0,
+            Err(error) => {
+                log::warn!("removing the service: {error}");
+                1
+            }
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        0
+    }
+}

@@ -10,6 +10,17 @@
 
 pub const FORGET_ARG: &str = "--forget-this-computer";
 
+/// `deskmate.exe --remove-service`, run by the uninstaller before the files
+/// go, whether or not the application data is deleted: the Deskmate service
+/// belongs to the computer. Asks for administrator approval only when the
+/// service is installed (service.rs).
+pub const REMOVE_SERVICE_ARG: &str = "--remove-service";
+
+/// Removes the Deskmate service; the process exit code.
+pub fn remove_service() -> i32 {
+    crate::service::remove_for_uninstall()
+}
+
 /// Credential Manager entries are "<account>.<service>" (keyring crate).
 const CREDENTIAL_SUFFIXES: [&str; 4] = [
     crate::consts::KEYRING_SERVICE,

@@ -5,11 +5,20 @@
 ; with /UPDATE, which copies the new files over the old ones and does not run
 ; the uninstaller at all, so these hooks do not run. If an installer ever runs
 ; the uninstaller in update mode, $UpdateMode is 1 there and both hooks skip.
-; Start with Windows, the settings, the saved keys, the CPU temperature helper
-; and the family protection therefore survive. Keep every step added here
-; behind the same $UpdateMode check.
+; Start with Windows, the settings, the saved keys, the CPU temperature helper,
+; the family protection and the Deskmate service therefore survive. Keep every
+; step added here behind the same $UpdateMode check.
 
 !macro NSIS_HOOK_PREUNINSTALL
+  ; The Deskmate service (service.rs in the app) is removed with Deskmate,
+  ; whether or not the application data goes too: it runs the bundled
+  ; $INSTDIR\service\deskmate-service.exe uninstall, which needs one
+  ; administrator approval. Without an installed service it asks for nothing.
+  ; Runs while that file still exists.
+  ${If} $UpdateMode <> 1
+    ExecWait '"$INSTDIR\${MAINBINARYNAME}.exe" --remove-service'
+  ${EndIf}
+
   ; "Delete the application data" ticked and not an update: settings, logs and
   ; saved keys live outside the install folder, and only the app knows which
   ; Credential Manager entries are its own. Runs while deskmate.exe still exists.

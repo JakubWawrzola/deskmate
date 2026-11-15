@@ -963,6 +963,10 @@ pub fn run() {
         uninstall::forget_this_computer();
         return;
     }
+    // Started by the uninstaller too: removes the Deskmate service.
+    if std::env::args().any(|arg| arg == uninstall::REMOVE_SERVICE_ARG) {
+        std::process::exit(uninstall::remove_service());
+    }
     // CPU temperature helper (cpu_temperature.rs): the elevated loop, and the
     // elevated install/remove steps started through UAC from Settings.
     if std::env::args().any(|arg| arg == cpu_temperature::HELPER_ARG) {
