@@ -31,7 +31,9 @@ Usage:
   deskmate-service run
       What the service manager starts. It does not work from a terminal.
 
-Exit codes: 0 done, 1 failed, 2 wrong usage, 5 an elevated terminal is needed.";
+Exit codes: 0 done, 1 failed, 2 wrong usage, 5 an elevated terminal is needed,
+6 installed, but the settings were not taken: the program offering them could
+not be checked.";
 
 /// Options of `run` and `console`. All of them are test hooks.
 #[derive(Debug, Default, PartialEq, Eq)]

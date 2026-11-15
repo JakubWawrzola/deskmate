@@ -24,6 +24,11 @@ fn exit_meaning(code: u32) -> String {
     }
 }
 
+/// `deskmate-service install`: installed, but the program offering the
+/// settings could not be checked, so they were not taken.
+const SERVER_UNCHECKED_EXIT: u32 = 6;
+const SERVER_UNCHECKED_MESSAGE: &str = "The service is installed but has no settings: Windows did not let it check that they come from this Deskmate. Approve the prompt with the account that runs Deskmate, then press Apply.";
+
 const STILL_RUNNING: &str =
     "The step with administrator rights is still running after two minutes. Look at this panel again in a moment.";
 
@@ -57,6 +62,8 @@ pub fn install_with_settings(program: &Path, line: &[u8]) -> Result<(), String> 
     match (code, offered) {
         (Some(0), Ok(())) => Ok(()),
         (None, _) => Err(STILL_RUNNING.into()),
+        // The installer could not check that this app offers the settings.
+        (Some(SERVER_UNCHECKED_EXIT), _) => Err(SERVER_UNCHECKED_MESSAGE.into()),
         (Some(0), Err(error)) => Err(format!(
             "The service is installed, but {}.",
             error.message()

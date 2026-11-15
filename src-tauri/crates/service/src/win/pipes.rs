@@ -25,7 +25,7 @@ use windows::Win32::System::Threading::{
 };
 use zeroize::Zeroizing;
 
-use super::security::{Descriptor, ADMIN_PIPE_SDDL, STATUS_PIPE_SDDL};
+use super::security::{Descriptor, EnabledPrivilege, ADMIN_PIPE_SDDL, SE_DEBUG, STATUS_PIPE_SDDL};
 use crate::admin::{self, Refusal, MAX_FRAME_BYTES};
 use crate::provisioning::AdminActions;
 use crate::status::Status;
@@ -402,6 +402,23 @@ impl AdminClient {
     }
 }
 
+/// What `install` says when it cannot tell which program offers the
+/// provisioning pipe. `main` gives it an exit code of its own, so the app
+/// can tell the user what to do.
+pub const SERVER_UNCHECKED: &str = "cannot check which program offers the settings, because the prompt was approved with another account and that account may not debug programs. Approve the prompt with the account that runs Deskmate";
+
+/// The executable behind the pipe's server. A process of another account,
+/// such as the app of a standard user when an administrator approved the
+/// prompt with their own account, opens only with the debug privilege; that
+/// is switched on for this one look and off again right after.
+fn server_image(process_id: u32) -> Result<PathBuf, String> {
+    if let Ok(image) = process_image(process_id) {
+        return Ok(image);
+    }
+    let _debug = EnabledPrivilege::enable(SE_DEBUG).map_err(|_| SERVER_UNCHECKED.to_string())?;
+    process_image(process_id).map_err(|_| SERVER_UNCHECKED.to_string())
+}
+
 /// Reads the one provisioning frame an app offers on its one-time pipe,
 /// after checking that the program serving the pipe is `expected_program`
 /// (a file name such as `deskmate.exe`). The frame comes back as one line.
@@ -414,7 +431,7 @@ pub fn read_provisioning_frame(
     }
     let pipe = open_client(&full_name(pipe_name), false, SECURITY_ANONYMOUS)
         .map_err(|e| format!("cannot open the provisioning pipe: {e}"))?;
-    let image = process_image(server_process_id(&pipe)?)?;
+    let image = server_image(server_process_id(&pipe)?)?;
     let program = image
         .file_name()
         .map(|name| name.to_string_lossy().into_owned())
@@ -482,5 +499,15 @@ mod tests {
             std::env::current_exe().unwrap().file_name()
         );
         assert!(process_image(0).is_err());
+    }
+
+    #[test]
+    fn a_server_that_cannot_be_checked_gets_the_fixed_message() {
+        assert_eq!(
+            server_image(std::process::id()).unwrap().file_name(),
+            std::env::current_exe().unwrap().file_name()
+        );
+        // No process has id 0, with or without the debug privilege.
+        assert_eq!(server_image(0).unwrap_err(), SERVER_UNCHECKED);
     }
 }

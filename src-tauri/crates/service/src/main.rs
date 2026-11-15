@@ -12,7 +12,7 @@ mod windows_main {
     use deskmate_service::cli::{Command, RunOptions, USAGE};
     use deskmate_service::secrets::{CredentialVault, KeyStore};
     use deskmate_service::win::install::{install, uninstall, InstallOptions, APP_PROGRAM};
-    use deskmate_service::win::pipes::{read_status, PipeNames};
+    use deskmate_service::win::pipes::{read_status, PipeNames, SERVER_UNCHECKED};
     use deskmate_service::win::security::is_elevated;
     use deskmate_service::win::{data_dir, service, Launch};
     use std::process::ExitCode;
@@ -21,6 +21,10 @@ mod windows_main {
     /// Exit code of `install` and `uninstall` without an elevated terminal:
     /// the Windows error "access denied", so a caller can tell it apart.
     const EXIT_NOT_ELEVATED: u8 = 5;
+    /// Exit code of `install` when the service is installed but the program
+    /// behind the provisioning pipe could not be checked, so the settings
+    /// were not taken (`pipes::SERVER_UNCHECKED`).
+    const EXIT_SERVER_UNCHECKED: u8 = 6;
 
     /// What a run works with: the real folder, vault, pipes and power
     /// commands.
@@ -129,6 +133,16 @@ mod windows_main {
         }
     }
 
+    fn finish_install(result: Result<(), String>) -> ExitCode {
+        match result {
+            Err(error) if error.contains(SERVER_UNCHECKED) => {
+                eprintln!("deskmate-service: the service is installed, but {error}");
+                ExitCode::from(EXIT_SERVER_UNCHECKED)
+            }
+            other => finish(other),
+        }
+    }
+
     pub fn dispatch(command: Command) -> ExitCode {
         let mut say = |line: &str| println!("{line}");
         match command {
@@ -153,7 +167,7 @@ mod windows_main {
                     provision_program: APP_PROGRAM.into(),
                     run_arguments: Vec::new(),
                 };
-                finish(install(&options, &mut say))
+                finish_install(install(&options, &mut say))
             }
             #[cfg(feature = "test-hooks")]
             Command::Install {
@@ -175,7 +189,7 @@ mod windows_main {
                     provision_program: provision_program.unwrap_or_else(|| APP_PROGRAM.into()),
                     run_arguments: vec!["--dry-run-power".into()],
                 };
-                finish(install(&options, &mut say))
+                finish_install(install(&options, &mut say))
             }
             Command::Uninstall => {
                 if !is_elevated() {

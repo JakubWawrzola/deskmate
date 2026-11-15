@@ -6,16 +6,19 @@ use std::os::windows::ffi::OsStrExt;
 use std::os::windows::fs::MetadataExt;
 use std::path::Path;
 use windows::core::{HSTRING, PCWSTR};
-use windows::Win32::Foundation::{CloseHandle, LocalFree, HANDLE, HLOCAL};
+use windows::Win32::Foundation::{CloseHandle, GetLastError, LocalFree, HANDLE, HLOCAL, LUID};
 use windows::Win32::Security::Authorization::{
     ConvertStringSecurityDescriptorToSecurityDescriptorW, GetNamedSecurityInfoW, SDDL_REVISION_1,
     SE_FILE_OBJECT,
 };
+#[cfg(test)]
+use windows::Win32::Security::TokenPrivileges;
 use windows::Win32::Security::{
-    GetAce, GetTokenInformation, IsWellKnownSid, TokenElevation, WinBuiltinAdministratorsSid,
-    WinLocalSystemSid, ACCESS_ALLOWED_ACE, ACE_HEADER, ACL, DACL_SECURITY_INFORMATION,
-    OWNER_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR, PSID, SECURITY_ATTRIBUTES, TOKEN_ELEVATION,
-    TOKEN_QUERY,
+    AdjustTokenPrivileges, GetAce, GetTokenInformation, IsWellKnownSid, LookupPrivilegeValueW,
+    TokenElevation, WinBuiltinAdministratorsSid, WinLocalSystemSid, ACCESS_ALLOWED_ACE, ACE_HEADER,
+    ACL, DACL_SECURITY_INFORMATION, LUID_AND_ATTRIBUTES, OWNER_SECURITY_INFORMATION,
+    PSECURITY_DESCRIPTOR, PSID, SECURITY_ATTRIBUTES, SE_PRIVILEGE_ENABLED, TOKEN_ACCESS_MASK,
+    TOKEN_ADJUST_PRIVILEGES, TOKEN_ELEVATION, TOKEN_PRIVILEGES, TOKEN_QUERY,
 };
 use windows::Win32::Storage::FileSystem::CreateDirectoryW;
 use windows::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
@@ -284,6 +287,137 @@ impl Drop for Token {
     }
 }
 
+/// Debug programs: lets an administrator open the processes of other
+/// accounts.
+pub const SE_DEBUG: &str = "SeDebugPrivilege";
+const ERROR_NOT_ALL_ASSIGNED: u32 = 1300;
+
+/// Why a privilege could not be switched on.
+#[derive(Debug, PartialEq, Eq)]
+pub enum PrivilegeError {
+    /// This process's token does not hold it, so it cannot be switched on.
+    NotHeld,
+    /// The name is unknown or a token call failed.
+    Failed(String),
+}
+
+fn privilege_luid(name: &str) -> Result<LUID, PrivilegeError> {
+    let mut luid = LUID::default();
+    // SAFETY: the name is a valid HSTRING that outlives the call and `luid`
+    // is a valid out-pointer; no system name means this computer.
+    unsafe { LookupPrivilegeValueW(None, &HSTRING::from(name), &mut luid) }
+        .map_err(|e| PrivilegeError::Failed(format!("unknown privilege {name}: {e}")))?;
+    Ok(luid)
+}
+
+fn own_token(access: TOKEN_ACCESS_MASK) -> Result<Token, PrivilegeError> {
+    let mut handle = HANDLE::default();
+    // SAFETY: the pseudo handle of the current process is always valid and
+    // `handle` is a valid out-pointer; Token closes what it receives.
+    unsafe { OpenProcessToken(GetCurrentProcess(), access, &mut handle) }
+        .map_err(|e| PrivilegeError::Failed(format!("cannot open this process's token: {e}")))?;
+    Ok(Token(handle))
+}
+
+/// A privilege switched on for as long as this value lives. Dropping it puts
+/// back exactly what `enable` changed: a privilege that was already on stays
+/// on.
+pub struct EnabledPrivilege {
+    token: Token,
+    /// What the adjustment changed; no entries when nothing changed.
+    previous: TOKEN_PRIVILEGES,
+}
+
+impl EnabledPrivilege {
+    /// Switches `name` on in this process's token.
+    pub fn enable(name: &str) -> Result<Self, PrivilegeError> {
+        let luid = privilege_luid(name)?;
+        let token = own_token(TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY)?;
+        let wanted = TOKEN_PRIVILEGES {
+            PrivilegeCount: 1,
+            Privileges: [LUID_AND_ATTRIBUTES {
+                Luid: luid,
+                Attributes: SE_PRIVILEGE_ENABLED,
+            }],
+        };
+        let mut previous = TOKEN_PRIVILEGES::default();
+        let mut returned = 0u32;
+        // SAFETY: the token is open with the right to adjust it; `wanted`
+        // and `previous` are TOKEN_PRIVILEGES with room for one entry, the
+        // size passed is theirs, and all of them outlive the call.
+        let adjusted = unsafe {
+            AdjustTokenPrivileges(
+                token.0,
+                false,
+                Some(&wanted),
+                std::mem::size_of::<TOKEN_PRIVILEGES>() as u32,
+                Some(&mut previous),
+                Some(&mut returned),
+            )
+        };
+        // SAFETY: reads this thread's last-error value, which the call above
+        // has just set; it reports a privilege the token does not hold.
+        let last_error = unsafe { GetLastError() };
+        adjusted.map_err(|e| PrivilegeError::Failed(format!("cannot switch on {name}: {e}")))?;
+        if last_error.0 == ERROR_NOT_ALL_ASSIGNED {
+            return Err(PrivilegeError::NotHeld);
+        }
+        Ok(Self { token, previous })
+    }
+}
+
+impl Drop for EnabledPrivilege {
+    fn drop(&mut self) {
+        if self.previous.PrivilegeCount == 0 {
+            // It was on already; nothing to put back.
+            return;
+        }
+        // SAFETY: the token is open with the right to adjust it, and
+        // `previous` is the state the system returned from `enable`.
+        unsafe {
+            let _ = AdjustTokenPrivileges(self.token.0, false, Some(&self.previous), 0, None, None);
+        }
+    }
+}
+
+/// Whether this process's token holds `name`, and whether it is on. None
+/// when the token does not hold it.
+#[cfg(test)]
+fn privilege_state(name: &str) -> Option<bool> {
+    let luid = privilege_luid(name).ok()?;
+    let token = own_token(TOKEN_QUERY).ok()?;
+    let mut needed = 0u32;
+    // SAFETY: asks only for the size; no buffer is passed.
+    let _ = unsafe { GetTokenInformation(token.0, TokenPrivileges, None, 0, &mut needed) };
+    // u64 elements: the entries hold 64-bit identifiers.
+    let mut buffer = vec![0u64; (needed as usize).div_ceil(8).max(1)];
+    // SAFETY: `buffer` holds at least `needed` bytes, is aligned for
+    // TOKEN_PRIVILEGES and outlives the call.
+    unsafe {
+        GetTokenInformation(
+            token.0,
+            TokenPrivileges,
+            Some(buffer.as_mut_ptr().cast()),
+            (buffer.len() * 8) as u32,
+            &mut needed,
+        )
+    }
+    .ok()?;
+    let privileges = buffer.as_ptr().cast::<TOKEN_PRIVILEGES>();
+    // SAFETY: the call filled the buffer with a TOKEN_PRIVILEGES whose
+    // entries follow its count inside the same buffer.
+    let entries = unsafe {
+        std::slice::from_raw_parts(
+            std::ptr::addr_of!((*privileges).Privileges).cast::<LUID_AND_ATTRIBUTES>(),
+            (*privileges).PrivilegeCount as usize,
+        )
+    };
+    entries
+        .iter()
+        .find(|entry| entry.Luid.LowPart == luid.LowPart && entry.Luid.HighPart == luid.HighPart)
+        .map(|entry| entry.Attributes.contains(SE_PRIVILEGE_ENABLED))
+}
+
 /// Whether this process runs with administrator rights that are switched on.
 pub fn is_elevated() -> bool {
     let mut handle = HANDLE::default();
@@ -381,6 +515,43 @@ mod tests {
         }
         let unknown = [allow(Trustee::System, FULL), Entry::Unknown];
         assert!(folder(Trustee::Administrators, &unknown).judge().is_err());
+    }
+
+    /// Held by every account and off by default; switching it on does
+    /// nothing by itself.
+    const HELD_AND_HARMLESS: &str = "SeShutdownPrivilege";
+    /// Held only by SYSTEM, never by a test run.
+    const NEVER_HELD: &str = "SeTcbPrivilege";
+
+    #[test]
+    fn a_privilege_is_on_while_the_guard_lives_and_restored_after() {
+        let before = privilege_state(HELD_AND_HARMLESS).expect("every account holds it");
+        {
+            let _outer = EnabledPrivilege::enable(HELD_AND_HARMLESS).unwrap();
+            assert_eq!(privilege_state(HELD_AND_HARMLESS), Some(true));
+            {
+                // Already on: the inner guard changes nothing and puts
+                // nothing back.
+                let inner = EnabledPrivilege::enable(HELD_AND_HARMLESS).unwrap();
+                assert_eq!(inner.previous.PrivilegeCount, 0);
+            }
+            assert_eq!(privilege_state(HELD_AND_HARMLESS), Some(true));
+        }
+        assert_eq!(privilege_state(HELD_AND_HARMLESS), Some(before));
+    }
+
+    #[test]
+    fn a_privilege_the_token_lacks_cannot_be_switched_on() {
+        assert_eq!(privilege_state(NEVER_HELD), None);
+        assert!(matches!(
+            EnabledPrivilege::enable(NEVER_HELD),
+            Err(PrivilegeError::NotHeld)
+        ));
+        assert_eq!(privilege_state(NEVER_HELD), None);
+        assert!(matches!(
+            EnabledPrivilege::enable("SeNoSuchPrivilege"),
+            Err(PrivilegeError::Failed(_))
+        ));
     }
 
     #[test]

@@ -443,7 +443,8 @@ integration recent enough for the service; Deskmate checks that while it is
 connected. To install it:
 
 1. Open **Settings → Deskmate service** in Deskmate and press **Install**.
-2. Approve the Windows prompt for `deskmate-service.exe`.
+2. Approve the Windows prompt for `deskmate-service.exe`. An administrator
+   can approve it with their own account.
 3. The panel shows *Running: waiting while the Deskmate app holds the
    connection*. That is right: while you are signed in, the app connects.
 

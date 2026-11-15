@@ -303,7 +303,10 @@ be set up again (`ServiceConfig::fingerprint`).
 | `deskmate-service run` | What the service manager starts |
 
 Exit codes: 0 done, 1 failed, 2 wrong usage, 5 `install` or `uninstall`
-without an elevated terminal.
+without an elevated terminal, 6 `install` installed the service but could not
+check the program behind `--provision-pipe`, so it took no settings. A
+process of another account is checked with `SeDebugPrivilege`, switched on
+for that look only (`win::security::EnabledPrivilege`).
 
 A build with the cargo feature `test-hooks` is for tests only. It has
 `DryRunPower` instead of `SystemPower`, so it cannot turn a computer off, and

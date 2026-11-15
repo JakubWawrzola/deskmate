@@ -437,7 +437,13 @@ The app serves it to one reader, the process it has just started, and
 disconnects any other client unread. It closes the pipe when that process has
 ended, or after two minutes. The installer checks that the pipe is served by
 a program named `deskmate.exe`, reads one line and passes it to the admin
-pipe. The keys come from the user's Credential Manager; they never appear in
+pipe. When an administrator approved the prompt with their own account, the
+app runs as another account, and its process opens for that check only with
+the debug privilege, which an elevated administrator holds but has switched
+off. The installer switches it on for that one look and off again right
+after. Without it the service stays installed without settings, the
+installer ends with exit code 6, and the app asks for the prompt to be
+approved with the account that runs Deskmate. The keys come from the user's Credential Manager; they never appear in
 an argument, a file or the environment, and every copy the app makes is
 wiped.
 
