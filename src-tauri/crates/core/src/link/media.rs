@@ -12,9 +12,15 @@ use crate::config::AppConfig;
 pub const MEDIA_KEY: &str = "media";
 /// Home Assistant drops a text longer than this from the state object.
 pub const MAX_MEDIA_TEXT_CHARS: usize = 256;
-/// The media sensors. Their switches decide whether the media player exists
-/// and which of its texts it shows.
+/// The media sensors. The media player shows the part of each one only
+/// while its switch is on.
 pub const MEDIA_SENSORS: [&str; 4] = ["media_title", "media_artist", "media_app", "media_status"];
+/// The sensor whose switch decides whether the media player exists: its
+/// `state` is what this sensor reports.
+pub const MEDIA_STATUS_SENSOR: &str = "media_status";
+/// The sensor whose switch decides whether the media player reports the
+/// volume.
+pub const VOLUME_SENSOR: &str = "volume";
 
 /// The descriptor in a `declare` frame.
 pub fn media_entity() -> Value {
@@ -22,14 +28,12 @@ pub fn media_entity() -> Value {
 }
 
 /// Whether a declaration includes the media player. Home Assistant must have
-/// announced the entity kind, and the user must have turned on at least one
-/// media sensor: the entity tells what is playing, which they are off by
-/// default for.
+/// announced the entity kind, and the user must have turned on the media
+/// status sensor: the entity's state tells whether something is playing,
+/// which that sensor is off by default for.
 pub fn declares_media_player(cfg: &AppConfig, hub: Option<&HubInfo>) -> bool {
     hub.is_some_and(|hub| hub.has_cap(feature::MEDIA_PLAYER))
-        && MEDIA_SENSORS
-            .iter()
-            .any(|id| crate::sensors::is_enabled(cfg, id))
+        && crate::sensors::is_enabled(cfg, MEDIA_STATUS_SENSOR)
 }
 
 /// The `state` field of the media player.
@@ -89,7 +93,9 @@ pub struct MediaPlayerState {
 
 impl MediaPlayerState {
     /// The state for what the client read. A text whose media sensor the user
-    /// left off stays out, and so does an empty one.
+    /// left off stays out, and so does an empty one. The volume stays out
+    /// while the volume sensor is off; the mute state is always there, like
+    /// the mute switch's.
     pub fn new(
         cfg: &AppConfig,
         session: Option<&MediaSession>,
@@ -108,7 +114,9 @@ impl MediaPlayerState {
             title: text("media_title", |session| &session.title),
             artist: text("media_artist", |session| &session.artist),
             app: text("media_app", |session| &session.app),
-            volume: volume_percent.map(|percent| f64::from(percent.min(100)) / 100.0),
+            volume: volume_percent
+                .filter(|_| crate::sensors::is_enabled(cfg, VOLUME_SENSOR))
+                .map(|percent| f64::from(percent.min(100)) / 100.0),
             muted,
         }
     }
@@ -208,8 +216,8 @@ mod tests {
     }
 
     #[test]
-    fn declared_only_with_the_cap_and_a_media_sensor_on() {
-        let on = with_sensors(&["media_title"]);
+    fn declared_only_with_the_cap_and_the_media_status_sensor_on() {
+        let on = with_sensors(&["media_status"]);
         let off = AppConfig::default();
         let new_hub = hub(&["info", "media_player"]);
         let old_hub = hub(&["info", "scoped_declare", "bye"]);
@@ -218,12 +226,34 @@ mod tests {
         assert!(!declares_media_player(&on, Some(&old_hub)));
         assert!(!declares_media_player(&on, None));
         assert!(!declares_media_player(&off, Some(&new_hub)));
-        for sensor in MEDIA_SENSORS {
-            assert!(declares_media_player(
+    }
+
+    /// The player's state is what the media status sensor reports, so the
+    /// other media sensors alone do not make it.
+    #[test]
+    fn the_other_media_sensors_do_not_declare_it_without_media_status() {
+        let new_hub = hub(&["info", "media_player"]);
+        let others = with_sensors(&["media_title", "media_artist", "media_app"]);
+        assert!(!declares_media_player(&others, Some(&new_hub)));
+        for sensor in ["media_title", "media_artist", "media_app"] {
+            assert!(!declares_media_player(
                 &with_sensors(&[sensor]),
                 Some(&new_hub)
             ));
         }
+    }
+
+    #[test]
+    fn the_volume_follows_the_volume_sensor() {
+        let mut cfg = with_sensors(&["media_status"]);
+        let on = MediaPlayerState::new(&cfg, Some(&session()), Some(40), Some(true));
+        assert_eq!(on.volume, Some(0.4));
+
+        cfg.sensors_enabled.insert(VOLUME_SENSOR.into(), false);
+        let off = MediaPlayerState::new(&cfg, Some(&session()), Some(40), Some(true));
+        assert_eq!(off.to_value()["volume"], Value::Null);
+        // The mute switch is published whatever the sensors say.
+        assert_eq!(off.muted, Some(true));
     }
 
     #[test]

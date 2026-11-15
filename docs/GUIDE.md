@@ -131,10 +131,12 @@ One device per PC, with:
   active window title, Wi-Fi name, what is playing, camera in use, microphone
   in use.
 - **Media player**: with a Deskmate that supports it, a *Media* entity shows
-  what the PC is playing (state, title, artist, app, volume and mute) and has
-  play/pause, next, previous, volume and mute controls that work in any media
-  card. It reveals what you play, so it stays off until you turn it on in
-  Deskmate.
+  what the PC is playing and has play/pause, next, previous, volume and mute
+  controls that work in any media card. It appears once you turn on *Media
+  status* in Deskmate, because it reveals what you play. It shows the title,
+  artist and app only while their own sensors are on, and the volume while
+  the *Volume* sensor is on; the separate media sensors and buttons stay as
+  they are.
 - **Connection**: a diagnostic sensor that Home Assistant adds itself. It says
   what is connected for this PC (*App*, *Service*, *Daemon*, or *Connected*
   for a Deskmate that does not say what it is) and, when nothing is, whether

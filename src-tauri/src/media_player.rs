@@ -5,7 +5,7 @@
 
 use deskmate_core::link::media::{
     declares_media_player, media_state_frame, parse_media_command, MediaOp, MediaPlayerState,
-    MediaSession,
+    MediaSession, VOLUME_SENSOR,
 };
 use serde_json::Value;
 use std::collections::HashMap;
@@ -72,10 +72,13 @@ pub async fn handle_command(
     action: &str,
     value: Option<&Value>,
 ) -> Result<(), String> {
-    let declared = {
+    let (declared, volume_sensor) = {
         let state = app.state::<AppState>();
         let cfg = state.config.lock().await;
-        declares_media_player(&cfg, state.link_info().as_ref())
+        (
+            declares_media_player(&cfg, state.link_info().as_ref()),
+            crate::sensors::is_enabled(&cfg, VOLUME_SENSOR),
+        )
     };
     if !declared {
         return Err("the media player is not enabled on this computer".into());
@@ -84,8 +87,10 @@ pub async fn handle_command(
     tokio::task::spawn_blocking(move || run(op))
         .await
         .map_err(|e| e.to_string())??;
-    // The volume control and the mute switch show the same values.
+    // The volume control and the mute switch show the same values. The
+    // volume goes out only while its sensor is on.
     let echoed = match op {
+        MediaOp::SetVolume(_) if !volume_sensor => None,
         MediaOp::SetVolume(_) => tokio::task::spawn_blocking(crate::sys_commands::get_volume)
             .await
             .ok()

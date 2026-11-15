@@ -508,13 +508,14 @@ no `features` field.
 Assistant answers `info`, or after 3 seconds without an answer. A full
 declaration replaces the entity list and Home Assistant removes what it
 leaves out, so declaring before the answer would remove the media player on
-every reconnect. When the answer lists `media_player` and at least one of
-the media sensors (title, artist, app, status) is on, the declaration holds
+every reconnect. When the answer lists `media_player` and the *Media status*
+sensor is on, the declaration holds
 `{"key": "media", "kind": "media_player", "name": "Media"}`, and the state
-object follows at once. An answer that arrives after the 3 seconds brings a
-new full declaration with the media player. It reads the object on every publish interval and
-sends it in a `state` frame of its own when any field has changed, and again
-right after each command:
+object follows at once. The player's `state` is what that sensor reports, so
+the other media sensors alone do not add it. An answer that arrives after
+the 3 seconds brings a new full declaration with the media player. Deskmate
+reads the object on every publish interval and sends it in a `state` frame
+of its own when any field has changed, and again right after each command:
 
 ```json
 {"t": "state", "s": {"media": {"state": "playing", "title": "Song",
@@ -527,7 +528,8 @@ right after each command:
   they are, `idle` for a session that is stopped, opening or changing tracks,
   `off` for a closed session or none at all.
 - `volume` and `muted` are the default output device, the same values as the
-  *Volume* control and the *Mute audio* switch.
+  *Volume* control and the *Mute audio* switch. `volume` is null while the
+  *Volume* sensor is off; `muted` is always sent, as the switch's state is.
 
 A `cmd` for `media` must have the action `set` and a `value` object whose
 `op` is one of the seven names. `set_volume` needs a `volume` from 0 to 1,

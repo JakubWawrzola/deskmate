@@ -62,15 +62,17 @@ mod tests {
     }
 
     /// An integration that does not announce the media player never gets
-    /// one, and neither does a user who left the media sensors off.
+    /// one, and neither does a user who left the media status sensor off.
     #[test]
-    fn the_media_player_needs_the_cap_and_a_media_sensor() {
+    fn the_media_player_needs_the_cap_and_the_media_status_sensor() {
         let mut cfg = AppConfig::default();
         let new_hub = hub(&["info", "scoped_declare", "bye", "media_player"]);
         let old_hub = hub(&["info", "scoped_declare", "bye"]);
         assert!(!declares_media(&cfg, Some(&new_hub)));
 
         cfg.sensors_enabled.insert("media_title".into(), true);
+        assert!(!declares_media(&cfg, Some(&new_hub)));
+        cfg.sensors_enabled.insert("media_status".into(), true);
         assert!(declares_media(&cfg, Some(&new_hub)));
         assert!(!declares_media(&cfg, Some(&old_hub)));
         assert!(!declares_media(&cfg, None));
