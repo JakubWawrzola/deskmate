@@ -7,12 +7,21 @@ const PLUGIN_FOLDER: &str = "../streamdeck-plugin/com.deskmate.streamdeck.sdPlug
 /// What the plugin's build writes into that folder. The rest of the folder is
 /// in the repository.
 const PLUGIN_BUILD_OUTPUT: [&str; 2] = ["bin/plugin.js", "bin/package.json"];
+/// The folder tauri.conf.json lists as a resource. A release build fills it
+/// with deskmate-service.exe (scripts/build-service.mjs) before this runs.
+const SERVICE_BUNDLE_DIR: &str = "service-bin";
 
 fn main() {
     if let Err(message) = check_stream_deck_plugin() {
         // Fails the build with this message.
         println!("cargo::error={message}");
         return;
+    }
+    // Tauri refuses a resource folder that does not exist and skips an empty
+    // one, so `cargo check`, `cargo test` and `tauri dev` work without a
+    // built service.
+    if let Err(error) = std::fs::create_dir_all(SERVICE_BUNDLE_DIR) {
+        println!("cargo:warning=cannot create {SERVICE_BUNDLE_DIR}: {error}");
     }
     tauri_build::build()
 }

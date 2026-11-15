@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "npm run build && npm run build:streamdeck",
+    "beforeBuildCommand": "npm run build && npm run build:streamdeck && npm run build:service",
     "frontendDist": "../dist"
   },
   "app": {
@@ -55,7 +55,8 @@
       "../streamdeck-plugin/manifest.template.json": "streamdeck-plugin/manifest.template.json",
       "../streamdeck-plugin/com.deskmate.streamdeck.sdPlugin/bin/": "streamdeck-plugin/bin/",
       "../streamdeck-plugin/com.deskmate.streamdeck.sdPlugin/imgs/": "streamdeck-plugin/imgs/",
-      "../streamdeck-plugin/com.deskmate.streamdeck.sdPlugin/ui/": "streamdeck-plugin/ui/"
+      "../streamdeck-plugin/com.deskmate.streamdeck.sdPlugin/ui/": "streamdeck-plugin/ui/",
+      "service-bin": "service"
     },
     "windows": {
       "nsis": {

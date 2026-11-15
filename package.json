@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "build:streamdeck": "npm --prefix streamdeck-plugin ci && npm --prefix streamdeck-plugin run build",
+    "build:service": "node scripts/build-service.mjs",
     "preview": "vite preview",
     "tauri": "tauri",
     "typecheck": "tsc --noEmit",

@@ -2,6 +2,8 @@ node_modules
 dist
 src-tauri/target
 src-tauri/gen
+# deskmate-service.exe for the installer, built by scripts/build-service.mjs
+src-tauri/service-bin/
 *.local
 .env
 .env.*
