@@ -137,7 +137,20 @@ def test_volume_in_range_is_kept(value: float) -> None:
 
 @pytest.mark.parametrize(
     "value",
-    [-0.01, 1.01, 2, True, False, "0.5", float("nan"), float("inf"), [0.5]],
+    [
+        -0.01,
+        1.01,
+        2,
+        True,
+        False,
+        "0.5",
+        float("nan"),
+        float("inf"),
+        [0.5],
+        # json.loads makes an int of up to 4300 digits, too large for a float.
+        pytest.param(10**400, id="huge_int"),
+        pytest.param(-(10**400), id="huge_negative_int"),
+    ],
 )
 def test_invalid_volume_is_dropped_alone(value: Any) -> None:
     parsed = parse_media_state({**PLAYING, "volume": value})

@@ -83,6 +83,11 @@ def _volume(value: Any) -> float | None:
     # bool is an int in Python, and json.loads accepts NaN and Infinity.
     if not isinstance(value, int | float) or isinstance(value, bool):
         return None
-    if not math.isfinite(value) or not 0 <= value <= 1:
+    try:
+        number = float(value)
+    except OverflowError:
+        # An int too large for a float, which json.loads accepts.
         return None
-    return float(value)
+    if not math.isfinite(number) or not 0 <= number <= 1:
+        return None
+    return number
