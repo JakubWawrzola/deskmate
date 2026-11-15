@@ -328,8 +328,8 @@ pub const SENSOR_DEFS: &[SensorDef] = &[
         default_enabled: true,
     },
     // Screen brightness: the built-in panel through WMI, external monitors
-    // through DDC/CI (the app's monitor/brightness.rs). Declared only while a
-    // display answers, see `SessionEntities::brightness`.
+    // through DDC/CI (the app's monitor/brightness.rs). Declared once a
+    // display has answered, see `SessionEntities::brightness`.
     SensorDef {
         id: BRIGHTNESS_KEY,
         name: "Screen brightness",

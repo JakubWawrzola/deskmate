@@ -8,40 +8,91 @@
 //! goes to every display that takes it.
 //!
 //! Many monitors do not speak DDC/CI, or have it switched off in their own
-//! menu. The number is declared only while at least one display answers, so
-//! a desktop PC without such a monitor gets no entity that does nothing.
+//! menu. The number is declared once a display has answered since the app
+//! started, so a desktop PC without such a monitor gets no entity that does
+//! nothing.
+//!
+//! Once declared, the number stays declared until the user switches it off.
+//! A display that stops answering for a while (a DDC/CI monitor in standby, a
+//! laptop docked with its lid closed) is a passing state, and Home Assistant
+//! removes an entity that a new declaration leaves out, together with the
+//! user's changes to it. While no display answers, no value is sent and a
+//! new value is refused with an error.
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 pub use deskmate_core::sensors::BRIGHTNESS_KEY as KEY;
 
-/// Sensor ticks in a row without any display answering before the number is
-/// withdrawn. A DDC/CI monitor misses a reading now and then, and the entity
-/// should not come and go with every miss.
-const MISSES_BEFORE_WITHDRAWN: u8 = 3;
-
 /// The highest brightness, in percent.
 const MAX_PERCENT: u8 = 100;
 
-/// At least one display answered recently: the number is declared.
-static SUPPORTED: AtomicBool = AtomicBool::new(false);
-/// Set when SUPPORTED changed; the entities are declared again.
-static CHANGED: AtomicBool = AtomicBool::new(false);
+/// What this process knows about the displays' brightness.
+struct Support {
+    /// The displays were asked at least once.
+    probed: AtomicBool,
+    /// A display answered at least once: the number is declared.
+    supported: AtomicBool,
+    /// `supported` changed; the entities are declared again.
+    changed: AtomicBool,
+}
 
-/// Whether a display can be read and set right now.
+impl Support {
+    const fn new() -> Self {
+        Self {
+            probed: AtomicBool::new(false),
+            supported: AtomicBool::new(false),
+            changed: AtomicBool::new(false),
+        }
+    }
+
+    /// Takes the outcome of one reading. Only the first answer changes
+    /// anything; a display that stops answering later does not withdraw the
+    /// number.
+    fn record(&self, answered: bool) {
+        self.probed.store(true, Ordering::Relaxed);
+        if answered && !self.supported.swap(true, Ordering::Relaxed) {
+            self.changed.store(true, Ordering::Relaxed);
+        }
+    }
+
+    fn is_probed(&self) -> bool {
+        self.probed.load(Ordering::Relaxed)
+    }
+
+    fn is_supported(&self) -> bool {
+        self.supported.load(Ordering::Relaxed)
+    }
+
+    fn take_changed(&self) -> bool {
+        self.changed.swap(false, Ordering::Relaxed)
+    }
+}
+
+static SUPPORT: Support = Support::new();
+
+/// Whether a display has answered since the app started.
 pub fn is_supported() -> bool {
-    SUPPORTED.load(Ordering::Relaxed)
+    SUPPORT.is_supported()
 }
 
 /// True once after the support changed since the last call.
 pub fn take_changed() -> bool {
-    CHANGED.swap(false, Ordering::Relaxed)
+    SUPPORT.take_changed()
 }
 
-fn remember_supported(supported: bool) {
-    if SUPPORTED.swap(supported, Ordering::Relaxed) != supported {
-        CHANGED.store(true, Ordering::Relaxed);
+/// Asks the displays once, before the first declaration of this process,
+/// while the number is on. Without it the first declaration after a start
+/// would go out before the first sensor tick and leave the number out, and
+/// Home Assistant would remove the entity it already has.
+pub async fn probe_before_declare(cfg: &crate::config::AppConfig) {
+    if SUPPORT.is_probed() || !crate::sensors::is_enabled(cfg, KEY) {
+        return;
+    }
+    // WMI and DDC/CI calls block; they run off the async runtime.
+    match tokio::task::spawn_blocking(|| super::brightness_win::with_displays(read_first)).await {
+        Ok(reading) => SUPPORT.record(reading.is_some()),
+        Err(error) => log::warn!("cannot ask the displays for their brightness: {error}"),
     }
 }
 
@@ -130,51 +181,15 @@ pub(super) fn readings_by_instance(rows: Vec<(String, Option<u32>)>) -> HashMap<
         .collect()
 }
 
-/// Whether the number is declared, given the readings so far.
-#[derive(Debug, Default)]
-struct Availability {
-    supported: bool,
-    misses: u8,
-}
-
-impl Availability {
-    /// Takes the outcome of one reading and says whether the number should
-    /// be declared now.
-    fn update(&mut self, answered: bool) -> bool {
-        if answered {
-            self.supported = true;
-            self.misses = 0;
-        } else if self.supported {
-            self.misses = self.misses.saturating_add(1);
-            if self.misses >= MISSES_BEFORE_WITHDRAWN {
-                self.supported = false;
-                self.misses = 0;
-            }
-        }
-        self.supported
+/// Reads the brightness on a sensor tick while the number is on.
+pub fn collect(cfg: &crate::config::AppConfig, out: &mut HashMap<String, String>) {
+    if !crate::sensors::is_enabled(cfg, KEY) {
+        return;
     }
-}
-
-/// Reads the brightness on every sensor tick while the number is on.
-#[derive(Debug, Default)]
-pub struct Collector {
-    availability: Availability,
-}
-
-impl Collector {
-    pub fn collect(
-        &mut self,
-        cfg: &crate::config::AppConfig,
-        out: &mut std::collections::HashMap<String, String>,
-    ) {
-        if !crate::sensors::is_enabled(cfg, KEY) {
-            return;
-        }
-        let reading = super::brightness_win::with_displays(read_first);
-        remember_supported(self.availability.update(reading.is_some()));
-        if let Some(percent) = reading {
-            out.insert(KEY.into(), percent.to_string());
-        }
+    let reading = super::brightness_win::with_displays(read_first);
+    SUPPORT.record(reading.is_some());
+    if let Some(percent) = reading {
+        out.insert(KEY.into(), percent.to_string());
     }
 }
 
@@ -334,27 +349,30 @@ mod tests {
     }
 
     #[test]
-    fn the_number_appears_at_once_and_goes_after_repeated_misses() {
-        let mut availability = Availability::default();
-        assert!(!availability.update(false));
-        assert!(availability.update(true));
-        for _ in 1..MISSES_BEFORE_WITHDRAWN {
-            assert!(availability.update(false));
-        }
-        assert!(!availability.update(false));
-        assert!(!availability.update(false));
-        assert!(availability.update(true));
+    fn the_number_appears_with_the_first_answer() {
+        let support = Support::new();
+        assert!(!support.is_probed(), "not asked yet: probe first");
+        support.record(false);
+        assert!(support.is_probed());
+        assert!(!support.is_supported());
+        assert!(!support.take_changed(), "nothing to declare again");
+        support.record(true);
+        assert!(support.is_supported());
+        assert!(support.take_changed());
+        assert!(!support.take_changed(), "reported once");
     }
 
     #[test]
-    fn one_answer_resets_the_misses() {
-        let mut availability = Availability::default();
-        availability.update(true);
-        for _ in 0..10 {
-            for _ in 1..MISSES_BEFORE_WITHDRAWN {
-                assert!(availability.update(false));
-            }
-            assert!(availability.update(true));
+    fn displays_that_stop_answering_keep_the_number_declared() {
+        let support = Support::new();
+        support.record(true);
+        assert!(support.take_changed());
+        for _ in 0..100 {
+            support.record(false);
+            assert!(support.is_supported());
+            assert!(!support.take_changed(), "no new declaration");
         }
+        support.record(true);
+        assert!(!support.take_changed());
     }
 }

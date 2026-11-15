@@ -494,6 +494,7 @@ async fn declare_session(
     cfg: &AppConfig,
     out_tx: &mpsc::UnboundedSender<Value>,
 ) -> Result<(), LinkError> {
+    crate::monitor::brightness::probe_before_declare(cfg).await;
     let state = app.state::<AppState>();
     let hub = state.link_info();
     let hardware_defs = state.hardware_sensor_defs.lock().await.clone();

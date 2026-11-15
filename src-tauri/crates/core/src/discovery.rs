@@ -39,8 +39,8 @@ pub struct SessionEntities {
     /// Whether a Link declaration includes the media player: see
     /// `link::media::declares_media_player`. MQTT has no such entity.
     pub media_player: bool,
-    /// A display answers for its brightness. Without one the brightness
-    /// number is not declared.
+    /// A display has answered for its brightness since the app started.
+    /// Until then the brightness number is not declared.
     pub brightness: bool,
 }
 

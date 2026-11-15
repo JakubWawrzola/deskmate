@@ -221,6 +221,7 @@ async fn on_connected(app: &AppHandle, node: &str) {
         )
         .await;
 
+    crate::monitor::brightness::probe_before_declare(&cfg).await;
     let hardware_defs = state.hardware_sensor_defs.lock().await.clone();
     for (topic, payload) in crate::discovery::build_all(&cfg, &hardware_defs) {
         let _ = client.publish(topic, QoS::AtLeastOnce, true, payload).await;

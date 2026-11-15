@@ -16,7 +16,6 @@ pub struct Collector {
     gamepad: Option<crate::gamepad::Watcher>,
     /// The display state registration, while the screen sensor is on.
     screen: Option<crate::monitor::screen_state::Watcher>,
-    brightness: crate::monitor::brightness::Collector,
 }
 
 impl Collector {
@@ -27,7 +26,6 @@ impl Collector {
             approved_clipboard_fingerprint: None,
             gamepad: None,
             screen: None,
-            brightness: crate::monitor::brightness::Collector::default(),
         }
     }
 
@@ -109,7 +107,7 @@ impl Collector {
                 out.insert("audio_mute".into(), if muted { "ON" } else { "OFF" }.into());
             }
             crate::audio::collect(cfg, &mut out);
-            self.brightness.collect(cfg, &mut out);
+            crate::monitor::brightness::collect(cfg, &mut out);
             if is_enabled(cfg, "active_window") {
                 out.insert("active_window".into(), truncate(&win::active_window(), 250));
             }

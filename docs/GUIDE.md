@@ -135,9 +135,11 @@ One device per PC, with:
 - **Controls**: volume slider, mute, Keep awake (stops sleep and screen-off
   while it is on), and *Screen brightness* from 0 to 100 %. Brightness works
   on a laptop's own screen and on monitors that support DDC/CI (many have it
-  as an option in their own menu). It sets every such screen at once and only
-  appears when at least one screen can be set; the Sensors page can switch it
-  off.
+  as an option in their own menu). It sets every such screen at once and
+  appears once a screen has answered since Deskmate started. A screen that
+  stops answering for a while, in standby or behind a closed lid, leaves the
+  control in place; until a screen answers again it shows no value and
+  refuses new ones. The Sensors page can switch it off.
 - **Sound**: *Mute microphone*, a *Microphone volume* slider, and *Sound
   output* / *Sound input* lists that switch the Windows default device (the
   speakers, a headset, a USB microphone). Plugging a device in or out updates

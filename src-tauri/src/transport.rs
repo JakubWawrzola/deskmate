@@ -103,8 +103,8 @@ pub async fn publish_states(app: &AppHandle, values: &HashMap<String, String>) {
 }
 
 pub async fn update_hardware_defs(app: &AppHandle, defs: Vec<crate::sensors::OwnedSensorDef>) {
-    // A sound device plugged in or removed changes the select options; a
-    // display that starts or stops answering adds or removes the brightness.
+    // A sound device plugged in or removed changes the select options; the
+    // first display that answers adds the brightness.
     let devices_changed = crate::audio::take_changed() | crate::monitor::brightness::take_changed();
     let (changed, removed) = {
         let state = app.state::<AppState>();
@@ -197,6 +197,7 @@ pub async fn publish_trigger(app: &AppHandle, hotkey_id: &str) {
 pub async fn refresh_entities(app: &AppHandle) {
     let state = app.state::<AppState>();
     let cfg = state.config.lock().await.clone();
+    crate::monitor::brightness::probe_before_declare(&cfg).await;
     let hardware_defs = state.hardware_sensor_defs.lock().await.clone();
     if cfg.transport == "link" {
         let hub = state.link_info();
