@@ -112,17 +112,34 @@ Windows Credential Manager, never into that file.
 One device per PC, with:
 
 - **Sensors**: CPU, memory, disk, network up and down, battery, uptime, idle
-  time, session locked, current user, "presenting or full screen", and (off by
-  default) *Last active*, the time of the last keyboard or mouse input, handy
-  for presence. With supported hardware also GPU load and temperature, VRAM,
-  per-drive usage and speed. Sensors a PC cannot read are simply not created.
+  time, session locked, current user, "presenting or full screen", *User
+  state*, *Screen on*, and (off by default) *Last active*, the time of the
+  last keyboard or mouse input, handy for presence. With supported hardware
+  also GPU load and temperature, VRAM, per-drive usage and speed. Sensors a PC
+  cannot read are simply not created.
+- **Idle time** counts game controllers as well as the keyboard and mouse:
+  someone playing with an Xbox-style controller is not idle. Sticks that
+  drift a little at rest do not count.
+- **User state** says what Windows thinks you are doing: `normal`,
+  `fullscreen` (a full-screen app), `game` (a full-screen game),
+  `presentation` (Windows presentation settings are on) or `busy` (the screen
+  saver is on, the PC is locked, or another user's session is active).
+- **Screen on** follows the PC's display: off when Windows turned the screen
+  off, on when it is on or dimmed.
 - **CPU temperature**: Windows only lets programs with administrator rights
   read it. Settings → *CPU temperature* sets up a small helper for that, see
   [below](#cpu-temperature). Running LibreHardwareMonitor works too.
 - **Buttons**: Lock, Sleep, Hibernate, Shutdown, Restart, Sign out, Monitors
-  off, media keys, empty recycle bin. Shutdown and Restart wait 5 seconds.
+  off, Wake screen, media keys, empty recycle bin. Shutdown and Restart wait 5
+  seconds. *Wake screen* turns the screens back on as a tiny mouse nudge
+  would; the pointer does not move. While the PC is locked, Windows can
+  refuse it.
 - **Controls**: volume slider, mute, Keep awake (stops sleep and screen-off
-  while it is on).
+  while it is on), and *Screen brightness* from 0 to 100 %. Brightness works
+  on a laptop's own screen and on monitors that support DDC/CI (many have it
+  as an option in their own menu). It sets every such screen at once and only
+  appears when at least one screen can be set; the Sensors page can switch it
+  off.
 - **Sound**: *Mute microphone*, a *Microphone volume* slider, and *Sound
   output* / *Sound input* lists that switch the Windows default device (the
   speakers, a headset, a USB microphone). Plugging a device in or out updates
