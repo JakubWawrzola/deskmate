@@ -19,7 +19,11 @@ use std::io::ErrorKind;
 use std::os::linux::net::SocketAddrExt;
 use std::os::unix::net::{SocketAddr, UnixDatagram};
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
+
+/// Whether `machine_turn` has said that the seat cannot be checked.
+static MACHINE_SEAT_WARNED: AtomicBool = AtomicBool::new(false);
 
 /// A bound socket and the node it was bound for.
 struct Held {
@@ -68,6 +72,18 @@ pub fn turn(node: &str) -> bool {
 
 pub fn set_waiting(node: &str, waiting: bool) {
     holder().set_waiting(node, waiting);
+}
+
+/// `seat::machine_turn` for the daemon: like `turn` for a holder that is never
+/// in use, except that a false while holding the seat keeps it. The daemon
+/// closes its connection first and then calls `release`, so a desktop app
+/// connects only after the daemon has left.
+pub fn machine_turn(node: &str) -> bool {
+    holder().machine_turn(node)
+}
+
+pub fn release(node: &str) {
+    holder().release(node);
 }
 
 fn seat_name(node: &str) -> String {
@@ -192,6 +208,44 @@ impl Holder {
         }
         false
     }
+
+    fn machine_turn(&mut self, node: &str) -> bool {
+        if let Some(held) = &self.seat {
+            if held.node == node {
+                return !is_bound(&waiting_name(node));
+            }
+            self.seat = None;
+        }
+        if is_bound(&waiting_name(node)) {
+            return false;
+        }
+        match bind(&seat_name(node)) {
+            Ok(socket) => {
+                self.seat = Some(Held {
+                    node: node.to_string(),
+                    _socket: socket,
+                });
+                true
+            }
+            Err(error) if error.kind() == ErrorKind::AddrInUse => false,
+            Err(error) => {
+                // Asked every few seconds; said once.
+                if !MACHINE_SEAT_WARNED.swap(true, Ordering::Relaxed) {
+                    log::warn!("seat: cannot bind the seat socket ({error}); connecting anyway");
+                }
+                true
+            }
+        }
+    }
+
+    fn release(&mut self, node: &str) {
+        if self.seat.as_ref().is_some_and(|held| held.node == node) {
+            self.seat = None;
+        }
+        if self.waiting.as_ref().is_some_and(|held| held.node == node) {
+            self.waiting = None;
+        }
+    }
 }
 
 #[cfg(test)]
@@ -279,6 +333,57 @@ mod tests {
         assert!(first.turn(&node));
         assert!(!second.turn(&node));
         assert!(first.turn(&node), "nobody announced anything");
+    }
+
+    #[test]
+    fn the_daemon_keeps_the_seat_until_it_releases_it() {
+        let node = node();
+        let mut daemon = daemon();
+        let mut app = app();
+
+        assert!(daemon.machine_turn(&node));
+        assert!(daemon.machine_turn(&node), "nobody waits");
+        assert!(!app.turn(&node), "the seat is taken");
+        assert!(app.waiting.is_some());
+
+        assert!(!daemon.machine_turn(&node), "an app waits");
+        assert!(daemon.seat.is_some(), "but the daemon still holds the seat");
+        assert!(!app.turn(&node), "so the app cannot connect yet");
+
+        daemon.release(&node);
+        assert!(daemon.seat.is_none());
+        assert!(app.turn(&node), "the daemon has left");
+        assert!(!daemon.machine_turn(&node), "the app holds the seat");
+        assert!(
+            daemon.waiting.is_none(),
+            "the daemon never announces that it waits"
+        );
+
+        drop(app);
+        assert!(
+            daemon.machine_turn(&node),
+            "the app is gone, the daemon is back"
+        );
+    }
+
+    #[test]
+    fn the_daemon_does_not_take_a_free_seat_an_app_waits_for() {
+        let node = node();
+        let mut app = app();
+        app.set_waiting(&node, true);
+        let mut daemon = daemon();
+        assert!(!daemon.machine_turn(&node));
+        assert!(daemon.seat.is_none());
+    }
+
+    #[test]
+    fn release_of_another_node_keeps_the_seat() {
+        let (held, other) = (node(), node());
+        let mut daemon = daemon();
+        assert!(daemon.machine_turn(&held));
+        daemon.release(&other);
+        assert!(daemon.seat.is_some());
+        assert!(!app().turn(&held));
     }
 
     #[test]

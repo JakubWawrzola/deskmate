@@ -46,7 +46,12 @@ pub mod linux;
 pub fn machine_turn(node: &str) -> bool {
     imp::machine_turn(node)
 }
-#[cfg(not(windows))]
+/// On Linux the client without a user is the daemon (`seat::linux`).
+#[cfg(target_os = "linux")]
+pub fn machine_turn(node: &str) -> bool {
+    linux::machine_turn(node)
+}
+#[cfg(not(any(windows, target_os = "linux")))]
 pub fn machine_turn(_node: &str) -> bool {
     true
 }
@@ -56,6 +61,8 @@ pub fn machine_turn(_node: &str) -> bool {
 pub fn release(_node: &str) {
     #[cfg(windows)]
     imp::release(_node);
+    #[cfg(target_os = "linux")]
+    linux::release(_node);
 }
 
 /// How often a connected session checks whether to hand over.
