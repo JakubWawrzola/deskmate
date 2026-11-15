@@ -430,6 +430,50 @@ The code contains this computer's pairing key, so give it only to accounts on
 that computer. *Reconfigure → Generate a new pairing key* cuts off every account
 at once; paste the new code on each one you want to keep.
 
+### When nobody is signed in: the Deskmate service
+
+Without a signed-in user the Deskmate app does not run, and the computer is
+unavailable in Home Assistant. The Deskmate service fills that gap: it keeps
+the computer's sensors and its power buttons in Home Assistant at the sign-in
+screen, after a restart and while everyone is signed out. It never shows
+notifications, receives files or sees anything from a user's session.
+
+It needs the Deskmate integration (not MQTT), a paired computer and an
+integration recent enough for the service; Deskmate checks that while it is
+connected. To install it:
+
+1. Open **Settings → Deskmate service** in Deskmate and press **Install**.
+2. Approve the Windows prompt for `deskmate-service.exe`.
+3. The panel shows *Running: waiting while the Deskmate app holds the
+   connection*. That is right: while you are signed in, the app connects.
+
+In Home Assistant the computer's **Connection** sensor says who is connected:
+`app` while you are signed in, `service` while nobody is, `sleeping` while the
+computer sleeps, `off` after a shutdown, `disconnected` otherwise. While the
+service is connected, the sensors that need a user (active window, media,
+volume and so on) and the controls that act in a session are unavailable; the
+processor, memory, system drive, network, uptime and battery sensors and the
+Sleep, Hibernate, Shut down and Restart buttons keep working. When you sign in
+or out, the connection moves between the app and the service within a few
+seconds, and Home Assistant keeps the computer available meanwhile. For five
+minutes after the computer starts or wakes up, the service refuses the power
+buttons, so a misfiring automation cannot keep it off.
+
+The panel tells you when something needs doing:
+
+- **Needs update**: a Deskmate update brought a newer service. Press
+  **Update**. Nothing is updated without you.
+- **Settings differ**: you changed the address, the pairing, the device name
+  or the sensors in the app. Press **Apply** to give the service the current
+  ones.
+- **Integration too old**: update the Deskmate integration in HACS.
+
+If you press **Disconnect** on the Status page, the service does not connect
+either until you press **Connect**.
+
+To remove the service, press **Remove** in the same panel and approve the
+prompt. Uninstalling Deskmate removes it as well; updating Deskmate does not.
+
 ## 11. Screen time and family rules
 
 Microsoft Family Safety needs a Microsoft account and its cloud, and the Home

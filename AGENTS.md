@@ -382,10 +382,15 @@ A release happens when Jakub orders one, in this order:
    `TAURI_SIGNING_PRIVATE_KEY` holds the path of the key file, which lives
    outside the repository, and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` its
    password. Without the key `tauri build` fails after the installer is
-   written. Never print the key, its password or its path. `tauri build` also
-   builds the Stream Deck plugin first (`npm run build:streamdeck`: `npm ci`
-   and `npm run build` in `streamdeck-plugin/`, with Node 24), because the
-   installer carries it; the build stops if the plugin is missing.
+   written. Never print the key, its password or its path. Build each
+   architecture with `npx tauri build --target x86_64-pc-windows-msvc` and
+   `npx tauri build --target aarch64-pc-windows-msvc`. Before the app, the
+   build runs `npm run build:streamdeck` (`npm ci` and `npm run build` in
+   `streamdeck-plugin/`, with Node 24; the build stops if the plugin is
+   missing) and `scripts/build-service.mjs`, which builds `deskmate-service`
+   in release mode for that target and puts it into `src-tauri/service-bin`,
+   the installer's `service` folder. Check that the installer's `service`
+   folder holds `deskmate-service.exe` of that architecture.
 4. Write the update manifest and the checksums from the two installers and
    their `.sig` files:
    `python scripts/make_release_manifest.py --version x.y.z --x64 <x64 installer> --arm64 <ARM64 installer> --notes-file docs/releases/RELEASE-x.y.z.md --out-dir dist-installers/x.y.z`.

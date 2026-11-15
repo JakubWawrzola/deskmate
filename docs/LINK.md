@@ -355,6 +355,13 @@ Assistant does not answer it. The reason decides what the closed socket means:
 | `suspend` | The computer goes to sleep. | The computer is unavailable at once. |
 | `shutdown` | The computer shuts down or restarts. | The computer is unavailable at once. |
 
+The Deskmate app sends `handover` when the user quits it or signs out of
+Windows while the Deskmate service is installed, `suspend` before the computer
+sleeps and `shutdown` before it shuts down or restarts. It sends `bye` only to
+an integration that lists `bye` in `caps`. After `suspend` it stays
+disconnected until the computer wakes up, then connects again at once, as it
+does after every wake-up.
+
 During the 15 seconds after a `handover`, entities keep their states and
 their availability, and the limit of a machine declaration stays in place.
 When the next session authenticates in that time, the computer was never

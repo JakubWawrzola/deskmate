@@ -37,7 +37,7 @@ Off until you turn it on in the app:
 - receiving files and sharing folders, two separate settings;
 - your own PowerShell commands and sensors: created disabled, with
   confirmation on;
-- the CPU temperature helper and the family rules;
+- the CPU temperature helper, the Deskmate service and the family rules;
 - the local channel for the Stream Deck plugin;
 - cascade encryption.
 
@@ -177,6 +177,11 @@ Windows `Global\` namespace (`Deskmate.Seat.<node>` and
 `Deskmate.Seat.<node>.waiting`). They carry no data. Another local program
 could create them to keep Deskmate from connecting, which is a local denial of
 service only; such a program could just as well stop the app.
+
+The [Deskmate service](#the-deskmate-service) uses the same seat. It takes it
+only while no app wants it and gives it up as soon as one does. An app whose
+user pressed *Disconnect* keeps the seat without connecting while the service
+is installed, so the service does not connect against the user's wish.
 
 ## What Home Assistant can do on the PC
 
@@ -336,6 +341,122 @@ nothing else. It accepts no input: each connection to
 `\\.\pipe\deskmate-cpu-temperature` (local clients only) gets one JSON line
 with a temperature or an error code. It stops serving once Deskmate is
 uninstalled for that user; *Remove* in Settings deletes the task and the copy.
+
+## The Deskmate service
+
+Optional, installed from *Settings → Deskmate service*. It keeps the
+computer's sensors and power buttons in Home Assistant while nobody is
+signed in. [ARCHITECTURE.md](dev/ARCHITECTURE.md#the-windows-service)
+describes how it works.
+
+### What runs, and with which rights
+
+`deskmate-service.exe` in `%ProgramFiles%\Deskmate service\`, registered as
+the Windows service `DeskmateService`. It runs as LocalSystem, and Windows
+removes every privilege from its token except two: bypass traverse checking,
+which every process needs to open files by path, and shut down the system.
+
+It can:
+
+- connect to Home Assistant as this computer, with the pairing key of the
+  computer, and only while no Deskmate app on the computer wants the
+  connection (the seat, see [Several Windows users](#several-windows-users-on-one-computer));
+- report the sensors that need no signed-in user: processor, memory, the
+  system drive, network, uptime, battery and AC power;
+- press sleep, hibernate, shut down and restart. These four, with the action
+  `press`, are the only commands it runs.
+
+It cannot, by its code and by the integration's: show notifications, send or
+receive files, read the clipboard, type, open URLs, run your own commands or
+read anything from a user's session. Home Assistant sends a session with the
+role `service` no notification and no file request, and the service refuses
+them anyway. It reads neither the users' settings nor their Credential
+Manager; the app hands it what it needs (below).
+
+Power commands are refused for five minutes after Windows starts and after
+every wake-up. With Fast Startup the time since boot does not start over when
+someone shuts down, so the five minutes also count from the last wake-up. An
+automation that presses Shut down in a loop cannot keep the computer from
+starting.
+
+Updating the service is a step of its own: an app update brings a newer copy
+of the service but does not install it. Settings and the Status page offer
+*Update* until someone presses it.
+
+### Where its settings and keys live
+
+- `%ProgramData%\Deskmate\service\config.json`: the node id, the Link
+  addresses, cascade on or off, the interval, the device name and the sensor
+  switches. Never a key.
+- `service.log` and `security.log` next to it: operations and results, never
+  the content of a frame.
+- The pairing key and the cascade key: in the Credential Manager of the
+  system account, as `machine.Deskmate Service Link` and
+  `machine.Deskmate Service Link Cascade`, apart from the keys any user's app
+  keeps.
+
+`%ProgramData%\Deskmate` and the folder inside it allow access only to SYSTEM
+and Administrators and inherit nothing from `%ProgramData%`. The service
+checks both folders at every start and stops when anyone else could change
+them or when one is a link. Standard users therefore cannot read the
+settings, the logs or the keys. Administrators can, because an administrator
+can always run a program as SYSTEM.
+
+### The pipes
+
+Both of the service's pipes refuse remote clients, and the service creates
+each as the first instance of its name, so a program that took a name first
+keeps the service from starting instead of receiving anything.
+
+- `\\.\pipe\deskmate-service-admin`: SYSTEM and Administrators only. It
+  takes the settings with the keys, makes the service forget them, or makes
+  it read them again. A client checks that the service's process serves the
+  pipe before it sends a key. Nothing that arrives is logged.
+- `\\.\pipe\deskmate-service-status`: any signed-in local user may read one
+  line: the state, the version, the node id, a short fixed text and a
+  fingerprint of the settings. The fingerprint is HMAC-SHA256 under the
+  pairing key, so it tells nothing to whoever does not hold that key. The app
+  reads the line only when the service's own process serves the pipe, and
+  checks every field before it shows any of it.
+
+### The elevated step
+
+*Install*, *Update*, *Apply* and *Remove* in Settings each start
+`service\deskmate-service.exe` from Deskmate's install folder with one UAC
+prompt: `install --provision-pipe <name>`, `install` or `uninstall`. The app
+itself never runs elevated. The arguments are fixed in the app, and so is the
+path, next to `deskmate.exe`; nothing received from Home Assistant chooses
+either.
+
+The settings and the keys go over a one-time pipe that the app creates before
+the prompt. Its name holds 128 random bits. It is the first and only instance
+of that name, refuses remote clients, and lets only the signed-in user and
+Administrators read it, the second for an administrator who approves the
+prompt with their own account; nobody may write to it or add an instance.
+The app serves it to one reader, the process it has just started, and
+disconnects any other client unread. It closes the pipe when that process has
+ended, or after two minutes. The installer checks that the pipe is served by
+a program named `deskmate.exe`, reads one line and passes it to the admin
+pipe. The keys come from the user's Credential Manager; they never appear in
+an argument, a file or the environment, and every copy the app makes is
+wiped.
+
+The residual risk is the same as for the CPU temperature helper's install
+step: the program behind the prompt lives in the per-user install folder
+`%LOCALAPPDATA%\Deskmate`, which any program running as the user can change.
+Such a program could swap `deskmate-service.exe` and wait for the next
+prompt, and approving it would run that program with administrator rights.
+Approve the prompt only right after pressing a button in the panel, and check
+that it names `deskmate-service.exe`. Once installed, the service runs from
+Program Files, which a standard user cannot change, so the swap only works
+during an approved step.
+
+### Removing it
+
+*Remove* in Settings, or uninstalling Deskmate, runs `uninstall` with one
+administrator approval: the service forgets its settings and keys, is removed,
+and both folders are deleted. An update of the app does not touch the
+service. Without an installed service the uninstaller asks for nothing.
 
 ## Updates
 

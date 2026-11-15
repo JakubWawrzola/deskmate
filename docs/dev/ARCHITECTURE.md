@@ -326,6 +326,26 @@ Authenticated Users may open the object, wait on it and release it
 access, is refused, and treats that as it always did: another account holds
 the seat, so it announces that it waits, and the service hands over.
 
+### The app's side
+
+The installer ships the service as a resource: `tauri build` runs
+`scripts/build-service.mjs` first, which builds `deskmate-service` in release
+mode for the target and copies it to `src-tauri/service-bin`, installed as
+`service\deskmate-service.exe` next to `deskmate.exe`. Without a built
+service the folder stays empty and the panel says so.
+
+| Module | What |
+|---|---|
+| `service` | The commands `service_status`, `set_up_service` (install, update, apply) and `remove_service`, and what `--remove-service` (`uninstall.rs`, started by the uninstaller) does. `view` turns the status line into the panel's state, `provision` builds the settings and the `provision` line with the service crate's own code |
+| `service::win` | The one-time provisioning pipe, the elevated launch, the service manager query and the status pipe read |
+| `farewell` | Which `bye` to send when the app quits, the user signs out, Windows sleeps or shuts down, and the reconnect after a wake-up |
+| `power_events` | A hidden window that receives `WM_POWERBROADCAST` and `WM_ENDSESSION` |
+
+Install and Apply run `install --provision-pipe <name>`, Update `install`,
+Remove `uninstall`, each with one UAC prompt. While the user has pressed
+Disconnect and the service is installed, the app keeps the seat without
+connecting (`service::hold_seat_while_paused`).
+
 ### Tests
 
 The unit tests cover the runner against a stand-in hub with paused time, and
