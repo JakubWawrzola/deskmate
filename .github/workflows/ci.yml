@@ -228,3 +228,98 @@ jobs:
       - run: cargo build -p deskmate-service --features test-hooks
       - name: Install the service, drive it with the fake hub, uninstall it
         run: python ../tests/service_e2e.py --service
+
+  # The Linux daemon: linted and tested with and without test hooks, run in
+  # the foreground against the fake hub, and its systemd units checked. The
+  # end-to-end run uses the test-hooks build, so power commands are recorded
+  # and never run. Nothing is installed or started as a service.
+  daemon:
+    name: Daemon on Linux (Rust, end to end)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src-tauri
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # native-tls is the system's OpenSSL on Linux.
+      - name: Install the system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y libssl-dev pkg-config
+      - name: Install the Rust toolchain
+        run: |
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal --no-self-update \
+            --component clippy
+          rustup default "$RUST_TOOLCHAIN"
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: src-tauri
+          key: daemon
+      # The fake hub needs aiohttp and cryptography, in the versions the
+      # integration tests pin.
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: requirements-test.txt
+      - run: python -m pip install -r ../requirements-test.txt
+      - run: cargo clippy -p deskmate-service --all-targets -- -D warnings
+      - run: cargo clippy -p deskmate-service --all-targets --features test-hooks -- -D warnings
+      - run: cargo test -p deskmate-service
+      - run: cargo test -p deskmate-service --features test-hooks
+      - run: cargo build -p deskmate-service --features test-hooks
+      - name: Pair the daemon, drive it with the fake hub, stop it
+        run: python ../tests/daemon_e2e.py --binary target/debug/deskmate-service --hub-python python
+      - run: cargo build --release -p deskmate-service
+      # verify looks for the program at the path in ExecStart. The runner is
+      # thrown away after the job; the units are never enabled.
+      - name: Check the systemd units
+        run: |
+          sudo install -m 0755 target/release/deskmate-service /usr/bin/deskmate-service
+          systemd-analyze verify --man=no ../packaging/linux/deskmate.service ../packaging/linux/deskmate-sleep.service
+          systemd-analyze security --offline=yes --threshold=15 ../packaging/linux/deskmate.service
+
+  # The packages for both architectures, each built natively. Ubuntu 22.04
+  # sets the oldest glibc the program runs with (2.35).
+  daemon-package:
+    name: Daemon package (${{ matrix.arch }})
+    needs: daemon
+    strategy:
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-22.04
+          - arch: aarch64
+            runner: ubuntu-22.04-arm
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        working-directory: src-tauri
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y libssl-dev pkg-config
+      - name: Install the Rust toolchain
+        run: |
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal --no-self-update
+          rustup default "$RUST_TOOLCHAIN"
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: src-tauri
+          key: daemon-package
+      - run: cargo build --release -p deskmate-service
+      - name: Pack the .deb and the tarball
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: sh ../packaging/linux/build.sh "$ARCH" target/release/deskmate-service ../dist-linux
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: deskmate-daemon-${{ matrix.arch }}
+          path: dist-linux/
+          if-no-files-found: error
