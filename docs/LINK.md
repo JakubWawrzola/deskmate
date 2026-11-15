@@ -504,12 +504,15 @@ The Windows app lists `"features": ["media_player", "notify_tag"]` in its
 `info`. The Windows service and the Linux daemon list no features and send
 no `features` field.
 
-**Media player.** The first `declare` of a session goes out before Home
-Assistant answers `info`, so it never holds the media player. When the
-answer lists `media_player` and at least one of the media sensors (title,
-artist, app, status) is on, Deskmate sends a new full declaration with
-`{"key": "media", "kind": "media_player", "name": "Media"}` and then the
-state object at once. It reads the object on every publish interval and
+**Media player.** The app sends the first `declare` of a session when Home
+Assistant answers `info`, or after 3 seconds without an answer. A full
+declaration replaces the entity list and Home Assistant removes what it
+leaves out, so declaring before the answer would remove the media player on
+every reconnect. When the answer lists `media_player` and at least one of
+the media sensors (title, artist, app, status) is on, the declaration holds
+`{"key": "media", "kind": "media_player", "name": "Media"}`, and the state
+object follows at once. An answer that arrives after the 3 seconds brings a
+new full declaration with the media player. It reads the object on every publish interval and
 sends it in a `state` frame of its own when any field has changed, and again
 right after each command:
 

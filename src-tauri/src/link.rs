@@ -33,6 +33,48 @@ const FAREWELL_SEND: Duration = Duration::from_secs(1);
 /// frame. Home Assistant uses a feature only with a session that lists it.
 const APP_FEATURES: &[&str] = &[feature::MEDIA_PLAYER, feature::NOTIFY_TAG];
 
+/// How long a session waits for Home Assistant's `info` answer before its
+/// first `declare`. Home Assistant treats a full declaration as the complete
+/// list and removes every entity it does not name, so a declaration made
+/// without the answer would remove the media player on each reconnect. An
+/// integration older than 0.9.0 never answers and gets the declaration after
+/// this wait.
+const INFO_ANSWER_WAIT: Duration = Duration::from_secs(3);
+
+/// Where a session stands with its first `declare`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Opening {
+    AwaitingInfo,
+    Declared,
+}
+
+/// What a session does with its declaration after an event of the opening.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum DeclareStep {
+    /// Send the first declaration now.
+    First,
+    /// The answer came after the first declaration: declare again if the
+    /// answer adds an entity.
+    Again,
+    Nothing,
+}
+
+impl Opening {
+    fn on_info_answer(&mut self) -> DeclareStep {
+        match std::mem::replace(self, Self::Declared) {
+            Self::AwaitingInfo => DeclareStep::First,
+            Self::Declared => DeclareStep::Again,
+        }
+    }
+
+    fn on_wait_over(&mut self) -> DeclareStep {
+        match std::mem::replace(self, Self::Declared) {
+            Self::AwaitingInfo => DeclareStep::First,
+            Self::Declared => DeclareStep::Nothing,
+        }
+    }
+}
+
 pub async fn restart(app: AppHandle) {
     let state = app.state::<AppState>();
     if let Some(tx) = state.stop_tx.lock().await.take() {
@@ -261,32 +303,13 @@ async fn run_session(
             APP_FEATURES,
         ))
         .map_err(|e| e.to_string())?;
-    *app.state::<AppState>().link_tx.lock().await = Some(out_tx.clone());
     let (farewell_tx, mut farewell_rx) = mpsc::unbounded_channel::<Farewell>();
     app.state::<AppState>().set_link_farewell(Some(farewell_tx));
-    let hardware_defs = app
-        .state::<AppState>()
-        .hardware_sensor_defs
-        .lock()
-        .await
-        .clone();
-    // Home Assistant has not answered `info` yet, so nothing that needs a
-    // cap is declared here; the answer brings a new declaration if it does.
-    out_tx
-        .send(crate::discovery::build_link_declare(
-            cfg,
-            &hardware_defs,
-            None,
-        ))
-        .map_err(|e| e.to_string())?;
-    let cached = app.state::<AppState>().sensor_values.lock().await.clone();
-    if !cached.is_empty() {
-        out_tx
-            .send(state_frame(&cached))
-            .map_err(|e| e.to_string())?;
-    }
     crate::mqtt::set_status(app, true, "Connected to Home Assistant");
     log::info!("Deskmate Link connected");
+    let mut opening = Opening::AwaitingInfo;
+    let info_wait = tokio::time::sleep(INFO_ANSWER_WAIT);
+    tokio::pin!(info_wait);
     let mut ping = tokio::time::interval(PING_INTERVAL);
     let mut seat_check = tokio::time::interval(crate::seat::CHECK_EVERY);
     let mut handed_over = false;
@@ -294,6 +317,11 @@ async fn run_session(
     loop {
         tokio::select! {
             _ = stop.changed() => break,
+            _ = &mut info_wait, if opening == Opening::AwaitingInfo => {
+                if opening.on_wait_over() == DeclareStep::First {
+                    declare_session(app, cfg, &out_tx).await?;
+                }
+            }
             Some(farewell) = farewell_rx.recv() => {
                 // The last frame of the session; the socket closes below.
                 if let Ok(frame) = encoder.encrypt(&bye_frame(farewell.reason)) {
@@ -323,7 +351,21 @@ async fn run_session(
                 match message {
                     Message::Text(text) => {
                         let payload = decoder.decrypt(text.as_str())?;
-                        handle_incoming(app, &out_tx, payload).await;
+                        if payload.get("t").and_then(Value::as_str) != Some("info") {
+                            handle_incoming(app, &out_tx, payload).await;
+                        } else if let Some(info) = parse_info(&payload) {
+                            match opening.on_info_answer() {
+                                DeclareStep::First => {
+                                    remember_hub_info(app, info, false).await;
+                                    declare_session(app, cfg, &out_tx).await?;
+                                }
+                                DeclareStep::Again => remember_hub_info(app, info, true).await,
+                                DeclareStep::Nothing => {}
+                            }
+                        } else {
+                            // Only the fact is logged, never what was received.
+                            log::warn!("ignoring an invalid info frame from Home Assistant");
+                        }
                     }
                     Message::Close(_) => break,
                     Message::Ping(data) => writer.send(Message::Pong(data)).await.map_err(|e| e.to_string())?,
@@ -439,18 +481,51 @@ async fn handle_incoming(app: &AppHandle, tx: &mpsc::UnboundedSender<Value>, pay
             let _ = tx.send(json!({"t": "pong"}));
         }
         Some("pong") => {}
-        Some("info") => match parse_info(&payload) {
-            Some(info) => remember_hub_info(app, info).await,
-            // Only the fact is logged, never what was received.
-            None => log::warn!("ignoring an invalid info frame from Home Assistant"),
-        },
         _ => log::warn!("unknown Deskmate Link payload type"),
     }
 }
 
+/// Sends the first declaration of a session, with what Home Assistant said
+/// in its `info` answer if it has answered, and the last known states after
+/// it. Other tasks reach the session only from here on, so none of them can
+/// declare before it.
+async fn declare_session(
+    app: &AppHandle,
+    cfg: &AppConfig,
+    out_tx: &mpsc::UnboundedSender<Value>,
+) -> Result<(), LinkError> {
+    let state = app.state::<AppState>();
+    let hub = state.link_info();
+    let hardware_defs = state.hardware_sensor_defs.lock().await.clone();
+    out_tx
+        .send(crate::discovery::build_link_declare(
+            cfg,
+            &hardware_defs,
+            hub.as_ref(),
+        ))
+        .map_err(|e| e.to_string())?;
+    let cached = state.sensor_values.lock().await.clone();
+    if !cached.is_empty() {
+        out_tx
+            .send(state_frame(&cached))
+            .map_err(|e| e.to_string())?;
+    }
+    *state.link_tx.lock().await = Some(out_tx.clone());
+    if declares_media_player(cfg, hub.as_ref()) {
+        // Its own task: reading the media session blocks.
+        let app = app.clone();
+        tauri::async_runtime::spawn(async move {
+            crate::media_player::publish(&app, true).await;
+        });
+    }
+    Ok(())
+}
+
 /// Keeps the `info` answer for the rest of the session and shows the
-/// integration's version on the Status page.
-async fn remember_hub_info(app: &AppHandle, info: HubInfo) {
+/// integration's version on the Status page. With `redeclare`, the first
+/// declaration went out before this answer, so one that adds the media
+/// player is sent again.
+async fn remember_hub_info(app: &AppHandle, info: HubInfo, redeclare: bool) {
     let state = app.state::<AppState>();
     let status = {
         let mut status = state.status.lock().await;
@@ -464,10 +539,9 @@ async fn remember_hub_info(app: &AppHandle, info: HubInfo) {
     let media_player = declares_media_player(&*state.config.lock().await, Some(&info));
     state.set_link_info(Some(info));
     let _ = app.emit("deskmate://status", status);
-    if media_player {
-        // The first declaration went out before this answer and could not
-        // include the media player. Its own task: the declaration reads the
-        // media session, and the session loop must not wait for that.
+    if redeclare && media_player {
+        // Its own task: the declaration reads the media session, and the
+        // session loop must not wait for that.
         let app = app.clone();
         tauri::async_runtime::spawn(async move {
             crate::transport::refresh_entities(&app).await;
@@ -544,5 +618,25 @@ mod tests {
     fn the_app_announces_exactly_what_it_implements() {
         let frame = info_frame(ClientRole::App, ClientPlatform::Windows, APP_FEATURES);
         assert_eq!(frame["features"], json!(["media_player", "notify_tag"]));
+    }
+
+    /// Home Assistant removes every entity that a full declaration leaves
+    /// out, so the first one of a session must wait for the answer that
+    /// allows the media player.
+    #[test]
+    fn the_first_declaration_waits_for_the_info_answer() {
+        let mut opening = Opening::AwaitingInfo;
+        assert_eq!(opening.on_info_answer(), DeclareStep::First);
+        assert_eq!(opening.on_wait_over(), DeclareStep::Nothing);
+        assert_eq!(opening, Opening::Declared);
+    }
+
+    #[test]
+    fn without_an_answer_the_session_declares_once_the_wait_is_over() {
+        let mut opening = Opening::AwaitingInfo;
+        assert_eq!(opening.on_wait_over(), DeclareStep::First);
+        assert_eq!(opening.on_wait_over(), DeclareStep::Nothing);
+        // A late answer can still add the media player.
+        assert_eq!(opening.on_info_answer(), DeclareStep::Again);
     }
 }
