@@ -179,38 +179,39 @@ async def test_new_pairing_takes_over_the_device_and_entities_of_the_old_entry(
 
     # The computer was paired again: it authenticates with the new entry's key.
     second = await connect()
+    await second.sync()
+
+    # The merge happens during the handshake. Look before a declaration could
+    # put back what the merge lost.
+    assert hass.config_entries.async_get_entry(old.entry_id) is None
+    assert devices.async_get_device_by_identifier(IDENTIFIER, old.entry_id) is None
+    kept = devices.async_get(device.id)
+    assert kept is not None
+    assert kept.name_by_user == "Workshop"
+    owned = devices.async_get_device_by_identifier(IDENTIFIER, entry.entry_id)
+    assert owned is not None
+    assert owned.id == device.id
+    for registered in (sensor, switch, connection):
+        moved = entities.async_get(registered)
+        assert moved.config_entry_id == entry.entry_id
+        assert moved.unique_id.startswith(entry.entry_id)
+        assert moved.device_id == device.id
+
+    # The new entry's entities are the old ones: same entity ids, so the
+    # history stays. That holds for the hub's own sensor too.
     await declare(hass, second, [CPU_SENSOR, KEEP_AWAKE_SWITCH])
     await second.send({"t": "state", "s": {"cpu_usage": 42}})
     await second.sync()
-
-    assert hass.config_entries.async_get_entry(old.entry_id) is None
-    assert devices.async_get_device_by_identifier(IDENTIFIER, old.entry_id) is None
-    kept = devices.async_get_device_by_identifier(IDENTIFIER, entry.entry_id)
-    assert kept is not None
-    assert kept.id == device.id
-    assert kept.name_by_user == "Workshop"
-    for registered, platform, key in (
-        (sensor, "sensor", "cpu_usage"),
-        (switch, "switch", "keep_awake"),
-    ):
-        assert entity_id(hass, entry, platform, key) == registered
-        moved = entities.async_get(registered)
-        assert moved.config_entry_id == entry.entry_id
-        assert moved.device_id == device.id
-    assert hass.states.get(sensor).state == "42"
-    # The hub's own sensor keeps its entity id and history as well.
+    assert entity_id(hass, entry, "sensor", "cpu_usage") == sensor
+    assert entity_id(hass, entry, "switch", "keep_awake") == switch
     assert (
         entities.async_get_entity_id(
             "sensor", DOMAIN, connection_unique_id(entry.entry_id)
         )
         == connection
     )
-    assert entities.async_get(connection).device_id == device.id
+    assert hass.states.get(sensor).state == "42"
     assert hass.states.get(connection).state == "connected"
-    assert all(
-        registered.unique_id.startswith(entry.entry_id)
-        for registered in er.async_entries_for_config_entry(entities, entry.entry_id)
-    )
 
 
 async def test_entities_of_a_duplicate_entry_move_to_the_device_that_stays(
