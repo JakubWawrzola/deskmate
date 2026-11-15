@@ -14,6 +14,8 @@ pub struct Collector {
     approved_clipboard_fingerprint: Option<u64>,
     /// Game controller input for the idle sensors, while they are on.
     gamepad: Option<crate::gamepad::Watcher>,
+    /// The display state registration, while the screen sensor is on.
+    screen: Option<crate::monitor::screen_state::Watcher>,
 }
 
 impl Collector {
@@ -23,6 +25,7 @@ impl Collector {
             last_clipboard_fingerprint: None,
             approved_clipboard_fingerprint: None,
             gamepad: None,
+            screen: None,
         }
     }
 
@@ -77,6 +80,20 @@ impl Collector {
                     "presenting".into(),
                     if win::is_presenting() { "ON" } else { "OFF" }.into(),
                 );
+            }
+            if is_enabled(cfg, "screen_on") {
+                if self.screen.is_none() {
+                    self.screen = crate::monitor::screen_state::Watcher::start();
+                }
+                if let Some(on) = self
+                    .screen
+                    .as_ref()
+                    .and_then(crate::monitor::screen_state::Watcher::screen_on)
+                {
+                    out.insert("screen_on".into(), if on { "ON" } else { "OFF" }.into());
+                }
+            } else {
+                self.screen = None;
             }
             if is_enabled(cfg, "user_state") {
                 if let Some(state) = crate::user_state::current() {

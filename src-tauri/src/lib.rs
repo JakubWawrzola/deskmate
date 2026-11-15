@@ -19,6 +19,7 @@ mod link_files;
 mod media;
 mod media_activity;
 mod media_player;
+mod monitor;
 mod mqtt;
 mod notify;
 mod notify_tags;

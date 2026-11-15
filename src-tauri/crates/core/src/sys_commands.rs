@@ -52,6 +52,11 @@ pub const COMMAND_DEFS: &[CommandDef] = &[
         icon: "mdi:monitor-off",
     },
     CommandDef {
+        id: "wake_screen",
+        name: "Wake screen",
+        icon: "mdi:monitor",
+    },
+    CommandDef {
         id: "media_play_pause",
         name: "Media play/pause",
         icon: "mdi:play-pause",

@@ -207,6 +207,18 @@ pub const SENSOR_DEFS: &[SensorDef] = &[
         privacy: false,
         default_enabled: true,
     },
+    // Whether the console display is on, from Windows' display power
+    // notification (the app's monitor/screen_state.rs).
+    SensorDef {
+        id: "screen_on",
+        name: "Screen on",
+        component: "binary_sensor",
+        unit: None,
+        device_class: None,
+        icon: Some("mdi:monitor"),
+        privacy: false,
+        default_enabled: true,
+    },
     // --- privacy-sensitive: OPT-IN ---
     SensorDef {
         id: "active_window",
