@@ -54,6 +54,13 @@ On once the computer is paired:
   is installed after you choose *Install now*, or by itself only if you
   switch to automatic installs in Settings (see [Updates](#updates)).
 
+With an integration that supports it, turning on *Media status* also adds a
+media player to Home Assistant. Its state is that sensor's value, so no
+other media sensor adds it. Its title, artist and app are sent only while
+their own sensors are on, and its volume only while the *Volume* sensor is
+on. Its commands are the built-in media keys, volume and mute, so it gives
+Home Assistant no control that it did not have.
+
 New installs use Deskmate Link. The key is stored in Windows Credential
 Manager, and a plain `ws://` address is accepted only inside a private network.
 
@@ -352,6 +359,23 @@ single-use random token that exists only in the running process; a click
 without a valid token is dropped and logged. Buttons on notifications shown
 before Deskmate restarted no longer work. Automations that react to a button
 should still check for the exact action value they expect.
+
+Over Link a notification can carry a tag and a priority. A tag must be 1 to
+64 letters, digits, `_` or `-`, and a priority `normal`, `high` or `urgent`;
+anything else refuses the whole notification, and the refusal does not repeat
+the value. A tagged notification replaces the earlier one with the same tag.
+Tagged toasts from Home Assistant share a group of their own, so
+`notify_clear` with a tag removes only those: never a notification Deskmate
+shows about itself, and never one from another program. Clearing takes the
+toast off the screen and out of the notification centre and the window's
+history, and is not limited like showing.
+
+`urgent` marks the toast as an important notification (`scenario="urgent"`)
+on Windows 11 build 22546 and newer, which can show during Do not disturb.
+Deskmate has no setting of its own for it: whether important notifications
+from Deskmate may break through is the user's choice in Windows, under
+Settings → System → Notifications. On older builds `urgent` is the
+same as `high`, which only raises the toast's priority.
 
 Deskmate shows notifications itself, through COM and WinRT. It starts
 PowerShell only for the commands and sensors you created.
@@ -813,6 +837,10 @@ stopped carries the reason instead: `version`, `address`, `too_large`,
 `network`, `signature`, `format` or `launch`. A refused manifest is recorded
 as `update_manifest refused_address`, and a click on an update notification
 without a valid token as `update_prompt blocked_unknown_token`.
+
+A notification refused for its tag or priority is recorded as `notification
+blocked_invalid_field`. Clearing one is recorded as `notification_clear` with
+`completed`, `error` or `blocked_invalid_field`; the tag is not recorded.
 
 The Stream Deck channel is recorded as `streamdeck_channel` with `on`, `off`,
 `name_taken` or `failed`, and a program that connects or leaves as
