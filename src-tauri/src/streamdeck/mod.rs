@@ -15,6 +15,14 @@
 //! - `app`: those traits on top of `ha_api` and `actions`, and the state.
 //! - `plugin_install`: copying the plugin into Stream Deck's folder.
 
+#![cfg_attr(
+    not(windows),
+    allow(
+        dead_code,
+        reason = "the channel is a Windows named pipe; elsewhere only its parts compile"
+    )
+)]
+
 mod action_ids;
 mod app;
 mod backend;
