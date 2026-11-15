@@ -92,8 +92,12 @@ impl From<&str> for LinkError {
 
 const LOCKED_MESSAGE: &str =
     "Home Assistant is temporarily refusing this node after repeated failed handshakes";
+#[cfg(windows)]
 const CLOCK_MESSAGE: &str =
     "this computer's clock differs from Home Assistant's by more than 90 seconds - sync the Windows time (Settings > Time & language > Sync now)";
+#[cfg(target_os = "linux")]
+const CLOCK_MESSAGE: &str =
+    "this computer's clock differs from Home Assistant's by more than 90 seconds - turn on time synchronisation (timedatectl set-ntp true)";
 
 /// A 429 during the WebSocket upgrade is the server-side handshake lockout,
 /// not an ordinary network problem.

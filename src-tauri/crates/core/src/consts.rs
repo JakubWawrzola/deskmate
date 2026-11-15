@@ -16,6 +16,11 @@ pub const LINK_KEYRING_SERVICE: &str = "Deskmate Link";
 pub const CASCADE_KEYRING_SERVICE: &str = "Deskmate Link Cascade";
 /// Service name in the secret store (Home Assistant long-lived token).
 pub const HA_TOKEN_KEYRING_SERVICE: &str = "Deskmate HA Token";
+/// The `model` of the device in Home Assistant.
+#[cfg(windows)]
+pub const DEVICE_MODEL: &str = "Deskmate for Windows";
+#[cfg(target_os = "linux")]
+pub const DEVICE_MODEL: &str = "Deskmate for Linux";
 /// Toast AUMID: in release builds NSIS registers the identifier from tauri.conf.json
 pub const TOAST_AUMID: &str = "com.deskmate.desktop";
 /// Toast source label shown in the notification corner (branding)

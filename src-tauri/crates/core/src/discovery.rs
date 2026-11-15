@@ -15,7 +15,7 @@ fn device_block(cfg: &AppConfig) -> Value {
         "identifiers": [format!("deskmate_{}", cfg.node_id)],
         "name": cfg.device_name,
         "manufacturer": "Deskmate",
-        "model": "Deskmate for Windows",
+        "model": consts::DEVICE_MODEL,
         "sw_version": env!("CARGO_PKG_VERSION"),
     })
 }
@@ -580,7 +580,7 @@ pub fn build_link_declare(
 pub(crate) fn link_device(cfg: &AppConfig) -> Value {
     json!({
         "name": cfg.device_name,
-        "model": "Deskmate for Windows",
+        "model": consts::DEVICE_MODEL,
         "sw_version": env!("CARGO_PKG_VERSION"),
     })
 }
@@ -737,6 +737,17 @@ mod tests {
 
     fn descriptor<'a>(entities: &'a [Value], key: &str) -> Option<&'a Value> {
         entities.iter().find(|entity| entity["key"] == key)
+    }
+
+    #[test]
+    fn the_device_model_names_the_platform() {
+        #[cfg(windows)]
+        let model = "Deskmate for Windows";
+        #[cfg(target_os = "linux")]
+        let model = "Deskmate for Linux";
+        let cfg = AppConfig::default();
+        assert_eq!(link_device(&cfg)["model"], model);
+        assert_eq!(device_block(&cfg)["model"], model);
     }
 
     #[test]

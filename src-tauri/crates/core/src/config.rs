@@ -408,8 +408,20 @@ impl AppConfig {
     }
 }
 
+/// Stands in for a computer name the system does not report.
+#[cfg(windows)]
+const FALLBACK_HOST: &str = "windows-pc";
+#[cfg(not(windows))]
+const FALLBACK_HOST: &str = "linux-pc";
+
+/// Stands in for a name without a single usable character.
+#[cfg(windows)]
+const FALLBACK_ID: &str = "windows_pc";
+#[cfg(not(windows))]
+const FALLBACK_ID: &str = "linux_pc";
+
 pub fn hostname() -> String {
-    sysinfo::System::host_name().unwrap_or_else(|| "windows-pc".into())
+    sysinfo::System::host_name().unwrap_or_else(|| FALLBACK_HOST.into())
 }
 
 /// hostname -> safe topic/unique_id id
@@ -421,7 +433,7 @@ pub fn sanitize_id(s: &str) -> String {
         .collect();
     let trimmed = out.trim_matches('_');
     if trimmed.is_empty() {
-        "windows_pc".into()
+        FALLBACK_ID.into()
     } else {
         trimmed.into()
     }
