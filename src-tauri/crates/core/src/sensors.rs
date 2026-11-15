@@ -199,18 +199,6 @@ pub const SENSOR_DEFS: &[SensorDef] = &[
         privacy: false,
         default_enabled: true,
     },
-    // The same Windows signal as "presenting", told apart: normal,
-    // fullscreen, game, presentation or busy (the app's user_state.rs).
-    SensorDef {
-        id: "user_state",
-        name: "User state",
-        component: "sensor",
-        unit: None,
-        device_class: None,
-        icon: Some("mdi:account-eye"),
-        privacy: false,
-        default_enabled: true,
-    },
     // Whether the console display is on, from Windows' display power
     // notification (the app's monitor/screen_state.rs).
     SensorDef {
@@ -224,6 +212,19 @@ pub const SENSOR_DEFS: &[SensorDef] = &[
         default_enabled: true,
     },
     // --- privacy-sensitive: OPT-IN ---
+    // The same Windows signal as "presenting", told apart: normal,
+    // fullscreen, game, presentation or busy (the app's user_state.rs). It
+    // says which kind of activity the user is in, so it is opt-in.
+    SensorDef {
+        id: "user_state",
+        name: "User state",
+        component: "sensor",
+        unit: None,
+        device_class: None,
+        icon: Some("mdi:account-eye"),
+        privacy: true,
+        default_enabled: false,
+    },
     SensorDef {
         id: "active_window",
         name: "Active window",

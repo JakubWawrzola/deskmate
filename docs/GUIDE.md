@@ -112,18 +112,19 @@ Windows Credential Manager, never into that file.
 One device per PC, with:
 
 - **Sensors**: CPU, memory, disk, network up and down, battery, uptime, idle
-  time, session locked, current user, "presenting or full screen", *User
-  state*, *Screen on*, and (off by default) *Last active*, the time of the
-  last keyboard or mouse input, handy for presence. With supported hardware
+  time, session locked, current user, "presenting or full screen", *Screen
+  on*, and (off by default) *Last active*, the time of the last keyboard or
+  mouse input, handy for presence. With supported hardware
   also GPU load and temperature, VRAM, per-drive usage and speed. Sensors a PC
   cannot read are simply not created.
 - **Idle time** counts game controllers as well as the keyboard and mouse:
   someone playing with an Xbox-style controller is not idle. Sticks that
   drift a little at rest do not count.
-- **User state** says what Windows thinks you are doing: `normal`,
-  `fullscreen` (a full-screen app), `game` (a full-screen game),
-  `presentation` (Windows presentation settings are on) or `busy` (the screen
-  saver is on, the PC is locked, or another user's session is active).
+- **User state** (off by default, a privacy-sensitive sensor) says what
+  Windows thinks you are doing: `normal`, `fullscreen` (a full-screen app),
+  `game` (a full-screen game), `presentation` (Windows presentation settings
+  are on) or `busy` (the screen saver is on, the PC is locked, or another
+  user's session is active).
 - **Screen on** follows the PC's display: off when Windows turned the screen
   off, on when it is on or dimmed.
 - **CPU temperature**: Windows only lets programs with administrator rights
@@ -143,7 +144,7 @@ One device per PC, with:
   the lists. See [sound devices](#sound-devices-and-the-microphone).
 - **Privacy-sensitive sensors**, off until you enable them on the Sensors page:
   active window title, Wi-Fi name, what is playing, camera in use, microphone
-  in use.
+  in use, user state.
 - **Media player**: with a Deskmate that supports it, a *Media* entity shows
   what the PC is playing and has play/pause, next, previous, volume and mute
   controls that work in any media card. It appears once you turn on *Media

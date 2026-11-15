@@ -898,14 +898,27 @@ mod tests {
     }
 
     #[test]
-    fn the_new_session_entities_are_declared_by_default() {
+    fn screen_on_is_declared_by_default() {
         let declared = entities(&AppConfig::default());
         assert_eq!(
             descriptor(&declared, "screen_on").unwrap()["kind"],
             "binary_sensor"
         );
+    }
+
+    #[test]
+    fn user_state_is_privacy_sensitive_and_opt_in() {
+        let def = SENSOR_DEFS
+            .iter()
+            .find(|def| def.id == "user_state")
+            .unwrap();
+        assert!(def.privacy && !def.default_enabled);
+        let mut cfg = AppConfig::default();
+        assert!(descriptor(&entities(&cfg), "user_state").is_none());
+
+        cfg.sensors_enabled.insert("user_state".into(), true);
         assert_eq!(
-            descriptor(&declared, "user_state").unwrap()["kind"],
+            descriptor(&entities(&cfg), "user_state").unwrap()["kind"],
             "sensor"
         );
     }

@@ -32,7 +32,8 @@ what is on by default.
 Off until you turn it on in the app:
 
 - sensors that show what you are doing: active window, media title, artist,
-  app and status, Wi-Fi name, camera in use, microphone in use;
+  app and status, Wi-Fi name, camera in use, microphone in use, and *User
+  state* (normal, full screen, game, presentation or busy);
 - reading the clipboard and writing to it, two separate settings;
 - typing text, presentation keys, *Wake screen* and opening URLs (*Allow
   input*), and speech;
