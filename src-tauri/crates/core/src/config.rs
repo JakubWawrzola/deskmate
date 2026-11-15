@@ -1,9 +1,11 @@
-//! Application configuration: %APPDATA%\Deskmate\config.json.
+//! Application configuration: config.json in the configuration folder,
+//! %APPDATA%\Deskmate on Windows and the XDG folders on Linux.
 //! MQTT password NEVER lands in JSON - stored in Windows Credential Manager.
 
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
+use std::sync::OnceLock;
 
 use crate::consts;
 
@@ -423,11 +425,97 @@ pub fn sanitize_id(s: &str) -> String {
     }
 }
 
+/// The folders a program keeps its files in.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Dirs {
+    /// Holds config.json.
+    pub config: PathBuf,
+    /// Holds what the program writes on its own: the security log and, for a
+    /// program that keeps its secrets in files, the key files.
+    pub data: PathBuf,
+}
+
+impl Dirs {
+    /// The folders of a program that runs for the whole computer instead of
+    /// one user, such as the daemon.
+    #[cfg(target_os = "linux")]
+    pub fn system() -> Self {
+        Self {
+            config: PathBuf::from("/etc").join(consts::CONFIG_DIR),
+            data: PathBuf::from("/var/lib").join(consts::CONFIG_DIR),
+        }
+    }
+}
+
+static DIRS_OVERRIDE: OnceLock<Dirs> = OnceLock::new();
+
+/// Replaces the per-user folders for this process. A program that runs
+/// without a user calls it once at startup, before anything reads the
+/// configuration. Fails when the folders were replaced before.
+pub fn set_dirs(dirs: Dirs) -> Result<(), String> {
+    DIRS_OVERRIDE
+        .set(dirs)
+        .map_err(|_| "the configuration and data folders were already set".to_string())
+}
+
+/// The folders in use: the ones given to `set_dirs`, otherwise the user's.
+pub fn dirs() -> Dirs {
+    DIRS_OVERRIDE.get().cloned().unwrap_or_else(user_dirs)
+}
+
+/// %APPDATA%\Deskmate for both: on Windows the security log has always been
+/// next to config.json.
+#[cfg(windows)]
+fn user_dirs() -> Dirs {
+    roaming_dirs(std::env::var("APPDATA").ok().map(PathBuf::from))
+}
+
+#[cfg(windows)]
+fn roaming_dirs(appdata: Option<PathBuf>) -> Dirs {
+    let dir = appdata
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join(consts::CONFIG_DIR);
+    Dirs {
+        config: dir.clone(),
+        data: dir,
+    }
+}
+
+#[cfg(not(windows))]
+fn user_dirs() -> Dirs {
+    xdg_dirs(|name| std::env::var_os(name))
+}
+
+/// The XDG base directories: $XDG_CONFIG_HOME and $XDG_DATA_HOME, or
+/// ~/.config and ~/.local/share. A value that is not an absolute path is
+/// ignored, as the specification says.
+#[cfg(not(windows))]
+fn xdg_dirs(env: impl Fn(&str) -> Option<std::ffi::OsString>) -> Dirs {
+    let absolute = |name: &str| {
+        env(name)
+            .map(PathBuf::from)
+            .filter(|path| path.is_absolute())
+    };
+    let home = absolute("HOME");
+    let base = |variable: &str, under_home: &str| {
+        absolute(variable)
+            .or_else(|| home.as_ref().map(|home| home.join(under_home)))
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join(consts::CONFIG_DIR)
+    };
+    Dirs {
+        config: base("XDG_CONFIG_HOME", ".config"),
+        data: base("XDG_DATA_HOME", ".local/share"),
+    }
+}
+
 pub fn config_path() -> PathBuf {
-    let base = std::env::var("APPDATA")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from("."));
-    base.join(consts::CONFIG_DIR).join("config.json")
+    dirs().config.join("config.json")
+}
+
+/// The folder for the security log and the key files.
+pub fn data_dir() -> PathBuf {
+    dirs().data
 }
 
 pub fn load() -> AppConfig {
@@ -568,6 +656,78 @@ pub fn migrate_node_secrets(old: &str, new: &str) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::AppConfig;
+    use std::path::PathBuf;
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_keeps_everything_in_one_roaming_folder() {
+        let dirs = super::roaming_dirs(Some(PathBuf::from(r"C:\Users\me\AppData\Roaming")));
+        assert_eq!(
+            dirs.config,
+            PathBuf::from(r"C:\Users\me\AppData\Roaming\Deskmate")
+        );
+        assert_eq!(dirs.data, dirs.config);
+        assert_eq!(
+            super::roaming_dirs(None).config,
+            PathBuf::from(".").join("Deskmate")
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn config_file_is_in_the_configuration_folder() {
+        let path = super::config_path();
+        assert!(path.ends_with(r"Deskmate\config.json"));
+        assert_eq!(path.parent(), Some(super::data_dir().as_path()));
+    }
+
+    #[cfg(not(windows))]
+    fn xdg(vars: &[(&str, &str)]) -> super::Dirs {
+        super::xdg_dirs(|name| {
+            vars.iter()
+                .find(|(key, _)| *key == name)
+                .map(|(_, value)| std::ffi::OsString::from(value))
+        })
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn linux_user_folders_follow_xdg() {
+        let dirs = xdg(&[("HOME", "/home/me")]);
+        assert_eq!(dirs.config, PathBuf::from("/home/me/.config/deskmate"));
+        assert_eq!(dirs.data, PathBuf::from("/home/me/.local/share/deskmate"));
+
+        let dirs = xdg(&[
+            ("HOME", "/home/me"),
+            ("XDG_CONFIG_HOME", "/cfg"),
+            ("XDG_DATA_HOME", "/data"),
+        ]);
+        assert_eq!(dirs.config, PathBuf::from("/cfg/deskmate"));
+        assert_eq!(dirs.data, PathBuf::from("/data/deskmate"));
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn a_relative_xdg_value_is_ignored() {
+        let dirs = xdg(&[("HOME", "/home/me"), ("XDG_CONFIG_HOME", "cfg")]);
+        assert_eq!(dirs.config, PathBuf::from("/home/me/.config/deskmate"));
+        // Without HOME the folder is relative, as on Windows without APPDATA.
+        assert_eq!(xdg(&[]).config, PathBuf::from(".").join("deskmate"));
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn the_daemon_folders_are_the_system_ones() {
+        let dirs = super::Dirs::system();
+        assert_eq!(dirs.config, PathBuf::from("/etc/deskmate"));
+        assert_eq!(dirs.data, PathBuf::from("/var/lib/deskmate"));
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn config_file_is_in_the_configuration_folder() {
+        assert!(super::config_path().ends_with("deskmate/config.json"));
+    }
 
     /// GitHub issue #11: "Start minimized to tray" is stored the moment it is
     /// toggled, and the stored value is what the next start reads.

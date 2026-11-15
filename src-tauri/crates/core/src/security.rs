@@ -17,9 +17,7 @@ pub fn audit(event: &str, result: &str) {
         return;
     }
     let _guard = AUDIT_LOCK.get_or_init(|| Mutex::new(())).lock().ok();
-    let Some(dir) = crate::config::config_path().parent().map(ToOwned::to_owned) else {
-        return;
-    };
+    let dir = crate::config::data_dir();
     if fs::create_dir_all(&dir).is_err() {
         return;
     }
@@ -93,9 +91,7 @@ fn parse_file_event(line: &str) -> Option<FileEvent> {
 /// The latest file transfers from the security log, newest first. A file read
 /// in many pieces shows once.
 pub fn recent_file_events(limit: usize) -> Vec<FileEvent> {
-    let Some(dir) = crate::config::config_path().parent().map(ToOwned::to_owned) else {
-        return Vec::new();
-    };
+    let dir = crate::config::data_dir();
     let raw = fs::read_to_string(dir.join("security.log")).unwrap_or_default();
     let mut events: Vec<FileEvent> = Vec::new();
     for event in raw.lines().filter_map(parse_file_event) {

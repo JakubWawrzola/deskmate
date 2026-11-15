@@ -2,7 +2,11 @@
 
 pub const APP_NAME: &str = "Deskmate";
 /// Config directory under %APPDATA%
+#[cfg(windows)]
 pub const CONFIG_DIR: &str = "Deskmate";
+/// Folder name under the XDG base directories, /etc and /var/lib.
+#[cfg(not(windows))]
+pub const CONFIG_DIR: &str = "deskmate";
 /// Service name in Windows Credential Manager (MQTT password)
 pub const KEYRING_SERVICE: &str = "Deskmate MQTT";
 /// Service name in Windows Credential Manager (Deskmate Link pairing key).
