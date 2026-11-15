@@ -87,25 +87,53 @@ Everything above is HA → PC over MQTT. v0.3 adds the opposite direction:
 | Crate | Path | What it holds |
 |---|---|---|
 | `deskmate` | `src-tauri/` | The app: window, tray, Tauri commands, the connection loops (`mqtt.rs`, `link.rs`, `transport.rs`) and everything that reads or acts on the signed-in user's session (`sensors.rs`, `sys_commands.rs`, `audio.rs`, `media.rs`, `clipboard.rs`, `keys.rs`, `family.rs`, `notify.rs`, `link_files.rs`) |
-| `deskmate-core` | `src-tauri/crates/core/` | Code that does not depend on Tauri and works without a signed-in user. A program without a window, such as a service, is built on it |
+| `deskmate-core` | `src-tauri/crates/core/` | Code that does not depend on Tauri and works without a signed-in user. A program without a window, such as a service or a daemon, is built on it. It builds for Windows and for Linux |
 
 Modules of `deskmate-core`:
 
 | Module | What |
 |---|---|
-| `config`, `consts`, `security` | The settings file and Credential Manager, shared names, the confirmation dialog and the audit log |
+| `config`, `consts`, `security` | The settings file and its folders, the stored secrets by name, shared names, the confirmation dialog and the audit log |
+| `secrets` | `SecretStore`: where secrets are kept, the user's keyring or key files |
 | `sensors` | The sensor registry (`SENSOR_DEFS`) and `MachineCollector`: CPU, memory, system drive, network, uptime, battery |
-| `hardware`, `cpu_temperature` | Drives, disk activity, GPU, temperatures |
+| `hardware`, `cpu_temperature` | Drives, disk activity, GPU, temperatures. `cpu_temperature` is the PawnIO helper and exists on Windows only |
+| `linux` | Linux only: the readers of sysfs (power supplies, thermal sensors, graphics cards), the choice of drives, and whether the computer can hibernate |
 | `sys_commands` | The command descriptors (`COMMAND_DEFS`), the power commands and the URL checks |
 | `custom_sensors` | Key, component and icon of the sensors a user adds |
 | `discovery` | The MQTT discovery messages and the Link `declare` frame |
 | `link` | The Link protocol: URL and key checks, the handshake, the frame codec, the `info` and `state` frames |
 | `machine` | The machine scope: descriptors, collector, `declare` and `state` frames and the power commands for a client without a signed-in user |
-| `seat` | One connection per computer when several Windows users run Deskmate |
+| `seat` | One connection per computer when several programs on it are paired as the same node. `seat::linux` is the Linux side |
 
 The app's `sensors`, `sys_commands`, `discovery` and `link` modules add the
 session part and re-export what they use from the core, so the rest of the app
 reaches both through `crate::sensors` and so on.
+
+### What the core does per platform
+
+The entities are the same on both platforms: same keys, names, units and
+device classes. What differs is where a value comes from. Platform code sits
+behind `cfg(windows)` and `cfg(target_os = "linux")`.
+
+| | Windows | Linux |
+|---|---|---|
+| Folders (`config::dirs`) | `%APPDATA%\Deskmate` for the settings and the security log | The XDG base directories: `~/.config/deskmate` for the settings, `~/.local/share/deskmate` for the security log. A program without a user replaces both with `config::set_dirs`; the daemon uses `/etc/deskmate` and `/var/lib/deskmate` (`Dirs::system`) |
+| Secrets (`secrets::SecretStore`) | `Keyring`: Credential Manager | `Keyring`: the Secret Service (GNOME Keyring, KWallet), built in with the `secret-service` feature. `Files`: one file per secret in a folder, mode 0600; a file that the group or others can read is refused. The program picks one with `secrets::select` |
+| `cpu`, `memory`, `uptime`, `net_down`, `net_up` | sysinfo | sysinfo, without the loopback interface |
+| `disk` | The system drive | The root file system |
+| Per-disk sensors | By drive letter: `disk_c_free`, "Disk C free" | By mount point: `disk_root_free`, "Disk / free". A device mounted in several places is one drive; boot partitions and media mounted for a signed-in user are left out |
+| `battery`, `ac_power` | `GetSystemPowerStatus` | `/sys/class/power_supply`, without the batteries of peripherals |
+| `cpu_temperature` | The PawnIO helper, then LibreHardwareMonitor or OpenHardwareMonitor over WMI, then the ACPI thermal zone | The hardware monitor of the processor (`coretemp`, `k10temp`, `zenpower`), then a thermal zone of the processor, then the ACPI thermal zone |
+| `gpu_usage`, `gpu_memory`, `gpu_memory_total`, `gpu_temperature` | PDH counters, DXGI, WMI | The DRM devices in sysfs, for AMD and Intel, as far as the driver has the files. NVIDIA is not covered |
+| Entities a computer may lack (`machine::Offered`) | All are declared | `battery`, `ac_power` and the Hibernate button are declared only when the computer has them. Hibernation needs `disk` in `/sys/power/state` and a "yes" from logind |
+| Power commands | `rundll32` and `shutdown` | `systemctl suspend`, `hibernate`, `poweroff`, `reboot` |
+| Seat | Named objects in the `Global\` namespace. A session is in use while Windows reports it active | Unix sockets in the abstract namespace. A desktop app is in use while the virtual terminal of its session is on the screen; the daemon declares itself with `seat::linux::set_role` and yields to any waiting app |
+| Device model | "Deskmate for Windows" | "Deskmate for Linux" |
+| Confirmation dialog (`security::confirm`) | A message box | None: the answer is no |
+
+The Linux readers take the folder they read as an argument and are tested on
+sample trees, so their tests run on any Linux machine. CI runs the core's
+checks on Linux in its own job, with and without the `secret-service` feature.
 
 ## Dependencies
 
