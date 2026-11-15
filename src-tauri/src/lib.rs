@@ -32,6 +32,7 @@ mod transport;
 mod tts;
 mod uninstall;
 mod updates;
+mod user_state;
 
 // These modules live in deskmate-core. The re-export keeps them reachable as
 // `crate::config`, `crate::consts` and so on for the rest of the app. The

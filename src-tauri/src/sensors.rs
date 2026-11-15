@@ -59,6 +59,11 @@ impl Collector {
                     if win::is_presenting() { "ON" } else { "OFF" }.into(),
                 );
             }
+            if is_enabled(cfg, "user_state") {
+                if let Some(state) = crate::user_state::current() {
+                    out.insert("user_state".into(), state.into());
+                }
+            }
             // State of the mute switch. Published unconditionally so the switch
             // follows mute changes made on the computer itself, not only ones
             // Home Assistant asked for.
