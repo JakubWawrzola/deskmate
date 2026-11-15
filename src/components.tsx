@@ -56,16 +56,20 @@ export function Toggle({
   on,
   onChange,
   disabled,
+  label,
 }: {
   on: boolean;
   onChange: (v: boolean) => void;
   disabled?: boolean;
+  /** What the switch controls, for screen readers. */
+  label?: string;
 }) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={on}
+      aria-label={label}
       disabled={disabled}
       onClick={() => onChange(!on)}
       className={`relative w-9 h-5 rounded-full border transition-colors duration-150

@@ -13,6 +13,7 @@ import type {
   NotifyRecord,
   Snapshot,
   StatusView,
+  StreamDeckStatus,
   TrayAction,
   UpdateInfo,
   UpdateMode,
@@ -45,6 +46,10 @@ export const api = {
   removeCpuTemperatureHelper: () => invoke<void>("remove_cpu_temperature_helper"),
   openPawnioSite: () => invoke<void>("open_pawnio_site"),
   recentFileTransfers: () => invoke<FileEvent[]>("recent_file_transfers"),
+  streamdeckStatus: () => invoke<StreamDeckStatus>("streamdeck_status"),
+  setStreamdeckEnabled: (enabled: boolean) => invoke<void>("set_streamdeck_enabled", { enabled }),
+  installStreamdeckPlugin: () => invoke<void>("install_streamdeck_plugin"),
+  removeStreamdeckPlugin: () => invoke<void>("remove_streamdeck_plugin"),
   getFamily: () => invoke<FamilyView>("get_family"),
   setFamily: (rules: FamilyConfig) => invoke<void>("set_family", { rules }),
   protectFamilyAccount: () => invoke<void>("protect_family_account"),
@@ -135,6 +140,10 @@ export function onSensorDefs(cb: () => void): Promise<UnlistenFn> {
 /** The config changed outside the window (tray: Connect / Disconnect). */
 export function onConfigChanged(cb: () => void): Promise<UnlistenFn> {
   return listen("deskmate://config", () => cb());
+}
+/** The Stream Deck channel opened or closed, or a program connected or left. */
+export function onStreamDeck(cb: () => void): Promise<UnlistenFn> {
+  return listen("deskmate://streamdeck", () => cb());
 }
 /** A newer release was found, or its download or install moved on. */
 export function onUpdate(cb: (update: UpdateInfo | null) => void): Promise<UnlistenFn> {

@@ -183,6 +183,32 @@ export interface AppConfig {
   family?: FamilyConfig;
   /** Disconnect on the Status page: no connection until Connect */
   connection_paused?: boolean;
+  /** The local channel for the Stream Deck plugin (Settings > Stream Deck) */
+  streamdeck_enabled?: boolean;
+}
+
+/** State of the Stream Deck channel (streamdeck/backend.rs). */
+export type StreamDeckChannelState = "off" | "starting" | "listening" | "name_taken" | "failed";
+
+/** Settings > Stream Deck: the switch, the channel and the plugin (streamdeck/app.rs). */
+export interface StreamDeckStatus {
+  /** the switch as stored */
+  enabled: boolean;
+  channel: {
+    state: StreamDeckChannelState;
+    /** programs connected right now */
+    connected: number;
+  };
+  plugin: {
+    /** Stream Deck's folder exists for this Windows account */
+    stream_deck_found: boolean;
+    /** the plugin that ships with this app; null: this build carries none */
+    bundled_version: string | null;
+    installed: boolean;
+    /** null also when the installed copy has no readable version */
+    installed_version: string | null;
+    update_available: boolean;
+  };
 }
 
 export interface ConfigView {
