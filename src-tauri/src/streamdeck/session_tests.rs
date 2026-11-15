@@ -633,6 +633,39 @@ async fn a_slow_answer_from_home_assistant_does_not_hold_up_another_request() {
 }
 
 #[tokio::test]
+async fn a_request_past_the_limit_waits_for_one_in_progress_to_finish() {
+    let mut harness = greeted().await;
+    let gate = harness.home_assistant.hold_entities();
+    // Sixteen requests that Home Assistant does not answer yet.
+    for id in 100..116 {
+        harness
+            .client
+            .send(json!({"id": id, "op": "entities"}))
+            .await;
+    }
+    harness
+        .client
+        .send(json!({"id": 200, "op": "run", "action": "hotkey:lights"}))
+        .await;
+    harness
+        .client
+        .expect_silence(Duration::from_millis(150))
+        .await;
+    assert!(harness.actions.ran().is_empty());
+
+    // One of them finishes, and the waiting request is taken up.
+    gate.notify_one();
+    let mut ids = vec![
+        harness.client.next().await.unwrap()["id"].as_u64().unwrap(),
+        harness.client.next().await.unwrap()["id"].as_u64().unwrap(),
+    ];
+    ids.sort_unstable();
+    assert!((100..116).contains(&ids[0]), "{ids:?}");
+    assert_eq!(ids[1], 200);
+    assert_eq!(harness.actions.ran(), ["hotkey:lights"]);
+}
+
+#[tokio::test]
 async fn requests_can_arrive_together_or_in_pieces() {
     let mut harness = greeted().await;
     harness

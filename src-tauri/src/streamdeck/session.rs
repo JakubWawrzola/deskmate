@@ -6,7 +6,7 @@
 //! slow answer from Home Assistant does not hold up a key press; their
 //! responses are written as they finish.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -33,7 +33,7 @@ pub const AUDIT_TOGGLE: &str = "streamdeck_toggle";
 pub const AUDIT_CALL: &str = "streamdeck_call";
 
 /// Requests of one connection that may be in progress at a time. Further
-/// requests wait in the pipe until one of them has been answered.
+/// requests wait, the later ones in the pipe, until one has been answered.
 const MAX_REQUESTS_IN_PROGRESS: usize = 16;
 /// Bytes read from the pipe at a time.
 const READ_CHUNK_BYTES: usize = 8 * 1024;
@@ -97,23 +97,30 @@ where
     };
     let mut decoder = LineDecoder::default();
     let mut chunk = vec![0u8; READ_CHUNK_BYTES];
+    // Lines that were read and wait for a free place among the requests in
+    // progress. Nothing more is read from the pipe while any wait.
+    let mut waiting: VecDeque<Frame> = VecDeque::new();
 
     loop {
-        let poll_due = session.poll_due();
-        tokio::select! {
-            read = reader.read(&mut chunk),
-                if session.in_progress.len() < MAX_REQUESTS_IN_PROGRESS =>
-            {
-                let Ok(count) = read else { return };
-                if count == 0 {
-                    return;
-                }
-                for frame in decoder.push(&chunk[..count]) {
-                    let Frame::Line(line) = frame else { return };
+        while session.in_progress.len() < MAX_REQUESTS_IN_PROGRESS {
+            match waiting.pop_front() {
+                None => break,
+                Some(Frame::Broken(_)) => return,
+                Some(Frame::Line(line)) => {
                     if !session.accept_line(&line).await {
                         return;
                     }
                 }
+            }
+        }
+        let poll_due = session.poll_due();
+        tokio::select! {
+            read = reader.read(&mut chunk), if waiting.is_empty() => {
+                let Ok(count) = read else { return };
+                if count == 0 {
+                    return;
+                }
+                waiting.extend(decoder.push(&chunk[..count]));
             }
             Some(finished) = session.in_progress.next() => {
                 for message in session.finish(finished) {
