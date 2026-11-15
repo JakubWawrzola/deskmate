@@ -24,6 +24,7 @@ fn session_entities(cfg: &AppConfig, hub: Option<&HubInfo>) -> SessionEntities {
         family: crate::family::link_entities(cfg),
         family_keys: crate::family::ENTITIES,
         media_player: declares_media_player(cfg, hub),
+        brightness: crate::monitor::brightness::is_supported(),
     }
 }
 

@@ -54,6 +54,10 @@ impl From<&SensorDef> for OwnedSensorDef {
     }
 }
 
+/// Key of the screen brightness number. Not every computer has a display
+/// whose brightness a program can set, so it is declared only when one does.
+pub const BRIGHTNESS_KEY: &str = "brightness";
+
 pub fn static_defs() -> Vec<OwnedSensorDef> {
     SENSOR_DEFS.iter().map(OwnedSensorDef::from).collect()
 }
@@ -319,6 +323,19 @@ pub const SENSOR_DEFS: &[SensorDef] = &[
         unit: Some("%"),
         device_class: None,
         icon: Some("mdi:microphone"),
+        privacy: false,
+        default_enabled: true,
+    },
+    // Screen brightness: the built-in panel through WMI, external monitors
+    // through DDC/CI (the app's monitor/brightness.rs). Declared only while a
+    // display answers, see `SessionEntities::brightness`.
+    SensorDef {
+        id: BRIGHTNESS_KEY,
+        name: "Screen brightness",
+        component: "number",
+        unit: Some("%"),
+        device_class: None,
+        icon: Some("mdi:brightness-6"),
         privacy: false,
         default_enabled: true,
     },

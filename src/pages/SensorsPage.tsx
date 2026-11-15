@@ -207,7 +207,9 @@ export default function SensorsPage({
     await onChanged();
   };
 
-  const isControl = (d: SensorDef) => d.component === "number" || d.component === "select";
+  // Screen brightness is a number too, but not a sound control.
+  const isControl = (d: SensorDef) =>
+    (d.component === "number" || d.component === "select") && d.id !== "brightness";
   const std = snapshot.sensor_defs.filter((d) => !d.privacy && !isControl(d) && !d.hardware);
   const priv = snapshot.sensor_defs.filter((d) => d.privacy);
   const sound = snapshot.sensor_defs.filter(isControl);

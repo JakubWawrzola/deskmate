@@ -7,7 +7,7 @@ use std::collections::HashMap;
 
 use crate::config::AppConfig;
 use crate::consts;
-use crate::sensors::{OwnedSensorDef, SensorDef, SENSOR_DEFS};
+use crate::sensors::{OwnedSensorDef, SensorDef, BRIGHTNESS_KEY, SENSOR_DEFS};
 use crate::sys_commands::{CommandDef, COMMAND_DEFS, PRESENT_DEFS};
 
 fn device_block(cfg: &AppConfig) -> Value {
@@ -39,11 +39,19 @@ pub struct SessionEntities {
     /// Whether a Link declaration includes the media player: see
     /// `link::media::declares_media_player`. MQTT has no such entity.
     pub media_player: bool,
+    /// A display answers for its brightness. Without one the brightness
+    /// number is not declared.
+    pub brightness: bool,
 }
 
 impl SessionEntities {
     fn options_for(&self, key: &str) -> Vec<String> {
         self.select_options.get(key).cloned().unwrap_or_default()
+    }
+
+    /// A number entity this computer cannot offer right now.
+    fn lacks_number(&self, key: &str) -> bool {
+        key == BRIGHTNESS_KEY && !self.brightness
     }
 }
 
@@ -78,7 +86,7 @@ pub fn build_all(
             "number" => {
                 // volume: number with command_topic
                 let topic = cfg_topic("number", node, object_id);
-                if !enabled {
+                if !enabled || session.lacks_number(def.id) {
                     out.push((topic, String::new()));
                     continue;
                 }
@@ -451,7 +459,7 @@ pub fn build_link_declare(
 ) -> Value {
     let mut entities = Vec::new();
     for def in SENSOR_DEFS {
-        if !crate::sensors::is_enabled(cfg, def.id) {
+        if !crate::sensors::is_enabled(cfg, def.id) || session.lacks_number(def.id) {
             continue;
         }
         let mut entity = link_sensor_entity(def);
@@ -838,6 +846,72 @@ mod tests {
         let after = entities(&cfg);
         assert!(descriptor(&after, "type_text").is_none());
         assert!(descriptor(&after, "hotkey_temporary").is_none());
+    }
+
+    #[test]
+    fn brightness_is_declared_only_while_a_display_answers_and_it_is_on() {
+        let with_display = SessionEntities {
+            brightness: true,
+            ..SessionEntities::default()
+        };
+        let mut cfg = AppConfig::default();
+
+        let declared = build_link_declare(&cfg, &[], &with_display);
+        let listed = declared["entities"].as_array().unwrap();
+        let brightness = descriptor(listed, BRIGHTNESS_KEY).unwrap();
+        assert_eq!(brightness["kind"], "number");
+        assert_eq!(brightness["unit"], "%");
+        assert_eq!(
+            (brightness["min"].clone(), brightness["max"].clone()),
+            (json!(0), json!(100))
+        );
+        assert!(
+            descriptor(&entities(&cfg), BRIGHTNESS_KEY).is_none(),
+            "no display"
+        );
+
+        cfg.sensors_enabled.insert(BRIGHTNESS_KEY.into(), false);
+        let switched_off = build_link_declare(&cfg, &[], &with_display);
+        assert!(descriptor(switched_off["entities"].as_array().unwrap(), BRIGHTNESS_KEY).is_none());
+    }
+
+    #[test]
+    fn mqtt_removes_brightness_without_a_display() {
+        let cfg = AppConfig::default();
+        let topic = cfg_topic("number", &cfg.node_id, BRIGHTNESS_KEY);
+        let payload_for = |session: &SessionEntities| {
+            build_all(&cfg, &[], session)
+                .into_iter()
+                .find(|(candidate, _)| *candidate == topic)
+                .map(|(_, payload)| payload)
+        };
+        assert_eq!(
+            payload_for(&SessionEntities::default()),
+            Some(String::new())
+        );
+        let declared = payload_for(&SessionEntities {
+            brightness: true,
+            ..SessionEntities::default()
+        })
+        .unwrap();
+        assert!(declared.contains("\"command_topic\""), "{declared}");
+    }
+
+    #[test]
+    fn the_new_session_entities_are_declared_by_default() {
+        let declared = entities(&AppConfig::default());
+        assert_eq!(
+            descriptor(&declared, "screen_on").unwrap()["kind"],
+            "binary_sensor"
+        );
+        assert_eq!(
+            descriptor(&declared, "user_state").unwrap()["kind"],
+            "sensor"
+        );
+        assert_eq!(
+            descriptor(&declared, "wake_screen").unwrap()["kind"],
+            "button"
+        );
     }
 
     #[test]

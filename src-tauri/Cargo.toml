@@ -123,6 +123,10 @@ features = [
   # Gdi is where its window class is declared
   "Win32_System_LibraryLoader",
   "Win32_Graphics_Gdi",
+  # screen brightness (monitor/brightness_win.rs): DDC/CI through dxva2 on
+  # the physical monitors of each display, WMI for the built-in panel
+  "Win32_Devices_Display",
+  "Win32_System_Wmi",
   # toasts from our own XML (buttons need it, see notify.rs)
   "UI_Notifications",
   "Data_Xml_Dom",

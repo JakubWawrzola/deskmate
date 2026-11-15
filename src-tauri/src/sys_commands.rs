@@ -25,6 +25,7 @@ pub fn run_builtin(key: &str, payload: &str) -> Result<(), String> {
         "volume" => set_volume(payload),
         "sign_out" => sign_out(),
         "mic_volume" => crate::audio::set_mic_volume(payload),
+        crate::monitor::brightness::KEY => crate::monitor::brightness::set(payload),
         "audio_output" | "audio_input" => crate::audio::select(key, payload),
         // text input + presentation (allow_input gate checked in MQTT routing)
         "type_text" => type_text(payload),

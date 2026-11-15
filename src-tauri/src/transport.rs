@@ -103,8 +103,9 @@ pub async fn publish_states(app: &AppHandle, values: &HashMap<String, String>) {
 }
 
 pub async fn update_hardware_defs(app: &AppHandle, defs: Vec<crate::sensors::OwnedSensorDef>) {
-    // A sound device plugged in or removed changes the select options.
-    let devices_changed = crate::audio::take_changed();
+    // A sound device plugged in or removed changes the select options; a
+    // display that starts or stops answering adds or removes the brightness.
+    let devices_changed = crate::audio::take_changed() | crate::monitor::brightness::take_changed();
     let (changed, removed) = {
         let state = app.state::<AppState>();
         let mut current = state.hardware_sensor_defs.lock().await;
@@ -295,6 +296,12 @@ pub async fn handle_command(
         return Err(format!("input command '{key}' disabled"));
     }
 
+    if key == crate::monitor::brightness::KEY
+        && !(crate::sensors::is_enabled(&cfg, key) && crate::monitor::brightness::is_supported())
+    {
+        return Err("screen brightness is not available".into());
+    }
+
     if key == "keep_awake" {
         let on = payload.trim().eq_ignore_ascii_case("ON");
         state.keep_awake_tx.send(on).map_err(|e| e.to_string())?;
@@ -443,6 +450,11 @@ pub async fn handle_command(
             .flatten()
             .map(|v| v.to_string()),
         "audio_output" | "audio_input" => Some(selected),
+        // The value that was set: a DDC/CI monitor can take a moment before
+        // it reports it back.
+        crate::monitor::brightness::KEY => crate::monitor::brightness::parse_percent(&selected)
+            .ok()
+            .map(|percent| percent.to_string()),
         _ => None,
     };
     if let Some(value) = echoed {
