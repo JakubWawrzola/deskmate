@@ -43,7 +43,9 @@ export default function UpdateBanner({ update }: { update: UpdateInfo }) {
       <>
         Downloading Deskmate {version}
         {update.total_bytes !== null && (
-          <span className="mono text-muted">
+          // Changes several times a second; the progress bar below says the
+          // same to a screen reader without reading every step aloud.
+          <span className="mono text-muted" aria-hidden="true">
             {" "}
             {megabytes(update.downloaded_bytes)} of {megabytes(update.total_bytes)} MB
           </span>
