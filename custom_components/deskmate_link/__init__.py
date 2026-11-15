@@ -16,12 +16,14 @@ from .const import (
     DOMAIN,
     LEGACY_UNBOUND_TITLE,
     PLATFORMS,
+    SERVICE_CLEAR_NOTIFICATION,
     SERVICE_NOTIFY,
     STORAGE_VERSION,
     UNBOUND_TITLE,
 )
 from .files import async_setup_files, async_unload_files
 from .hub import DeskmateHub
+from .notify_tag import NOTIFY_PRIORITIES, validate_tag
 from .service_role import refuse_service_only
 from .tv import (
     async_camera_data_uri,
@@ -43,12 +45,38 @@ NOTIFY_SCHEMA = vol.Schema(
                 {vol.Required("id"): cv.string, vol.Required("title"): cv.string}
             )
         ],
+        vol.Optional("tag"): vol.All(cv.string, validate_tag),
+        vol.Optional("priority"): vol.In(NOTIFY_PRIORITIES),
+    }
+)
+
+CLEAR_NOTIFICATION_SCHEMA = vol.Schema(
+    {
+        vol.Optional("node_id"): cv.string,
+        vol.Required("tag"): vol.All(cv.string, validate_tag),
     }
 )
 
 
 def _domain_data(hass: HomeAssistant) -> dict:
     return hass.data.setdefault(DOMAIN, {"hubs": {}, "view_registered": False})
+
+
+def _notify_targets(hass: HomeAssistant, node_id: str | None) -> list[DeskmateHub]:
+    hubs: dict[str, DeskmateHub] = _domain_data(hass)["hubs"]
+    # Bez node_id: tylko komputery. Telewizor (DeskmateTV) dostaje
+    # dymek wylacznie przy jawnym node_id, inaczej toast "na komputer"
+    # wyskakiwalby tez na ekranie TV.
+    targets = [
+        h
+        for h in hubs.values()
+        if (node_id is None and not h.is_tv) or h.node_id == node_id
+    ]
+    if not targets:
+        raise HomeAssistantError(
+            f"Deskmate: no paired computer with node id {node_id!r}"
+        )
+    return targets
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -72,21 +100,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if not hass.services.has_service(DOMAIN, SERVICE_NOTIFY):
 
         async def _notify(call: ServiceCall) -> None:
-            hubs: dict[str, DeskmateHub] = _domain_data(hass)["hubs"]
-            node_id = call.data.get("node_id")
-            # Bez node_id: tylko komputery. Telewizor (DeskmateTV) dostaje
-            # dymek wylacznie przy jawnym node_id, inaczej toast "na komputer"
-            # wyskakiwalby tez na ekranie TV.
-            targets = [
-                h
-                for h in hubs.values()
-                if (node_id is None and not h.is_tv) or h.node_id == node_id
-            ]
-            if not targets:
-                raise HomeAssistantError(
-                    f"Deskmate: no paired computer with node id {node_id!r}"
-                )
-            for h in targets:
+            for h in _notify_targets(hass, call.data.get("node_id")):
                 refuse_service_only(h)
                 image = call.data.get("image")
                 if h.is_tv and image and image.startswith("camera."):
@@ -97,10 +111,26 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     call.data["message"],
                     image,
                     call.data.get("actions"),
+                    call.data.get("tag"),
+                    call.data.get("priority"),
                 )
 
         hass.services.async_register(
             DOMAIN, SERVICE_NOTIFY, _notify, schema=NOTIFY_SCHEMA
+        )
+
+    if not hass.services.has_service(DOMAIN, SERVICE_CLEAR_NOTIFICATION):
+
+        async def _clear_notification(call: ServiceCall) -> None:
+            for h in _notify_targets(hass, call.data.get("node_id")):
+                refuse_service_only(h)
+                await h.async_notify_clear(call.data["tag"])
+
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_CLEAR_NOTIFICATION,
+            _clear_notification,
+            schema=CLEAR_NOTIFICATION_SCHEMA,
         )
 
     # DeskmateTV is not released yet. Its service appears only once a TV node

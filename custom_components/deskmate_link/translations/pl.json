@@ -94,6 +94,28 @@
         "actions": {
           "name": "Przyciski akcji",
           "description": "Lista przyciskow, kazdy z id i title. Klik wywoluje zdarzenie deskmate_link_notify_action."
+        },
+        "tag": {
+          "name": "Znacznik",
+          "description": "Opcjonalna nazwa: do 64 liter, cyfr, podkreslen lub myslnikow. Powiadomienie z tym samym znacznikiem zastepuje to, a Usun powiadomienie je usuwa. Wymaga Deskmate obslugujacego znaczniki; starszy pokazuje powiadomienie bez niego."
+        },
+        "priority": {
+          "name": "Priorytet",
+          "description": "normal (domyslnie), high albo urgent. Urgent prosi Windows o pokazanie powiadomienia takze przy wlaczonym trybie Nie przeszkadzac, na tyle, na ile Windows pozwala. Wymaga Deskmate, ktory to obsluguje."
+        }
+      }
+    },
+    "clear_notification": {
+      "name": "Usun powiadomienie",
+      "description": "Usuwa powiadomienie z tym znacznikiem z ekranu i z centrum powiadomien sparowanego komputera. Konczy sie bledem dla komputera ze zbyt starym Deskmate.",
+      "fields": {
+        "node_id": {
+          "name": "Node ID",
+          "description": "Ktory komputer. Puste: wszystkie sparowane."
+        },
+        "tag": {
+          "name": "Znacznik",
+          "description": "Znacznik, z ktorym wyslano powiadomienie."
         }
       }
     },

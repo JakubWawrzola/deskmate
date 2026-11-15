@@ -23,6 +23,32 @@ notify:
       required: false
       selector:
         object:
+    tag:
+      required: false
+      example: doorbell
+      selector:
+        text:
+    priority:
+      required: false
+      example: high
+      selector:
+        select:
+          options:
+            - normal
+            - high
+            - urgent
+clear_notification:
+  fields:
+    node_id:
+      required: false
+      example: my_laptop
+      selector:
+        text:
+    tag:
+      required: true
+      example: doorbell
+      selector:
+        text:
 send_file:
   fields:
     node_id:

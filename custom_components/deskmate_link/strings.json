@@ -94,6 +94,28 @@
         "actions": {
           "name": "Action buttons",
           "description": "List of buttons, each with an id and a title. A click fires the deskmate_link_notify_action event."
+        },
+        "tag": {
+          "name": "Tag",
+          "description": "Optional name of up to 64 letters, digits, underscores or hyphens. A notification with the same tag replaces this one, and Clear notification removes it. Needs a Deskmate that supports tags; an older one shows the notification without it."
+        },
+        "priority": {
+          "name": "Priority",
+          "description": "normal (the default), high, or urgent. Urgent asks Windows to show the notification even while Do not disturb is on, as far as Windows allows. Needs a Deskmate that supports it."
+        }
+      }
+    },
+    "clear_notification": {
+      "name": "Clear notification",
+      "description": "Removes the notification with this tag from the screen and from the notification centre of a paired computer. Fails for a computer whose Deskmate is too old for tags.",
+      "fields": {
+        "node_id": {
+          "name": "Node ID",
+          "description": "Which computer. Empty: every paired computer."
+        },
+        "tag": {
+          "name": "Tag",
+          "description": "The tag the notification was sent with."
         }
       }
     },

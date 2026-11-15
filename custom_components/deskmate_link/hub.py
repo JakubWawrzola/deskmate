@@ -64,6 +64,7 @@ from .declare_scope import (
     merge_machine_declaration,
 )
 from .device_compat import async_entry_device, async_hand_device_over
+from .notify_tag import notify_clear_frame, notify_frame, require_notify_tag
 from .presence import Presence, connection_unique_id
 from .session_info import async_info_answer, client_features, invalid_info_field
 
@@ -618,12 +619,20 @@ class DeskmateHub:
         message: str,
         image: str | None = None,
         actions: list[dict] | None = None,
+        tag: str | None = None,
+        priority: str | None = None,
     ) -> None:
-        payload: dict[str, Any] = {"t": "notify", "title": title, "message": message}
-        if image:
-            payload["image"] = image
-        if actions:
-            payload["actions"] = actions
+        await self._send_with_ack(
+            notify_frame(
+                self.session_features, title, message, image, actions, tag, priority
+            )
+        )
+
+    async def async_notify_clear(self, tag: str) -> None:
+        payload = notify_clear_frame(tag)
+        # Without a session the request fails below as "not connected".
+        if self.connected:
+            require_notify_tag(self.session_features)
         await self._send_with_ack(payload)
 
     async def _send_fs_request(
