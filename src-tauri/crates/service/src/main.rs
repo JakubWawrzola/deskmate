@@ -1,10 +1,12 @@
 //! The `deskmate-service` program: the Windows service and the commands
-//! that install it, remove it and ask for its status. The command line is
-//! described in `deskmate_service::cli`.
+//! that install it, remove it and ask for its status, or on Linux the daemon
+//! and the commands that pair it. The command lines are described in
+//! `deskmate_service::cli` and `deskmate_service::linux::cli`.
 
 use std::process::ExitCode;
 
 /// Exit code for a wrong command line.
+#[cfg(not(target_os = "linux"))]
 const EXIT_USAGE: u8 = 2;
 
 #[cfg(windows)]
@@ -213,6 +215,13 @@ mod windows_main {
     }
 }
 
+#[cfg(target_os = "linux")]
+fn main() -> ExitCode {
+    let arguments: Vec<String> = std::env::args().skip(1).collect();
+    deskmate_service::linux::app::main(&arguments)
+}
+
+#[cfg(not(target_os = "linux"))]
 fn main() -> ExitCode {
     let arguments: Vec<String> = std::env::args().skip(1).collect();
     let command = match deskmate_service::cli::parse(&arguments) {

@@ -1,7 +1,7 @@
 [package]
 name = "deskmate-service"
 version.workspace = true
-description = "Deskmate without a signed-in user: keeps the computer connected to Home Assistant from a Windows service"
+description = "Deskmate without a signed-in user: keeps the computer connected to Home Assistant from a Windows service or a Linux daemon"
 authors.workspace = true
 license.workspace = true
 edition.workspace = true
@@ -21,7 +21,7 @@ path = "src/main.rs"
 # executor and takes the real one out, so a build with this feature cannot
 # turn a computer off. It also adds the `console` subcommand and the options
 # that point a run at a temporary data folder, a key file and other pipe
-# names.
+# names (on Linux: other folders and another status file).
 test-hooks = []
 
 [dependencies]
@@ -44,10 +44,18 @@ zeroize = "1"
 log = { version = "0.4", features = ["std"] }
 # Time since boot, for the power safety valve.
 sysinfo = "0.33"
+# The pairing code (pairing.rs) is base64url; the same crate deskmate-core
+# decodes keys with.
+base64 = "0.22"
 
 [dev-dependencies]
 # Paused time: the tests of the runner control every timer.
 tokio = { version = "1", features = ["test-util"] }
+
+# The daemon stops on SIGTERM and SIGINT, reloads on SIGHUP, and hears about
+# sleep through SIGUSR1 and SIGUSR2 (packaging/linux).
+[target.'cfg(target_os = "linux")'.dependencies]
+tokio = { version = "1", features = ["signal"] }
 
 [target.'cfg(windows)'.dependencies]
 # Service Control Manager plumbing: the dispatcher, the control handler and

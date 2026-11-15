@@ -1,10 +1,12 @@
 //! Deskmate without a signed-in user: the part of a computer that Home
 //! Assistant can see and reach before anyone has signed in.
 //!
-//! Everything here except `win` is platform-neutral. `runner` is the whole
-//! behaviour; the platform layer feeds it events and serves its status. The
-//! Windows layer (`win`) is the service wrapper, the two named pipes, the
-//! access checks and the install and uninstall steps.
+//! Everything here except `win` and `linux` is platform-neutral. `runner` is
+//! the whole behaviour; the platform layer feeds it events and serves its
+//! status. The Windows layer (`win`) is the service wrapper, the two named
+//! pipes, the access checks and the install and uninstall steps. The Linux
+//! layer (`linux`) is the daemon that systemd starts: its signals, its status
+//! file and the commands that pair and unpair it.
 
 #![deny(clippy::undocumented_unsafe_blocks)]
 #![cfg_attr(
@@ -17,7 +19,10 @@ pub mod audit;
 pub mod cli;
 pub mod config;
 pub mod connector;
+#[cfg(target_os = "linux")]
+pub mod linux;
 pub mod logging;
+pub mod pairing;
 pub mod power;
 pub mod provisioning;
 pub mod retry;
