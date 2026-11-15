@@ -93,7 +93,8 @@ Setting this up with an AI assistant? Point it at
 - A small always-on-top panel with the entities you pick.
 - Home Assistant dashboards in their own window, and your own shortcuts in the
   tray menu.
-- A [Stream Deck plugin](streamdeck-plugin/README.md).
+- A [Stream Deck plugin](docs/STREAMDECK.md): keys for entities, services,
+  scenes and the actions you defined in Deskmate.
 
 **Everyday**
 

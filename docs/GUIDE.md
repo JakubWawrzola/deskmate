@@ -287,7 +287,8 @@ profile → Security → Create token) entered under Settings → Home Assistant
   hotkey or a quick action (*Open HA dashboard*, optionally with its own path
   such as `lovelace/office`). Log in once; the session is kept. This one needs
   no token.
-- **Stream Deck**: a separate [plugin](../streamdeck-plugin/README.md).
+- **Stream Deck**: keys for entities, services, scenes and your Deskmate
+  hotkeys and tray quick actions. See [STREAMDECK.md](STREAMDECK.md).
 
 ## 8. Files between your phone and the PC
 

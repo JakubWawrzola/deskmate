@@ -1,132 +1,149 @@
 # Deskmate for Home Assistant: Stream Deck plugin
 
-A standalone Stream Deck plugin (SDK v2, Node 20, TypeScript) that controls
-Home Assistant directly through its API — it works independently of the
-Deskmate desktop app. Actions go over REST (`POST /api/services/...`), live
-key state comes over WebSocket (`/api/websocket`).
+The Stream Deck plugin of [Deskmate](../README.md). It puts Home Assistant
+entities, services and scenes, and the actions defined in the Deskmate app, on
+Stream Deck keys.
 
-## Actions
+What it does, how to install it and how to set up a key is in
+[docs/STREAMDECK.md](../docs/STREAMDECK.md). This file is for working on the
+code.
 
-| Action | What it does | Key settings |
-|---|---|---|
-| Toggle Entity | `homeassistant.toggle` on an entity; the key shows live on/off state (ON = bright, OFF = dimmed) | `Entity ID`, e.g. `light.living_room` |
-| Call Service | any HA service with an optional entity and JSON data | `Service` (`light.turn_on`), `Entity ID` (optional), `Data (JSON)` (optional object) |
-| Activate Scene | `scene.turn_on` | `Scene`, e.g. `scene.movie_night` (`movie_night` works too) |
+The plugin is versioned on its own: `0.2.0` in `package.json`,
+`manifest.template.json` and `src/plugin-info.ts`, and a test keeps the three
+equal.
 
-Global configuration (entered once, shared by all keys, visible in every
-Property Inspector):
-- **HA URL** — e.g. `http://192.168.1.10:8123` (LAN) or a Tailscale/domain address
-- **Access token** — a long-lived access token from HA
+## Requirements
 
-The token lives in the Stream Deck plugin's global settings (locally on this
-computer), never in the repo or the code.
+- Node.js 24, the version Stream Deck runs the plugin on.
+- Stream Deck 7.1 or newer to load it (`@elgato/streamdeck` 3, manifest
+  `SDKVersion` 3).
 
-## Building
+## Commands
 
-Requirements: Node 20+, npm.
+Run them in `streamdeck-plugin/`.
 
-```powershell
-cd streamdeck-plugin
-npm install
-npm run build
+| Command | What it does |
+|---|---|
+| `npm ci` | Installs the dependencies from the lockfile. |
+| `npx tsc --noEmit` | Type check, `src/` and `test/`. |
+| `npm run lint` | Biome: lint and formatting check. |
+| `npm run format` | Biome: rewrites the files in the repository's style. |
+| `npm test` | Unit tests with `node --test`. |
+| `npm run build` | Bundles the plugin, then checks the result (below). |
+| `npm run watch` | Rebuilds on every change. |
+| `npm run icons` | Redraws the PNG icons (`scripts/generate-icons.mjs`). |
+
+CI runs `npm ci`, the type check, the lint, the tests and the build, in that
+order.
+
+## What the build writes
+
+`npm run build` fills in `com.deskmate.streamdeck.sdPlugin/`, which is the
+folder Stream Deck loads:
+
+```
+com.deskmate.streamdeck.sdPlugin/
+├── manifest.json      written by the build, a copy of manifest.template.json
+├── bin/
+│   ├── plugin.js      written by the build: the bundle, dependencies included
+│   └── package.json   written by the build: marks the bundle as an ES module
+├── imgs/              icons, in the repository
+└── ui/                property inspectors and their script and stylesheet, in the repository
 ```
 
-Output: `com.deskmate.streamdeck.sdPlugin\bin\plugin.js` (rollup bundle) and
-`com.deskmate.streamdeck.sdPlugin\manifest.json`, written from
-`manifest.template.json`. The repository keeps only the template, because the
-HACS checks for the Home Assistant integration allow one `manifest.json` per
-repository. Edit the template, not the copy.
-`npm run icons` regenerates the placeholder PNG icons (pure Node, no deps).
+The three written files are ignored by git. `logs/` appears next to them once
+Stream Deck has run the plugin; it is ignored too and is not part of the
+plugin.
 
-## Installing into Stream Deck
+The manifest lives in the repository as `manifest.template.json` because the
+repository may contain only one file named `manifest.json`, the Home Assistant
+integration's: the HACS checks require that. Edit the template, never the
+copy.
 
-Option A — copy the folder:
-1. Quit the Stream Deck app (tray → Quit Stream Deck).
-2. Copy the WHOLE `com.deskmate.streamdeck.sdPlugin` folder to
-   `%AppData%\Elgato\StreamDeck\Plugins\`.
-3. Start Stream Deck again.
+## The check after the build
 
-Option B — developer link (nicer while working on the code):
-```powershell
-npm install -g @elgato/cli
-streamdeck link <path>\streamdeck-plugin\com.deskmate.streamdeck.sdPlugin
-streamdeck restart com.deskmate.streamdeck
-```
+`scripts/check-bundle.mjs` runs at the end of every build:
 
-## Configuration
+1. Every file the manifest and the property inspectors point at is in the
+   folder.
+2. The bundle is started the way Stream Deck starts it, against stand-ins that
+   run on this computer: a WebSocket server in place of the Stream Deck app, a
+   pipe in place of the Deskmate app's local channel, and an HTTP and
+   WebSocket server in place of Home Assistant. Keys of every action are shown
+   and pressed, first through the stand-in app, then directly against the
+   stand-in Home Assistant, then with neither.
 
-1. In HA: your profile → Security → Long-lived access tokens → Create token.
-   Copy it (it is shown only once).
-2. In Stream Deck: drag any action from the "Deskmate" category onto a
-   key and fill in **HA URL** and **Access token** in the Property Inspector
-   (global fields — once is enough).
-3. Fill in the action fields (entity / service / scene).
-
-Note: the Property Inspector loads the `sdpi-components` library from Elgato's
-official CDN (`sdpi-components.dev`) — same as the official plugin template.
-The first time you open the inspector the computer needs internet access; the
-plugin itself (keys, REST/WS to HA) runs fine on LAN only.
-
-Missing URL/token or a network error = a yellow alert triangle on key press;
-details in `com.deskmate.streamdeck.sdPlugin\logs\`.
+The check needs no Stream Deck, no Deskmate and no Home Assistant, and it
+never opens the real app's pipe: the plugin is pointed at the stand-in with
+the `DESKMATE_STREAMDECK_PIPE` environment variable.
 
 ## Layout
 
 ```
 streamdeck-plugin/
 ├── src/
-│   ├── plugin.ts              # action registration + connect + global settings
-│   ├── ha-client.ts           # singleton: REST (fetch) + WebSocket (ws), reconnect, state cache
-│   └── actions/
-│       ├── toggle-entity.ts   # homeassistant.toggle + live state (setState 0/1)
-│       ├── call-service.ts    # any domain.service + entity + JSON data
-│       └── activate-scene.ts  # scene.turn_on
-├── scripts/generate-icons.mjs # placeholder PNG generator (pure Node)
-├── manifest.template.json     # plugin manifest: SDK v2, Node 20 runtime, 3 actions
-├── com.deskmate.streamdeck.sdPlugin/
-│   ├── manifest.json          # written by npm run build (not in git)
-│   ├── bin/plugin.js          # npm run build output
-│   ├── ui/*.html              # Property Inspectors (sdpi-components)
-│   └── imgs/                  # icons (placeholders, replace at will)
-├── package.json / tsconfig.json / rollup.config.mjs
+│   ├── plugin.ts            wiring: channel, transports, hub, actions, inspector
+│   ├── plugin-info.ts       version and action identifiers
+│   ├── settings.ts          the global settings, checked when read
+│   ├── ha-ids.ts            entity ids, services and service data as typed by the user
+│   ├── actions/             one file per action
+│   ├── channel/             client of the Deskmate app's local channel
+│   │   ├── pipe-name.ts     pipe path from the Windows user name
+│   │   ├── framing.ts       one JSON object per line, 65536 bytes at most
+│   │   ├── protocol.ts      messages and their validation
+│   │   ├── backoff.ts       reconnect delays
+│   │   └── client.ts        connect, hello, requests, watch list, reconnect
+│   ├── connection/
+│   │   ├── transport.ts     the interface both transports implement
+│   │   ├── deskmate.ts      Home Assistant through the Deskmate app
+│   │   ├── direct.ts        Home Assistant over its REST and WebSocket API
+│   │   ├── ha-api.ts        reading Home Assistant's answers
+│   │   ├── select.ts        which transport the connection setting selects
+│   │   ├── status.ts        the status line of the property inspectors
+│   │   └── hub.ts           what the actions talk to
+│   ├── inspector.ts         answers the property inspectors
+│   └── inspector-items.ts   the lists and messages they are given
+├── test/                    unit tests, one file per module
+├── scripts/                 the icon generator and the check after the build
+├── manifest.template.json   the plugin manifest
+└── com.deskmate.streamdeck.sdPlugin/   icons and property inspectors
 ```
 
-## Manual test checklist
+The actions never choose a connection themselves. They ask the hub, and the
+hub sends the operation over the transport that the `connection` setting
+selects. The protocol of the app's local channel is specified in
+[docs/STREAMDECK.md](../docs/STREAMDECK.md#local-channel); a change to it
+changes that section and the tests in the same commit.
 
-Needs: a physical Stream Deck (or the Stream Deck app's key preview) and an
-HA instance reachable from this computer.
+## Conventions
 
-1. Build (`npm install`, `npm run build`), install the plugin (option A or B),
-   restart the Stream Deck app. Expected: a "Deskmate" category with 3
-   actions and icons appears in the action list.
-2. Drag "Toggle Entity" onto a key. Expected: the Property Inspector shows
-   Entity ID / HA URL / Access token fields (no fields = no internet for the
-   sdpi-components CDN, see Configuration).
-3. Press the key WITHOUT URL/token set. Expected: yellow alert triangle, the
-   plugin stays alive.
-4. Enter the HA URL and token, set Entity ID to a real toggleable entity.
-   Expected: within a few seconds the key icon reflects the current state
-   (bright when ON, dimmed when OFF).
-5. Press the key. Expected: the entity toggles, the key icon updates in ~1 s
-   (no alert triangle).
-6. Change that entity's state from elsewhere (HA app / dashboard). Expected:
-   the key updates by itself (WebSocket subscription).
-7. Add "Call Service": Service `light.turn_on`, an Entity ID, Data
-   `{"brightness_pct": 20}`. Press. Expected: the light turns on dimmed, an OK
-   checkmark on the key.
-8. Break the Data JSON on purpose, e.g. `{broken`. Press. Expected: alert
-   triangle, nothing was sent to HA.
-9. Add "Activate Scene" with an existing scene. Press. Expected: scene runs,
-   OK checkmark.
-10. Resilience: disconnect the network (or stop HA), press Toggle. Expected:
-    alert triangle. After the network returns, the key recovers by itself in
-    <60 s (WS reconnect backoff).
+- Relative imports name the `.ts` file, and the code uses no enums and no
+  constructor parameter properties. Node runs the tests by stripping the
+  types, which only works for syntax it can strip; `tsconfig.json` enforces
+  both. The build rewrites the extensions.
+- A module that the tests import must not import `@elgato/streamdeck`. The SDK
+  creates its log folder in the working directory as soon as it is loaded, and
+  the action classes use its decorators, which Node does not run without a
+  build. Logic goes into modules without the SDK; `plugin.ts`, `inspector.ts`
+  and the actions do the wiring, and the check after the build covers them.
+- Nothing typed by the user and nothing received from the app or from Home
+  Assistant goes into the log: operations and error codes only.
+- TypeScript stays on 5.x. With 7 the build fails inside
+  `@rollup/plugin-typescript` 12, and Dependabot is told to skip that major.
+- `zod` is overridden to 4.6.6 or newer in `package.json`. The SDK brings it
+  in as `^3.25.24`, and every 3.x release is covered by a high-severity
+  advisory. Remove the override once the SDK depends on a fixed release.
 
-## Known limitations (MVP)
+## Loading a development build into Stream Deck
 
-- Icons are programmatic placeholders — replace with final artwork.
-- No entity dropdown (you type entity_id by hand) — planned; needs an HA
-  request from the Property Inspector.
-- Keypad only (no dial/encoder actions yet).
-- Invalid token: the plugin deliberately stops retrying the WS connection
-  until settings change (avoids spamming HA with failed logins).
+Copy the built folder as described under
+[Install, by hand](../docs/STREAMDECK.md#by-hand), or link it with Elgato's
+command-line tool so that Stream Deck loads it from the repository:
+
+```powershell
+streamdeck link com.deskmate.streamdeck.sdPlugin
+streamdeck restart com.deskmate.streamdeck
+```
+
+The property inspectors load Elgato's `sdpi-components` from
+`sdpi-components.dev`, like Elgato's plugin template does.

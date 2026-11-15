@@ -1,5 +1,10 @@
 # Stream Deck integration — plan and status
 
+> This file is history. The plugin has since been renamed to
+> `com.deskmate.streamdeck`, moved to Stream Deck SDK 3, and reaches Home
+> Assistant through the Deskmate app or directly. The current description is
+> [STREAMDECK.md](../STREAMDECK.md).
+
 Goal: control Home Assistant from Elgato Stream Deck keys.
 
 ## Status (2026-07-14): MVP IMPLEMENTED
