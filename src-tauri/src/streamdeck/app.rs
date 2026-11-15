@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
+use tauri::path::BaseDirectory;
 use tauri::{AppHandle, Emitter, Manager};
 
 use super::action_ids::{self, ActionSource};
@@ -14,12 +15,15 @@ use super::backend::{
     HomeAssistant, ServiceCall,
 };
 use super::entities;
+use super::plugin_install::{self, Installed, PluginStatus, StreamDeckFolders};
 use crate::config::{self, AppConfig};
 use crate::ha_api;
 use crate::state::AppState;
 
 /// Sent to the window whenever the channel's status changes.
 const STATUS_EVENT: &str = "deskmate://streamdeck";
+/// Audit event of installing or removing the plugin.
+const AUDIT_PLUGIN: &str = "streamdeck_plugin";
 
 /// Writes the channel's audit records to the security log, in order, on a
 /// thread of its own: the log is a file, and the channel runs on the async
@@ -261,6 +265,7 @@ pub struct StreamDeckView {
     /// The switch as stored in the configuration.
     enabled: bool,
     channel: ChannelStatus,
+    plugin: PluginStatus,
 }
 
 /// Registers the channel with the app and opens it when the configuration
@@ -284,9 +289,18 @@ pub fn ha_settings_changed(app: &AppHandle) {
 }
 
 pub async fn view(app: &AppHandle) -> Result<StreamDeckView, String> {
+    let enabled = current_config(app).await.streamdeck_enabled;
+    let channel = app.state::<StreamDeck>().channel_status();
+    let bundle = bundle_folder(app)?;
+    let plugin = tokio::task::spawn_blocking(move || {
+        plugin_install::status(&bundle, StreamDeckFolders::of_current_user().as_ref())
+    })
+    .await
+    .map_err(|e| e.to_string())?;
     Ok(StreamDeckView {
-        enabled: current_config(app).await.streamdeck_enabled,
-        channel: app.state::<StreamDeck>().channel_status(),
+        enabled,
+        channel,
+        plugin,
     })
 }
 
@@ -301,4 +315,53 @@ pub async fn set_enabled(app: &AppHandle, enabled: bool) -> Result<(), String> {
     app.state::<StreamDeck>().switch(app, enabled);
     let _ = app.emit(STATUS_EVENT, ());
     Ok(())
+}
+
+pub async fn install_plugin(app: &AppHandle) -> Result<(), String> {
+    let bundle = bundle_folder(app)?;
+    let outcome = tokio::task::spawn_blocking(move || {
+        let folders = StreamDeckFolders::of_current_user()
+            .ok_or("Deskmate could not find the application data folder of this account.")?;
+        plugin_install::install(&bundle, &folders)
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+    app.state::<StreamDeck>().audit.record(
+        AUDIT_PLUGIN,
+        match outcome {
+            Ok(Installed::New) => "installed",
+            Ok(Installed::Replaced) => "updated",
+            Err(_) => "install_failed",
+        },
+    );
+    outcome.map(|_| ())
+}
+
+pub async fn remove_plugin(app: &AppHandle) -> Result<(), String> {
+    let outcome = tokio::task::spawn_blocking(|| {
+        let folders = StreamDeckFolders::of_current_user()
+            .ok_or("Deskmate could not find the application data folder of this account.")?;
+        plugin_install::remove(&folders)
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+    match outcome {
+        Ok(true) => app
+            .state::<StreamDeck>()
+            .audit
+            .record(AUDIT_PLUGIN, "removed"),
+        Ok(false) => {}
+        Err(_) => app
+            .state::<StreamDeck>()
+            .audit
+            .record(AUDIT_PLUGIN, "remove_failed"),
+    }
+    outcome.map(|_| ())
+}
+
+/// The plugin as it ships in the app's resources.
+fn bundle_folder(app: &AppHandle) -> Result<std::path::PathBuf, String> {
+    app.path()
+        .resolve(plugin_install::BUNDLE_FOLDER, BaseDirectory::Resource)
+        .map_err(|e| e.to_string())
 }

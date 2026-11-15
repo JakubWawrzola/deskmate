@@ -1229,7 +1229,9 @@ pub fn run() {
             family::unprotect_family_account,
             recent_file_transfers,
             streamdeck::streamdeck_status,
-            streamdeck::set_streamdeck_enabled
+            streamdeck::set_streamdeck_enabled,
+            streamdeck::install_streamdeck_plugin,
+            streamdeck::remove_streamdeck_plugin
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
