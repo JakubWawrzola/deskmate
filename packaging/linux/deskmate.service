@@ -1,0 +1,64 @@
+# The Deskmate daemon: this computer's sensors and power buttons in Home
+# Assistant. It runs as the system user "deskmate" (deskmate.sysusers) with
+# no capabilities. The power buttons reach logind through the polkit rule in
+# 50-deskmate.rules, which allows this user those four actions and no other.
+[Unit]
+Description=Deskmate daemon (this computer in Home Assistant)
+Documentation=https://github.com/JakubWawrzola/deskmate/blob/main/docs/LINUX.md
+Wants=network-online.target
+# Stopped before the network and D-Bus go, so that a shutdown can still say
+# goodbye to Home Assistant and ask systemd whether the system is stopping.
+After=network-online.target dbus.service
+
+[Service]
+Type=exec
+User=deskmate
+Group=deskmate
+ExecStart=/usr/bin/deskmate-service run
+ExecReload=kill -HUP $MAINPID
+Restart=always
+RestartSec=5
+TimeoutStopSec=10
+
+# /etc/deskmate: config.json, read-only for the daemon (ProtectSystem).
+ConfigurationDirectory=deskmate
+ConfigurationDirectoryMode=0755
+# /var/lib/deskmate: the key files and security.log.
+StateDirectory=deskmate
+StateDirectoryMode=0700
+# /run/deskmate: status.json, readable by every local user.
+RuntimeDirectory=deskmate
+RuntimeDirectoryMode=0755
+UMask=0077
+
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+DevicePolicy=closed
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+# The seat is an abstract Unix socket; D-Bus is a Unix socket too.
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RemoveIPC=yes
+KeyringMode=private
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+
+[Install]
+WantedBy=multi-user.target

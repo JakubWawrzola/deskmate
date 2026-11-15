@@ -1,0 +1,13 @@
+#!/bin/sh
+# After removal systemd forgets the units. A purge also deletes the settings
+# and the keys. The system user stays, as Debian does with system users.
+set -e
+
+if [ "$1" = "remove" ] || [ "$1" = "purge" ]; then
+    if [ -d /run/systemd/system ]; then
+        systemctl daemon-reload || true
+    fi
+fi
+if [ "$1" = "purge" ]; then
+    rm -rf /etc/deskmate /var/lib/deskmate
+fi

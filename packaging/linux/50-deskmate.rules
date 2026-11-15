@@ -1,0 +1,24 @@
+// Deskmate daemon: lets the system user "deskmate" suspend, hibernate, power
+// off and restart this computer through logind, which is what the power
+// buttons in Home Assistant do. The "-multiple-sessions" variants are the
+// same actions while other users are signed in. Every other action this
+// user asks for is refused, and nothing changes for any other user.
+polkit.addRule(function (action, subject) {
+    if (subject.user !== "deskmate") {
+        return polkit.Result.NOT_HANDLED;
+    }
+    var allowed = [
+        "org.freedesktop.login1.suspend",
+        "org.freedesktop.login1.suspend-multiple-sessions",
+        "org.freedesktop.login1.hibernate",
+        "org.freedesktop.login1.hibernate-multiple-sessions",
+        "org.freedesktop.login1.power-off",
+        "org.freedesktop.login1.power-off-multiple-sessions",
+        "org.freedesktop.login1.reboot",
+        "org.freedesktop.login1.reboot-multiple-sessions"
+    ];
+    if (allowed.indexOf(action.id) >= 0) {
+        return polkit.Result.YES;
+    }
+    return polkit.Result.NO;
+});

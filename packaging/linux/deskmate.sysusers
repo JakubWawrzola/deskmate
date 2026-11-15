@@ -1,0 +1,3 @@
+# The system user the Deskmate daemon runs as: no home, no login shell.
+# Installed as /usr/lib/sysusers.d/deskmate.conf.
+u deskmate - "Deskmate daemon" / /usr/sbin/nologin

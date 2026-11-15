@@ -1,0 +1,4 @@
+# The Deskmate daemon's folders, so that `deskmate-service pair` finds them
+# before the daemon first starts. Installed as /usr/lib/tmpfiles.d/deskmate.conf.
+d /etc/deskmate 0755 root root -
+d /var/lib/deskmate 0700 deskmate deskmate -

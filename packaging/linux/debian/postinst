@@ -1,0 +1,14 @@
+#!/bin/sh
+# Creates the daemon's user and folders, then enables and (re)starts it.
+set -e
+
+if [ "$1" = "configure" ]; then
+    systemd-sysusers /usr/lib/sysusers.d/deskmate.conf
+    systemd-tmpfiles --create /usr/lib/tmpfiles.d/deskmate.conf
+    systemctl enable deskmate-sleep.service deskmate.service >/dev/null 2>&1 || true
+    if [ -d /run/systemd/system ]; then
+        systemctl daemon-reload
+        systemctl restart deskmate.service
+    fi
+    echo "Pair the Deskmate daemon with Home Assistant: sudo deskmate-service pair"
+fi
