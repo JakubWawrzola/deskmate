@@ -194,3 +194,35 @@ jobs:
       - run: cargo test -p deskmate-core --features secret-service
       - name: The ARM64 target still compiles
         run: cargo check -p deskmate-core --target aarch64-unknown-linux-gnu
+
+  # The Windows service, for real: installed as LocalSystem on the runner,
+  # set up through its admin pipe and driven by the fake hub. The build has
+  # the test-hooks feature, so power commands are recorded and never run.
+  service:
+    name: Service (Rust, end to end)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: src-tauri
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the Rust toolchain
+        run: |
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal --no-self-update             --component clippy
+          rustup default "$RUST_TOOLCHAIN"
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: src-tauri
+          key: service
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.14"
+      - run: python -m pip install $FAKE_HUB_PACKAGES
+      - run: cargo clippy -p deskmate-service --all-targets --features test-hooks -- -D warnings
+      - run: cargo test -p deskmate-service --features test-hooks
+      - run: cargo build -p deskmate-service --features test-hooks
+      - name: Install the service, drive it with the fake hub, uninstall it
+        run: python ../tests/service_e2e.py --service
