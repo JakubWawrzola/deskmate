@@ -19,6 +19,7 @@ async def async_get_config_entry_diagnostics(
         "session_role": getattr(hub, "session_role", None),
         "session_platform": getattr(hub, "session_platform", None),
         "session_app": getattr(hub, "session_app", None),
+        "session_features": sorted(getattr(hub, "session_features", ())),
         "device_info": getattr(hub, "device_info", None),
         "declared_entities": [
             {k: v for k, v in d.items()} for d in getattr(hub, "entities", [])

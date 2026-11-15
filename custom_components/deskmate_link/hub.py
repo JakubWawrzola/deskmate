@@ -65,7 +65,7 @@ from .declare_scope import (
 )
 from .device_compat import async_entry_device, async_hand_device_over
 from .presence import Presence, connection_unique_id
-from .session_info import async_info_answer, invalid_info_field
+from .session_info import async_info_answer, client_features, invalid_info_field
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -104,6 +104,9 @@ class DeskmateHub:
         self.session_role: str | None = None
         self.session_platform: str | None = None
         self.session_app: str | None = None
+        # The known features that the client listed in `info`; empty when it
+        # listed none, sent no `info`, and when there is no session.
+        self.session_features: frozenset[str] = frozenset()
 
         self._ws: web.WebSocketResponse | None = None
         self._tx: FrameCodec | None = None  # s2c
@@ -429,6 +432,7 @@ class DeskmateHub:
         self.session_role = None
         self.session_platform = None
         self.session_app = None
+        self.session_features = frozenset()
 
     def _fail_pending(self, reason: str) -> None:
         for fut in self._pending.values():
@@ -510,9 +514,18 @@ class DeskmateHub:
                 invalid,
             )
             return
+        features = client_features(msg)
+        if features is None:
+            # The rest of the frame stands; the client is taken to list none.
+            _LOGGER.warning(
+                "deskmate_link[%s]: ignoring the invalid features of an info frame",
+                self.node_id,
+            )
+            features = frozenset()
         self.session_role = msg["role"]
         self.session_platform = msg["platform"]
         self.session_app = msg["app"]
+        self.session_features = features
         self.presence.client_identified(msg["role"])
         await self._send(await async_info_answer(self.hass))
 

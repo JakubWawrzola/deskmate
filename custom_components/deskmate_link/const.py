@@ -60,6 +60,14 @@ INFO_ROLES = frozenset({"app", ROLE_SERVICE, "daemon"})
 INFO_PLATFORMS = frozenset({"windows", "linux", "android_tv"})
 INFO_APP_VERSION_PATTERN = r"^\d+\.\d+\.\d+([-+][0-9A-Za-z.-]{1,20})?$"
 LINK_CAPS = ("info", "scoped_declare", "bye")
+# What a client may list in the optional `features` of its `info`. The hub
+# sends what a feature adds only to a session that listed it, and ignores a
+# name it does not know.
+FEATURE_MEDIA_PLAYER = "media_player"
+FEATURE_NOTIFY_TAG = "notify_tag"
+CLIENT_FEATURES = frozenset({FEATURE_MEDIA_PLAYER, FEATURE_NOTIFY_TAG})
+INFO_FEATURES_MAX = 16
+INFO_FEATURE_PATTERN = r"^[a-z][a-z0-9_]{0,31}$"
 
 # `declare` with the scope "machine" lists only what a client without a
 # signed-in user can serve. Every other declaration is a full one.

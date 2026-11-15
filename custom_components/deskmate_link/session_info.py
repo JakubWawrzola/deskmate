@@ -1,8 +1,9 @@
 """The `info` session frame (docs/LINK.md, "Session frames").
 
-A client sends it first after the handshake to say what it is. The hub keeps
-the three values for the session and answers with the integration's version
-and the optional frame types it understands.
+A client sends it first after the handshake to say what it is and, with
+`features`, which optional parts of the protocol it implements. The hub keeps
+the values for the session and answers with the integration's version and
+the optional parts it understands.
 """
 
 from __future__ import annotations
@@ -14,8 +15,11 @@ from homeassistant.core import HomeAssistant
 from homeassistant.loader import async_get_integration
 
 from .const import (
+    CLIENT_FEATURES,
     DOMAIN,
     INFO_APP_VERSION_PATTERN,
+    INFO_FEATURE_PATTERN,
+    INFO_FEATURES_MAX,
     INFO_PLATFORMS,
     INFO_ROLES,
     LINK_CAPS,
@@ -23,6 +27,7 @@ from .const import (
 
 # re.ASCII: `\d` must not accept digits from other scripts.
 _APP_VERSION_RE = re.compile(INFO_APP_VERSION_PATTERN, re.ASCII)
+_FEATURE_RE = re.compile(INFO_FEATURE_PATTERN, re.ASCII)
 
 
 def invalid_info_field(frame: dict[str, Any]) -> str | None:
@@ -41,6 +46,25 @@ def invalid_info_field(frame: dict[str, Any]) -> str | None:
     if not isinstance(app, str) or not _APP_VERSION_RE.fullmatch(app):
         return "app"
     return None
+
+
+def client_features(frame: dict[str, Any]) -> frozenset[str] | None:
+    """The known features that an `info` frame lists, or None if the list is invalid.
+
+    A frame without `features` lists none: that is every client older than
+    the field. Names this integration does not know are left out, so a newer
+    client can list more than it knows about.
+    """
+    if "features" not in frame:
+        return frozenset()
+    features = frame["features"]
+    if not isinstance(features, list) or len(features) > INFO_FEATURES_MAX:
+        return None
+    if not all(
+        isinstance(name, str) and _FEATURE_RE.fullmatch(name) for name in features
+    ):
+        return None
+    return frozenset(features) & CLIENT_FEATURES
 
 
 async def async_info_answer(hass: HomeAssistant) -> dict[str, Any]:
