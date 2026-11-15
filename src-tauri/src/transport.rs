@@ -291,8 +291,7 @@ pub async fn handle_command(
     let state = app.state::<AppState>();
     let cfg = state.config.lock().await.clone();
 
-    let is_input = key == "type_text" || key == "open_url" || key.starts_with("present_");
-    if is_input && !cfg.allow_input {
+    if deskmate_core::sys_commands::is_input_command(key) && !cfg.allow_input {
         return Err(format!("input command '{key}' disabled"));
     }
 

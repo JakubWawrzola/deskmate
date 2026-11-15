@@ -130,10 +130,7 @@ One device per PC, with:
   read it. Settings → *CPU temperature* sets up a small helper for that, see
   [below](#cpu-temperature). Running LibreHardwareMonitor works too.
 - **Buttons**: Lock, Sleep, Hibernate, Shutdown, Restart, Sign out, Monitors
-  off, Wake screen, media keys, empty recycle bin. Shutdown and Restart wait 5
-  seconds. *Wake screen* turns the screens back on as a tiny mouse nudge
-  would; the pointer does not move. While the PC is locked, Windows can
-  refuse it.
+  off, media keys, empty recycle bin. Shutdown and Restart wait 5 seconds.
 - **Controls**: volume slider, mute, Keep awake (stops sleep and screen-off
   while it is on), and *Screen brightness* from 0 to 100 %. Brightness works
   on a laptop's own screen and on monitors that support DDC/CI (many have it
@@ -282,8 +279,13 @@ Besides the built-in buttons:
   Keys cannot reach a window running as administrator, nor anything while
   Windows is locked. With *Confirm* on, the key press waits for your answer.
 - **Remote input** (Settings, off by default): Home Assistant can type text
-  into the focused window, drive a presentation and open allowed web pages.
-  Typed text is printable characters only, so it cannot press Enter on its own.
+  into the focused window, drive a presentation, open allowed web pages and
+  press *Wake screen*. Typed text is printable characters only, so it cannot
+  press Enter on its own. *Wake screen* turns the screens back on as a tiny
+  mouse nudge would; the pointer does not move, and while the PC is locked
+  Windows can refuse it. Windows counts all of this as your input: it resets
+  the idle time, so it also postpones the screen saver, the lock after
+  inactivity and an automatic update install.
 - **Text to speech** (Settings, off by default): the PC reads out text sent from
   Home Assistant.
 - **Clipboard** (Clipboard page): reading and writing are separate, each *Off*,

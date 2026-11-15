@@ -34,7 +34,8 @@ Off until you turn it on in the app:
 - sensors that show what you are doing: active window, media title, artist,
   app and status, Wi-Fi name, camera in use, microphone in use;
 - reading the clipboard and writing to it, two separate settings;
-- typing text, presentation keys and opening URLs (*Allow input*), and speech;
+- typing text, presentation keys, *Wake screen* and opening URLs (*Allow
+  input*), and speech;
 - receiving files and sharing folders, two separate settings;
 - your own PowerShell commands and sensors: created disabled, with
   confirmation on;
@@ -309,6 +310,17 @@ sends characters through the SendInput Unicode path, which cannot press Ctrl,
 Alt or Win, so it cannot trigger shortcuts. Control characters are removed
 before typing: most applications treat a typed CR, LF, Tab or Esc as the real
 key, and text followed by CR would otherwise run in a focused terminal.
+
+### Input that counts as yours
+
+Typed text, the presentation keys and *Wake screen* (a mouse move of zero
+distance) reach Windows as keyboard or mouse input, and Windows counts them
+as the user's. Each one resets the idle time. While *Allow input* is on,
+Home Assistant can therefore keep the screen saver and the inactivity lock
+from starting, delay an automatic update install, reset the *Idle time*
+sensor and add to the screen time that family rules count. *Keep awake* is
+different: it stops sleep and screen-off but leaves the idle time, and with
+it the screen saver and the lock, alone.
 
 ### Your own PowerShell commands
 
@@ -636,7 +648,10 @@ manifest, an address or a file. The buttons on the update notification use
 their own `deskmate:update` link with single-use tokens; a notification sent
 by Home Assistant cannot carry that link, and a click on it is not reported to
 Home Assistant. The idle time that *Install automatically* waits for is
-measured on the PC.
+measured on the PC. Input that Home Assistant sends while *Allow input* is on
+counts there as activity (see
+[Input that counts as yours](#input-that-counts-as-yours)), so it can delay
+an automatic install, never start one.
 
 ### Limits
 

@@ -908,10 +908,28 @@ mod tests {
             descriptor(&declared, "user_state").unwrap()["kind"],
             "sensor"
         );
+    }
+
+    #[test]
+    fn wake_screen_is_declared_only_with_allow_input() {
+        let mut cfg = AppConfig::default();
+        assert!(descriptor(&entities(&cfg), "wake_screen").is_none());
+        let mqtt_payload = |cfg: &AppConfig| {
+            let topic = cfg_topic("button", &cfg.node_id, "wake_screen");
+            build_all(cfg, &[], &SessionEntities::default())
+                .into_iter()
+                .find(|(candidate, _)| *candidate == topic)
+                .map(|(_, payload)| payload)
+        };
+        assert_eq!(mqtt_payload(&cfg), Some(String::new()), "removed");
+
+        cfg.allow_input = true;
         assert_eq!(
-            descriptor(&declared, "wake_screen").unwrap()["kind"],
+            descriptor(&entities(&cfg), "wake_screen").unwrap()["kind"],
             "button"
         );
+        let declared = mqtt_payload(&cfg).unwrap();
+        assert!(declared.contains("\"command_topic\""), "{declared}");
     }
 
     #[test]

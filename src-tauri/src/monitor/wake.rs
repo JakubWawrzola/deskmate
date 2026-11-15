@@ -11,6 +11,11 @@
 //!
 //! Windows refuses injected input while the session is locked or a program
 //! running as administrator is in front; the button then reports an error.
+//!
+//! Because Windows counts the nudge as the user's input, it postpones the
+//! screen saver, the inactivity lock and the automatic update install, and
+//! resets the idle time sensor. The button is therefore one of the *Allow
+//! input* commands, off until the user turns that on.
 
 #[cfg(windows)]
 pub fn wake() -> Result<(), String> {

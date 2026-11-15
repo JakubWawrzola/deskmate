@@ -465,7 +465,8 @@ export default function SettingsPage({
           <div>
             <span className="text-[13px]">Type text &amp; presentation control</span>
             <p className="text-[12px] text-muted">
-              HA sends keystrokes to the active window (text, slide next/prev).
+              HA sends keystrokes to the active window (text, slide next/prev) and can wake the
+              screen.
             </p>
           </div>
           <Toggle

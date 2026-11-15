@@ -52,11 +52,6 @@ pub const COMMAND_DEFS: &[CommandDef] = &[
         icon: "mdi:monitor-off",
     },
     CommandDef {
-        id: "wake_screen",
-        name: "Wake screen",
-        icon: "mdi:monitor",
-    },
-    CommandDef {
         id: "media_play_pause",
         name: "Media play/pause",
         icon: "mdi:play-pause",
@@ -78,7 +73,11 @@ pub const COMMAND_DEFS: &[CommandDef] = &[
     },
 ];
 
-/// Presentation commands - shown in discovery ONLY when allow_input=true.
+/// Buttons that send keyboard or mouse input to the session: the
+/// presentation keys and Wake screen. Windows counts that input as the user's,
+/// so it resets the idle time that the screen saver, the inactivity lock and
+/// the automatic update install wait for. Shown in discovery ONLY when
+/// allow_input=true.
 pub const PRESENT_DEFS: &[CommandDef] = &[
     CommandDef {
         id: "present_next",
@@ -105,7 +104,20 @@ pub const PRESENT_DEFS: &[CommandDef] = &[
         name: "Presentation end",
         icon: "mdi:stop",
     },
+    CommandDef {
+        id: "wake_screen",
+        name: "Wake screen",
+        icon: "mdi:monitor",
+    },
 ];
+
+/// Commands refused while *Allow input* is off: typed text, opening a URL
+/// and the buttons in `PRESENT_DEFS`.
+pub fn is_input_command(key: &str) -> bool {
+    matches!(key, "type_text" | "open_url")
+        || key.starts_with("present_")
+        || PRESENT_DEFS.iter().any(|def| def.id == key)
+}
 
 /// Keys of the commands `run_power` knows.
 pub const POWER_COMMANDS: [&str; 4] = ["sleep", "hibernate", "shutdown", "restart"];
@@ -226,7 +238,27 @@ pub fn parse_allowed_web_url(cfg: &crate::config::AppConfig, input: &str) -> Res
 
 #[cfg(test)]
 mod tests {
-    use super::{power_command, run_power, POWER_COMMANDS};
+    use super::{is_input_command, power_command, run_power, COMMAND_DEFS, POWER_COMMANDS};
+
+    #[test]
+    fn input_commands_need_allow_input() {
+        for key in [
+            "type_text",
+            "open_url",
+            "present_next",
+            "present_end",
+            "present_unknown",
+            "wake_screen",
+        ] {
+            assert!(is_input_command(key), "{key}");
+        }
+        for def in COMMAND_DEFS {
+            assert!(!is_input_command(def.id), "{}", def.id);
+        }
+        for key in ["", "volume", "keep_awake", "brightness", "wake_screen "] {
+            assert!(!is_input_command(key), "{key:?}");
+        }
+    }
 
     // The commands themselves are never run in a test: they would put the
     // computer to sleep or turn it off. The tests cover which command a key

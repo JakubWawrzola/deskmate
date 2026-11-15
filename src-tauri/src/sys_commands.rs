@@ -18,6 +18,7 @@ pub fn run_builtin(key: &str, payload: &str) -> Result<(), String> {
             deskmate_core::sys_commands::run_power(key)
         }
         "monitor_off" => monitor_off(),
+        // allow_input gate checked in transport::handle_command
         "wake_screen" => crate::monitor::wake(),
         "media_play_pause" => crate::media::control("play_pause"),
         "media_next" => crate::media::control("next"),
