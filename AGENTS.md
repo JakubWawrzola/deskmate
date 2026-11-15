@@ -20,7 +20,7 @@ by anyone, and so is the history.
 | `src-tauri/crates/core/` | `deskmate-core`, the library for code that must not depend on Tauri: configuration, the Link protocol, the entity descriptors, and the sensors and commands that work without a signed-in user | Rust |
 | `src/` | The app's window | React 19, TypeScript strict, Tailwind 4 |
 | `custom_components/deskmate_link/` | Home Assistant integration, in the default HACS catalog | Python |
-| `streamdeck-plugin/` | Stream Deck plugin, versioned on its own | Node, TypeScript |
+| `streamdeck-plugin/` | Stream Deck plugin, versioned on its own | Node 24, TypeScript strict, Stream Deck SDK 3 |
 | `tv/` | DeskmateTV for Android TV (preview), versioned on its own | Kotlin |
 | `docs/` | Guide, protocol, security model, release notes | Markdown |
 
@@ -251,14 +251,23 @@ reference implementation.
 ### TypeScript and React (`src/`, `streamdeck-plugin/`)
 
 - `strict` stays on. No `any`, no `@ts-ignore`, no `dangerouslySetInnerHTML`.
-- Biome formats and lints `src/`: `npm run format`, `npm run lint`. A
-  `biome-ignore` comment says why.
+- Biome formats and lints `src/` and `streamdeck-plugin/`, each with its own
+  `biome.json` and the same Biome version: `npm run format`, `npm run lint`.
+  A `biome-ignore` comment says why.
 - Types for Tauri command payloads live in `src/types.ts` and mirror the Rust
   structs.
 - Function components and hooks.
 - Styling uses the tokens in `src/styles.css`: monochrome, light and dark
   themes, no gradients, no emoji.
 - Semantic elements, labels on icon-only buttons, visible focus.
+- In `streamdeck-plugin/`, relative imports name the `.ts` file and the code
+  uses no enums and no parameter properties: Node runs its tests by stripping
+  the types. A module the tests import does not import `@elgato/streamdeck`.
+- The plugin's channel to the app follows the "Local channel" section of
+  `docs/STREAMDECK.md`. A change to that protocol updates the section and the
+  plugin's tests in the same commit.
+- The plugin logs operations and error codes, never entity ids, addresses or
+  message contents.
 
 ### Python (`custom_components/deskmate_link/`)
 
@@ -288,7 +297,7 @@ most mistakes.
 | `src-tauri/`, `crates/core` included | `cargo fmt --all --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` | formatted, no warnings, all tests pass |
 | Rust dependencies | `cargo tree --workspace`, `cargo tree -p deskmate-core` | no `ring`, `openssl` or `rustls`; no `tauri` crate under `deskmate-core` |
 | `src/` | `npx tsc --noEmit`, `npm run lint` | no errors |
-| `streamdeck-plugin/` | `npx tsc --noEmit` in that folder | no errors |
+| `streamdeck-plugin/` | `npx tsc --noEmit`, `npm run lint`, `npm test`, `npm run build` in that folder | no errors, all tests pass, the check after the build passes |
 | The integration | `ruff check` and `ruff format --check` on `custom_components scripts tests`, `python -m py_compile` on the changed files, `python -m pytest` | no errors, all tests pass |
 | Link protocol or crypto | the vector tests in Rust (`cargo test -p deskmate-core link`) and in `tv/` | all pass |
 
@@ -299,6 +308,11 @@ test fails. Use the ruff version pinned in `.github/workflows/ci.yml`
 The integration tests start Home Assistant, which does not run on Windows:
 run `python -m pytest` on Linux or in WSL, in a virtual environment built from
 `requirements-test.txt`.
+
+The plugin's `npm run build` ends by starting the bundle against stand-ins for
+Stream Deck, the Deskmate app and Home Assistant, all on the same machine
+(`streamdeck-plugin/scripts/check-bundle.mjs`). It reaches no real system, so
+it runs without asking.
 
 These run only when Jakub asks: `tauri dev`, `tauri build`, starting or
 installing the app, anything that talks to Home Assistant, browser or
@@ -376,12 +390,13 @@ it. This is the standard for this repository:
 | Secret scan | gitleaks with `.gitleaks.toml`: locally in `.githooks/pre-commit`, in CI as the `secrets` job of `ci.yml` |
 | Code CI | `.github/workflows/ci.yml`: the checks from section 8 on every push and pull request, including the ARM64 target and the dependency-tree rule |
 | Dependency audit | `.github/workflows/audit.yml` (`cargo audit`, `npm audit`) and `.github/dependabot.yml` |
-| Formatters and linters | rustfmt and clippy (`src-tauri/`), Biome (`src/`), ruff (the integration and `scripts/`) |
+| Formatters and linters | rustfmt and clippy (`src-tauri/`), Biome (`src/`, `streamdeck-plugin/`), ruff (the integration and `scripts/`) |
+| Stream Deck plugin | the `streamdeck` job of `ci.yml`: type check, Biome, unit tests, and a build that checks the built folder and runs the bundle against stand-ins |
 
 A guard supports sections 5.2 and 8; it does not replace them. Run the checks
 before you commit instead of waiting for CI, because a secret that reaches
 GitHub is already public.
 
-Not covered yet: Biome for `streamdeck-plugin/`, the Kotlin code in `tv/`,
-and clippy lints for `unwrap` and for `unsafe` without a `SAFETY` comment.
+Not covered yet: the Kotlin code in `tv/`, and clippy lints for `unwrap` and
+for `unsafe` without a `SAFETY` comment.
 Extending a guard is a task of its own that Jakub approves.
