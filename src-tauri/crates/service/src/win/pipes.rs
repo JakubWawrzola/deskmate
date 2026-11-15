@@ -46,12 +46,18 @@ const ERROR_PIPE_BUSY: i32 = 231;
 const SECURITY_ANONYMOUS: u32 = 0;
 /// A server may learn who the client is, and cannot act as it.
 const SECURITY_IDENTIFICATION: u32 = 0x0001_0000;
+/// Full access for the owner of the object.
+const OWNER_ACCESS_ACE: &str = "(A;;GA;;;OW)";
 
 /// The full names of the service's pipes.
 #[derive(Debug, Clone)]
 pub struct PipeNames {
     pub admin: String,
     pub status: String,
+    /// Also give the account that creates the pipes full access to them. A
+    /// test run is not SYSTEM, and without this it could not create the
+    /// second instance of its own pipes.
+    owner_access: bool,
 }
 
 impl PipeNames {
@@ -60,15 +66,28 @@ impl PipeNames {
         Self {
             admin: full_name(ADMIN_PIPE),
             status: full_name(STATUS_PIPE),
+            owner_access: false,
         }
     }
 
-    /// Names with a suffix, so a test run does not meet an installed service.
+    /// Names with a suffix, so a test run does not meet an installed service,
+    /// and pipes the account of the test run can serve.
     #[cfg(feature = "test-hooks")]
     pub fn with_suffix(suffix: &str) -> Self {
         Self {
             admin: full_name(&format!("{ADMIN_PIPE}-{suffix}")),
             status: full_name(&format!("{STATUS_PIPE}-{suffix}")),
+            owner_access: true,
+        }
+    }
+
+    /// The descriptor of a pipe: `sddl`, plus full access for the creating
+    /// account in a test run.
+    fn sddl(&self, sddl: &str) -> String {
+        if self.owner_access {
+            format!("{sddl}{OWNER_ACCESS_ACE}")
+        } else {
+            sddl.to_string()
         }
     }
 }
@@ -123,7 +142,7 @@ fn create(name: &str, sddl: &str, flow: Flow, first: bool) -> Result<NamedPipeSe
 /// A pipe that is open and has not served anyone yet.
 pub struct Listener {
     name: String,
-    sddl: &'static str,
+    sddl: String,
     flow: Flow,
     server: NamedPipeServer,
 }
@@ -131,20 +150,21 @@ pub struct Listener {
 impl Listener {
     /// Opens the admin pipe. Must run inside the tokio runtime.
     pub fn admin(names: &PipeNames) -> Result<Self, String> {
-        Self::open(&names.admin, ADMIN_PIPE_SDDL, Flow::Both)
+        Self::open(&names.admin, names.sddl(ADMIN_PIPE_SDDL), Flow::Both)
     }
 
     /// Opens the status pipe. Must run inside the tokio runtime.
     pub fn status(names: &PipeNames) -> Result<Self, String> {
-        Self::open(&names.status, STATUS_PIPE_SDDL, Flow::Out)
+        Self::open(&names.status, names.sddl(STATUS_PIPE_SDDL), Flow::Out)
     }
 
-    fn open(name: &str, sddl: &'static str, flow: Flow) -> Result<Self, String> {
+    fn open(name: &str, sddl: String, flow: Flow) -> Result<Self, String> {
+        let server = create(name, &sddl, flow, true)?;
         Ok(Self {
             name: name.to_string(),
             sddl,
             flow,
-            server: create(name, sddl, flow, true)?,
+            server,
         })
     }
 
@@ -160,7 +180,7 @@ impl Listener {
                 tokio::time::sleep(Duration::from_millis(200)).await;
                 continue;
             }
-            match create(&self.name, self.sddl, self.flow, false) {
+            match create(&self.name, &self.sddl, self.flow, false) {
                 Ok(next) => return std::mem::replace(&mut self.server, next),
                 Err(error) => {
                     // Without a second instance this client is turned away
