@@ -80,6 +80,28 @@ Everything above is HA → PC over MQTT. v0.3 adds the opposite direction:
   (REST, 3 s) and toggles entities on click. Windows lifecycle: closing any
   window hides it; the app lives in the tray.
 
+## Stream Deck
+
+`src-tauri/src/streamdeck/` is the app's side of the Stream Deck plugin
+(`streamdeck-plugin/`): the local channel the plugin talks to, specified in
+[STREAMDECK.md](../STREAMDECK.md#local-channel), and the installer of the
+plugin.
+
+- `server.rs` and `pipe_security.rs` — the named pipe of the current user:
+  created with its own access rules, never joined, one free instance always
+  listening. Tokio serves it; there is no thread per client.
+- `session.rs` — one connection as one task: `framing.rs` cuts the bytes into
+  lines, `protocol.rs` validates each request, and the work that reaches Home
+  Assistant or runs an action goes on next to the reading, so a slow answer
+  does not hold up a key press. Watched entities are read from Home Assistant
+  on an interval, only while a connection watches any.
+- `backend.rs` — the two traits a connection works through. `app.rs`
+  implements them with `ha_api.rs` and `actions.rs`; the tests implement them
+  in memory.
+- `plugin_install.rs` — copies the plugin from the app's resources into
+  Stream Deck's plugin folder. The resources are listed in `tauri.conf.json`,
+  and `build.rs` makes sure an installer is not built without them.
+
 ## Crates
 
 `src-tauri/` is a Cargo workspace with three crates.

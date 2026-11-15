@@ -1,9 +1,10 @@
 # Security
 
-Last reviewed: 2026-11-14. Scope: Deskmate 0.8.5: the Windows app, the Home
+Last reviewed: 2026-11-15. Scope: Deskmate 0.8.5: the Windows app, the Home
 Assistant integration (`deskmate_link`), the Deskmate Link connection between
-them, the optional MQTT and REST channels, and what Home Assistant can do on
-the PC through them. To report a problem, see the
+them, the optional MQTT and REST channels, what Home Assistant can do on
+the PC through them, and the local channel for the Stream Deck plugin, which
+comes with the release after 0.8.5. To report a problem, see the
 [security policy](../.github/SECURITY.md).
 
 Deskmate lets Home Assistant read from a signed-in Windows session and act in
@@ -21,9 +22,9 @@ what is on by default.
 | A copy of Home Assistant's storage or of a backup | The pairing key | Its holder can act as Home Assistant from then on, until the key is replaced. Recorded sessions stay closed. |
 | A Home Assistant administrator, add-on or automation | Everything Home Assistant can do | Trusted by design: they can use every capability that is switched on. The risky ones are off by default and several ask on the PC first. |
 | An MQTT client with broad topic access (MQTT transport only) | Other computers' command and state topics | One broker user and one ACL block per computer, described below. |
-| Another Windows account on the same PC | The named objects that decide which account connects | It can keep Deskmate from connecting, nothing more. |
+| Another Windows account on the same PC | The named objects that decide which account connects, and the name of the Stream Deck channel's pipe | It can keep Deskmate from connecting, and keep the Stream Deck channel from opening. It cannot connect to the channel. See [The Stream Deck channel](#the-stream-deck-channel). |
 | Someone who can change what GitHub serves for Deskmate's releases, or who sits between the PC and GitHub | The release manifest and the installer that the updater downloads | An installer runs only with a valid signature from the release key, for a version higher than the running one. The key is not on GitHub. See [Updates](#updates). |
-| A program running as the Windows user or as administrator | The user's session, `config.json`, the `deskmate:` link handler | Outside the boundary: such a program can already read the clipboard and run programs. |
+| A program running as the Windows user or as administrator | The user's session, `config.json`, the `deskmate:` link handler, and the Stream Deck channel while it is switched on | Outside the boundary: such a program can already read the clipboard and run programs. |
 
 ## What is on and what is off
 
@@ -37,6 +38,7 @@ Off until you turn it on in the app:
 - your own PowerShell commands and sensors: created disabled, with
   confirmation on;
 - the CPU temperature helper and the family rules;
+- the local channel for the Stream Deck plugin;
 - cascade encryption.
 
 On once the computer is paired:
@@ -516,6 +518,92 @@ send the same token to a second host. Home Assistant URLs, `domain.service`
 names and entity IDs are validated, and error bodies are not copied into the
 window or the log.
 
+## The Stream Deck channel
+
+Off until you turn on *Let Stream Deck use Deskmate* in Settings. While it is
+on, Deskmate serves a named pipe on this computer,
+`\\.\pipe\deskmate-streamdeck-<user>`, for the
+[Deskmate plugin for Stream Deck](STREAMDECK.md). Turning the switch off
+closes the pipe and every connection at once. The protocol is described in
+[STREAMDECK.md](STREAMDECK.md#local-channel).
+
+### What it exposes
+
+A program connected to the pipe can:
+
+- list the entities of your Home Assistant with their names and states, and
+  follow the state of up to 64 of them;
+- toggle an entity and call any Home Assistant service, with the rights of
+  the token of the [REST channel](#rest-channel);
+- list your hotkeys and tray quick actions by name, and run one of them.
+
+It learns whether Deskmate has a Home Assistant address and token, and the
+Deskmate version. It cannot read the token, a pairing key or any other
+setting, and it cannot change one. Nothing it sends is executed: `run` picks
+one of the actions you defined, by its identifier, and that action runs as it
+does from the tray. A custom command stays refused while it is disabled and
+keeps its *Require confirmation* dialog, which cannot be bypassed while
+Windows is locked.
+
+Every field of a request is checked before it is used: entity ids, service
+names and action ids against their patterns, lists against their limits. A
+line is at most 64 KiB, a connection has at most 16 requests in progress, and
+at most 16 programs are connected at a time.
+
+### Who can connect
+
+Windows decides, from the access rules Deskmate gives the pipe:
+
+- the Windows user who runs Deskmate, and the system account, may connect;
+- every other account on the computer is refused;
+- a connection over the network is refused twice: the pipe is created for
+  local clients only, and its access rules deny network logons.
+
+There is no further check. Any program that runs as you can connect, not
+only Stream Deck. Such a program is outside Deskmate's boundary: it can read
+`config.json`, press keys, start programs, and read the Home Assistant token
+from your Credential Manager, where a program running as you may read what
+you stored. The channel gives it nothing it could not get, but it makes
+acting in Home Assistant easier, and that is why the channel is off until you
+use it.
+
+### A program that takes the pipe's name
+
+Pipe names are shared by the whole computer, and this one can be guessed. A
+program, also one of another Windows account, could create a pipe of that
+name before Deskmate does. Had Deskmate joined such a pipe, it would have
+served it under that program's access rules, to whoever those let in.
+
+Deskmate therefore only ever creates the pipe, with the option that makes
+Windows refuse when the name exists, and never joins one. When the name is
+taken, there is no channel: Settings shows *taken by another program*, the
+audit log records `streamdeck_channel name_taken`, and Deskmate tries again
+every 5 seconds. Once Deskmate holds the name, another account cannot add
+instances to its pipe.
+
+What remains is on the plugin's side. The plugin does not check who serves
+the pipe it opens. A program that holds the name can refuse the plugin, or
+answer it: it would then see which entities, services and actions your keys
+ask for, and could show wrong states. It receives no token and no key: the
+plugin sends none over the channel. Use the plugin's *Direct* connection on a
+computer where you do not trust the other accounts.
+
+### Installing the plugin
+
+*Install plugin* copies the plugin that came with the Deskmate installer from
+Deskmate's install folder into
+`%AppData%\Elgato\StreamDeck\Plugins\com.deskmate.streamdeck.sdPlugin`. Both
+folders are fixed in the app; the window supplies no path. Nothing is
+downloaded, and nothing is copied when Stream Deck's folder does not exist.
+The new copy is written completely before it replaces the old one. *Remove
+plugin* deletes that one folder.
+
+The plugin then runs inside Stream Deck, as you. Its settings panels load no
+script from the network: the form library they use ships with the plugin. In
+its *Direct* connection the plugin keeps a Home Assistant token in Stream
+Deck's own settings, outside Credential Manager; with *Deskmate app* as the
+connection, the plugin holds no token at all.
+
 ## The audit log
 
 Security decisions are recorded in `%APPDATA%\Deskmate\security.log`: a Unix
@@ -531,6 +619,18 @@ stopped carries the reason instead: `version`, `address`, `too_large`,
 `network`, `signature`, `format` or `launch`. A refused manifest is recorded
 as `update_manifest refused_address`, and a click on an update notification
 without a valid token as `update_prompt blocked_unknown_token`.
+
+The Stream Deck channel is recorded as `streamdeck_channel` with `on`, `off`,
+`name_taken` or `failed`, and a program that connects or leaves as
+`streamdeck_client connected` and `disconnected`. What a program does through
+it is recorded with its result: `streamdeck_run action=<id> result=<result>`,
+`streamdeck_toggle entity=<id> result=<result>` and
+`streamdeck_call service=<domain.service> entity=<id> result=<result>`, where
+the result is `ok`, `unknown_action`, `ha_error` or `ha_not_configured`. The
+data of a service call is not recorded, and neither is anything from a
+request that was refused as malformed. Installing and removing the plugin is
+recorded as `streamdeck_plugin` with `installed`, `updated`, `removed`,
+`install_failed` or `remove_failed`.
 
 ## The app itself
 
@@ -556,6 +656,9 @@ without a valid token as `update_prompt blocked_unknown_token`.
 - With MQTT, TLS protects the traffic, not a broker account with too broad an
   ACL. Plain MQTT is unsafe by design even though the app warns about it.
 - Deskmate cannot protect against malware already running as the Windows user.
+- While the Stream Deck channel is on, every program running as the Windows
+  user can act in Home Assistant through it, and the plugin does not verify
+  that the pipe it opens is Deskmate's.
 - Updates are as trustworthy as the release key and the person who holds it.
 
 ## Checklist
@@ -572,7 +675,8 @@ without a valid token as `update_prompt blocked_unknown_token`.
 6. Allow only the URL origins your automations need.
 7. With MQTT: TLS on 8883, no listeners on 1883 or 1884, one user and one ACL
    block per computer.
-8. Look at `security.log` after unexpected activity.
+8. Leave the Stream Deck channel off unless you use the plugin.
+9. Look at `security.log` after unexpected activity.
 
 ## Reported and fixed
 

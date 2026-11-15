@@ -294,7 +294,12 @@ profile → Security → Create token) entered under Settings → Home Assistant
   such as `lovelace/office`). Log in once; the session is kept. This one needs
   no token.
 - **Stream Deck**: keys for entities, services, scenes and your Deskmate
-  hotkeys and tray quick actions. See [STREAMDECK.md](STREAMDECK.md).
+  hotkeys and tray quick actions. Settings → *Stream Deck* installs the plugin
+  into Stream Deck (*Install plugin*, then restart Stream Deck) and has the
+  switch *Let Stream Deck use Deskmate*, which lets the plugin work through
+  Deskmate without a token of its own. The panel also shows whether the plugin
+  is connected, and offers *Update plugin* and *Remove plugin*. See
+  [STREAMDECK.md](STREAMDECK.md).
 
 ## 8. Files between your phone and the PC
 
@@ -533,6 +538,7 @@ beyond the built-in buttons, is off until you turn it on:
 | Receive files | Files | Off |
 | Shared folders | Files | No folders |
 | Screen time and family rules | Family | Off |
+| Stream Deck channel (programs running as you reach Home Assistant through Deskmate) | Settings → Stream Deck | Off |
 | Daily update check | Settings → Updates | On, asks before it installs |
 | Installing updates without asking | Settings → Updates | Off |
 

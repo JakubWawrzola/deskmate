@@ -62,10 +62,31 @@ right now, and what to do when neither is available.
 
 ### From Deskmate
 
-1. Open Deskmate, go to **Settings** and turn on **Stream Deck**.
-2. Click **Install plugin**. Deskmate copies the plugin into Stream Deck's
-   plugin folder.
-3. Open Stream Deck. The action list has a **Deskmate** category.
+The plugin comes with the Deskmate installer. Stream Deck has to be installed
+and to have been started once, so that its folder exists.
+
+1. Open Deskmate and go to **Settings**, **Stream Deck**.
+2. Click **Install plugin**. Deskmate copies the plugin to
+   `%AppData%\Elgato\StreamDeck\Plugins\com.deskmate.streamdeck.sdPlugin`.
+3. Restart Stream Deck: right-click its icon next to the clock, **Quit Stream
+   Deck**, then start it again. It loads plugins only when it starts. The
+   action list now has a **Deskmate** category.
+4. Turn on **Let Stream Deck use Deskmate** in the same panel, unless you want
+   to use only the direct connection. The line below the switch says whether
+   the plugin is connected.
+
+The panel shows the version of the plugin that Deskmate carries and the one
+that is installed.
+
+**Update plugin** appears after a Deskmate update that brought a newer plugin.
+Quit Stream Deck first, click it, and start Stream Deck again: while Stream
+Deck runs, it keeps the plugin's files in use, and Deskmate tells you so
+instead of replacing them. Your keys and their settings are kept, and so is
+the plugin's log.
+
+**Remove plugin** deletes the plugin's folder, also with Stream Deck closed.
+The keys stay in your Stream Deck profiles and work again once the plugin is
+installed. Uninstalling Deskmate does not remove the plugin.
 
 ### By hand
 
@@ -175,6 +196,13 @@ that still toggle but do not show their state.
 **After starting Deskmate the keys take a moment.** While the app is not
 reachable, the plugin looks for it again after 1 second, then 2, 4, 8 and 16,
 and from then on every 30 seconds. A press looks for it at once.
+
+**Deskmate says that another program has taken the channel's name.** The
+plugin and Deskmate meet under a name that belongs to your Windows account.
+Another program is using that name, so Deskmate does not open the channel.
+Close programs you do not know, or sign out of Windows and in again; Deskmate
+tries again every 5 seconds. Until then, keys set to **Direct** keep working.
+See [SECURITY.md](SECURITY.md#a-program-that-takes-the-pipes-name).
 
 **Where the log is.** The plugin writes
 `%AppData%\Elgato\StreamDeck\Plugins\com.deskmate.streamdeck.sdPlugin\logs\`.

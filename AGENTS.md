@@ -177,6 +177,10 @@ into logs or into the chat.
   two validators in `validate.yml` follow their upstream branch on purpose.
 - Dependabot proposes updates as pull requests. They are read and merged like
   any other change; a green check is not a review.
+- The copy of `sdpi-components` in the Stream Deck plugin is a dependency
+  that no tool updates. A new release replaces the file, the licence texts
+  and the checksum in `streamdeck-plugin/test/inspector-pages.test.ts` in one
+  commit, after its changes were read.
 
 ## 6. Security invariants of the product
 
@@ -267,8 +271,12 @@ reference implementation.
   uses no enums and no parameter properties: Node runs its tests by stripping
   the types. A module the tests import does not import `@elgato/streamdeck`.
 - The plugin's channel to the app follows the "Local channel" section of
-  `docs/STREAMDECK.md`. A change to that protocol updates the section and the
-  plugin's tests in the same commit.
+  `docs/STREAMDECK.md`. The app's side of it is `src-tauri/src/streamdeck/`.
+  A change to that protocol updates the section, both sides and the tests of
+  both in the same commit.
+- A property inspector loads nothing from the network. The form library it
+  uses is a pinned, unmodified copy in the plugin's `ui/vendor/` folder, with
+  its licences; a test holds it to a checksum.
 - The plugin logs operations and error codes, never entity ids, addresses or
   message contents.
 
@@ -302,6 +310,7 @@ most mistakes.
 | Rust dependencies | `cargo tree --workspace --prefix none --target <target>` for both Windows targets, `cargo tree -p deskmate-core`, `cargo tree -p deskmate-service` | no `ring`, `openssl`, `openssl-sys` or `rustls` for a Windows target; no `tauri` crate under `deskmate-core` or `deskmate-service` |
 | `src/` | `npx tsc --noEmit`, `npm run lint` | no errors |
 | `streamdeck-plugin/` | `npx tsc --noEmit`, `npm run lint`, `npm test`, `npm run build` in that folder | no errors, all tests pass, the check after the build passes |
+| The Stream Deck channel, on either side | the two rows above, then `cargo test -p deskmate plugin_client -- --ignored` in `src-tauri/` | the plugin's client passes against the app's server |
 | The integration | `ruff check` and `ruff format --check` on `custom_components scripts tests`, `python -m py_compile` on the changed files, `python -m pytest` | no errors, all tests pass |
 | Link protocol or crypto | the vector tests in Rust (`cargo test -p deskmate-core link`) and in `tv/` | all pass |
 
@@ -325,6 +334,17 @@ needs `aiohttp` and `cryptography`: where the Windows Python lacks them, add
 `--wsl <distribution>` and the hub runs in WSL. Only a binary built with
 `--features test-hooks` may be used for it: that build records power commands
 and has no code that runs them. Release builds never enable the feature.
+
+The tests of the Stream Deck channel open named pipes with test-only names
+and talk to stand-ins. None of them uses the name of the real channel, writes
+into Stream Deck's folder or reaches Home Assistant, and a new test keeps to
+that. The test named `plugin_client` starts the plugin's own channel client
+with Node 24, which the Rust job of CI does not have, so it is marked
+`#[ignore]` and run by hand.
+
+The app's build script needs the Stream Deck plugin only under `tauri build`.
+`cargo check`, `cargo test` and `tauri dev` work in a tree where the plugin
+was never built; the app then reports that it carries no plugin.
 
 These run only when Jakub asks: `tauri dev`, `tauri build`, starting or
 installing the app, anything that talks to Home Assistant, browser or
@@ -362,7 +382,10 @@ A release happens when Jakub orders one, in this order:
    `TAURI_SIGNING_PRIVATE_KEY` holds the path of the key file, which lives
    outside the repository, and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` its
    password. Without the key `tauri build` fails after the installer is
-   written. Never print the key, its password or its path.
+   written. Never print the key, its password or its path. `tauri build` also
+   builds the Stream Deck plugin first (`npm run build:streamdeck`: `npm ci`
+   and `npm run build` in `streamdeck-plugin/`, with Node 24), because the
+   installer carries it; the build stops if the plugin is missing.
 4. Write the update manifest and the checksums from the two installers and
    their `.sig` files:
    `python scripts/make_release_manifest.py --version x.y.z --x64 <x64 installer> --arm64 <ARM64 installer> --notes-file docs/releases/RELEASE-x.y.z.md --out-dir dist-installers/x.y.z`.
