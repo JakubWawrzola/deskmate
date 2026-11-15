@@ -9,6 +9,7 @@ mod custom_sensors;
 mod dashboard;
 mod discovery;
 mod family;
+mod farewell;
 mod ha_api;
 mod hotkeys;
 mod keys;
@@ -18,6 +19,7 @@ mod media;
 mod media_activity;
 mod mqtt;
 mod notify;
+mod power_events;
 mod processes;
 mod sensors;
 mod service;
@@ -1128,7 +1130,7 @@ pub fn run() {
                                 let _ = tauri::Emitter::emit(&app, "deskmate://config", ());
                             });
                         }
-                        "quit" => app.exit(0),
+                        "quit" => farewell::quit(app),
                         _ => {
                             // quick action: qa_<id> -> execute the ActionSpec from config
                             if let Some(qa_id) = id.strip_prefix("qa_").map(|s| s.to_string()) {
@@ -1174,6 +1176,8 @@ pub fn run() {
             autostart::reconcile(app.handle());
             family::spawn(app.handle().clone());
             streamdeck::init(app.handle());
+            // bye before sleep, sign-out and shutdown; reconnect on wake-up
+            power_events::spawn(app.handle().clone());
 
             // start the selected transport if configured
             let handle = app.handle().clone();

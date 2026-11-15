@@ -117,6 +117,10 @@ features = [
   "Win32_System_Pipes",
   "Win32_System_IO",
   "Win32_Storage_FileSystem",
+  # the hidden window for sleep, wake-up and sign-out (power_events.rs);
+  # Gdi is where its window class is declared
+  "Win32_System_LibraryLoader",
+  "Win32_Graphics_Gdi",
   # toasts from our own XML (buttons need it, see notify.rs)
   "UI_Notifications",
   "Data_Xml_Dom",

@@ -33,6 +33,9 @@ pub struct AppState {
     /// What Home Assistant said about itself in the current Link session.
     /// A plain mutex: it is read where the status is set, outside async code.
     link_info: std::sync::Mutex<Option<HubInfo>>,
+    /// Asks the current Link session to say `bye` and close (farewell.rs).
+    /// A plain mutex: the power event thread reads it outside async code.
+    link_farewell: std::sync::Mutex<Option<mpsc::UnboundedSender<crate::farewell::Farewell>>>,
     /// toast actions clicked (from the WinRT thread) -> the drain loop publishes to MQTT
     pub action_tx: mpsc::UnboundedSender<String>,
     pub action_rx: Mutex<Option<mpsc::UnboundedReceiver<String>>>,
@@ -61,6 +64,7 @@ impl AppState {
             client: Mutex::new(None),
             link_tx: Mutex::new(None),
             link_info: std::sync::Mutex::new(None),
+            link_farewell: std::sync::Mutex::new(None),
             action_tx,
             action_rx: Mutex::new(Some(action_rx)),
             tts_tx: crate::tts::spawn(),
@@ -80,5 +84,21 @@ impl AppState {
     /// a session starts or ends.
     pub fn set_link_info(&self, info: Option<HubInfo>) {
         *self.link_info.lock().unwrap_or_else(|e| e.into_inner()) = info;
+    }
+
+    /// Where to ask the current Link session for its goodbye.
+    pub fn link_farewell(&self) -> Option<mpsc::UnboundedSender<crate::farewell::Farewell>> {
+        self.link_farewell
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
+    }
+
+    /// Set when a session starts, cleared with `None` when it ends.
+    pub fn set_link_farewell(
+        &self,
+        sender: Option<mpsc::UnboundedSender<crate::farewell::Farewell>>,
+    ) {
+        *self.link_farewell.lock().unwrap_or_else(|e| e.into_inner()) = sender;
     }
 }

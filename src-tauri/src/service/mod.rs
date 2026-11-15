@@ -149,6 +149,48 @@ fn read_service() -> (Registration, Option<Result<view::StatusLine, String>>) {
     (Registration::NotRegistered, None)
 }
 
+/// Whether the service is registered on this computer. Blocking.
+pub fn is_installed() -> bool {
+    #[cfg(windows)]
+    {
+        win::is_registered()
+    }
+    #[cfg(not(windows))]
+    {
+        false
+    }
+}
+
+/// While the user has pressed Disconnect and the service is installed, the
+/// app keeps the seat without connecting, so the service waits instead of
+/// connecting against the user's wish. Another Windows user's app still
+/// gets the seat as before (`seat::turn`). Without the service nothing
+/// changes. Ends with the next `transport::restart`, which inherits the
+/// seat when it connects.
+pub async fn hold_seat_while_paused(app: &AppHandle) {
+    let installed = tauri::async_runtime::spawn_blocking(is_installed)
+        .await
+        .unwrap_or(false);
+    if !installed {
+        return;
+    }
+    let state = app.state::<AppState>();
+    let node = state.config.lock().await.node_id.clone();
+    let (stop_tx, mut stop_rx) = tokio::sync::watch::channel(false);
+    *state.stop_tx.lock().await = Some(stop_tx);
+    tauri::async_runtime::spawn(async move {
+        loop {
+            // Takes a free seat, and announces that the app waits while
+            // the service holds it, so the service hands over.
+            let _ = crate::seat::turn(&node);
+            tokio::select! {
+                _ = stop_rx.changed() => break,
+                _ = tokio::time::sleep(crate::seat::CHECK_EVERY) => {}
+            }
+        }
+    });
+}
+
 /// Whether the integration of the current Link session can take a service.
 fn scoped_declare(app: &AppHandle) -> Option<bool> {
     app.state::<AppState>()
@@ -173,10 +215,15 @@ pub async fn set_up_service(app: AppHandle, action: SetupAction) -> Result<Strin
     let busy = Busy::claim()?;
     let cfg = app.state::<AppState>().config.lock().await.clone();
     let scoped = scoped_declare(&app);
+    let paused = cfg.connection_paused;
     let done = tauri::async_runtime::spawn_blocking(move || set_up(action, &cfg, scoped))
         .await
         .map_err(|e| e.to_string())??;
     drop(busy);
+    if paused {
+        // Starts holding the seat now that a service exists.
+        crate::transport::restart(app).await;
+    }
     Ok(done)
 }
 

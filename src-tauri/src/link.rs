@@ -20,7 +20,12 @@ use deskmate_core::link::{
 pub use deskmate_core::link::{normalize_url, validate_pairing_key};
 
 use crate::config::AppConfig;
+use crate::farewell::Farewell;
 use crate::state::AppState;
+use deskmate_service::runner::bye_frame;
+
+/// Longest wait for the `bye` frame and for the close after it.
+const FAREWELL_SEND: Duration = Duration::from_secs(1);
 
 pub async fn restart(app: AppHandle) {
     let state = app.state::<AppState>();
@@ -129,6 +134,7 @@ pub async fn restart(app: AppHandle) {
             .await;
             *app_connection.state::<AppState>().link_tx.lock().await = None;
             app_connection.state::<AppState>().set_link_info(None);
+            app_connection.state::<AppState>().set_link_farewell(None);
             // Half-written files from Home Assistant cannot be resumed on a
             // new session; remove them now.
             crate::link_files::abort_all();
@@ -245,6 +251,8 @@ async fn run_session(
         .send(info_frame(ClientRole::App, ClientPlatform::Windows))
         .map_err(|e| e.to_string())?;
     *app.state::<AppState>().link_tx.lock().await = Some(out_tx.clone());
+    let (farewell_tx, mut farewell_rx) = mpsc::unbounded_channel::<Farewell>();
+    app.state::<AppState>().set_link_farewell(Some(farewell_tx));
     let hardware_defs = app
         .state::<AppState>()
         .hardware_sensor_defs
@@ -265,9 +273,22 @@ async fn run_session(
     let mut ping = tokio::time::interval(PING_INTERVAL);
     let mut seat_check = tokio::time::interval(crate::seat::CHECK_EVERY);
     let mut handed_over = false;
+    let mut goodbye: Option<std::sync::mpsc::Sender<()>> = None;
     loop {
         tokio::select! {
             _ = stop.changed() => break,
+            Some(farewell) = farewell_rx.recv() => {
+                // The last frame of the session; the socket closes below.
+                if let Ok(frame) = encoder.encrypt(&bye_frame(farewell.reason)) {
+                    let _ = tokio::time::timeout(
+                        FAREWELL_SEND,
+                        writer.send(Message::Text(frame.into())),
+                    )
+                    .await;
+                }
+                goodbye = Some(farewell.done);
+                break;
+            }
             _ = ping.tick() => { let _ = out_tx.send(json!({"t": "ping"})); }
             _ = seat_check.tick() => {
                 if !crate::seat::turn(&cfg.node_id) {
@@ -296,6 +317,14 @@ async fn run_session(
     }
     let stopped = *stop.borrow();
     *app.state::<AppState>().link_tx.lock().await = None;
+    app.state::<AppState>().set_link_farewell(None);
+    if let Some(done) = goodbye {
+        // Windows may end the process right after the goodbye; it waits
+        // only a moment for the close.
+        let _ = tokio::time::timeout(FAREWELL_SEND, writer.close()).await;
+        let _ = done.send(());
+        return Ok(());
+    }
     let _ = writer.close().await;
     if stopped || handed_over {
         Ok(())

@@ -62,6 +62,9 @@ pub async fn restart(app: AppHandle) {
     if paused {
         stop(&app).await;
         crate::mqtt::set_status(&app, false, PAUSED_STATUS);
+        // With the service installed, Disconnect must not hand the
+        // connection to the service instead.
+        crate::service::hold_seat_while_paused(&app).await;
         return;
     }
     if transport == "link" {
