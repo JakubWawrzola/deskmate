@@ -197,6 +197,8 @@ pub struct Runner<C: Connector> {
     source: Arc<dyn SetupSource>,
     new_telemetry: TelemetryFactory,
     telemetry: Option<Box<dyn Telemetry>>,
+    /// The last reading of the sensors.
+    reading: Option<Sample>,
     role: ClientRole,
     platform: ClientPlatform,
     valve: SafetyValve,
@@ -277,6 +279,7 @@ impl<C: Connector> Runner<C> {
             source: parts.source,
             new_telemetry: parts.telemetry,
             telemetry: None,
+            reading: None,
             role: parts.role,
             platform: parts.platform,
             valve: SafetyValve::new(parts.clock),
@@ -554,6 +557,11 @@ impl<C: Connector> Runner<C> {
     /// One connection attempt and, when it succeeds, one session.
     async fn session(&mut self, setup: &Setup, cfg: &AppConfig, url: &str) -> Outcome {
         let node = setup.config.node_id.as_str();
+        // Read the sensors now, so the session can declare the moment Home
+        // Assistant has said what it is.
+        if let Some(sample) = self.sample(cfg).await {
+            self.reading = Some(sample);
+        }
         let connector = Arc::clone(&self.connector);
         let attempt =
             tokio::time::timeout(CONNECT_TIMEOUT, connector.connect(url, node, &setup.keys));
@@ -734,8 +742,10 @@ impl<C: Connector> Runner<C> {
     }
 
     /// Sends the current states. A `declare` goes first when this is the
-    /// first reading of the session or the detected hardware changed, as in
-    /// the app.
+    /// first time in the session or the detected hardware changed, as in the
+    /// app. The first time uses the reading taken before connecting: Home
+    /// Assistant shows the computer as available with the first `declare`,
+    /// which must not wait for the sensors.
     async fn send_states<S: LinkSession>(
         &mut self,
         link: &mut S,
@@ -743,17 +753,22 @@ impl<C: Connector> Runner<C> {
         declared: &mut Vec<OwnedSensorDef>,
         first: bool,
     ) -> Result<(), LinkError> {
-        let sample = self.sample(cfg).await;
-        let hardware = sample.as_ref().map(|sample| &sample.hardware);
+        if !first {
+            match self.sample(cfg).await {
+                Some(sample) => self.reading = Some(sample),
+                None => return Ok(()),
+            }
+        }
+        let hardware = self.reading.as_ref().map(|reading| &reading.hardware);
         if first || hardware.is_some_and(|hardware| hardware != declared) {
             if let Some(hardware) = hardware {
                 declared.clone_from(hardware);
             }
             link.send(&machine::declare_frame(cfg, declared)).await?;
         }
-        match sample {
-            Some(sample) if !sample.values.is_empty() => {
-                link.send(&machine::state_frame(&sample.values)).await
+        match &self.reading {
+            Some(reading) if !reading.values.is_empty() => {
+                link.send(&machine::state_frame(&reading.values)).await
             }
             _ => Ok(()),
         }
