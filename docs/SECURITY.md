@@ -47,11 +47,14 @@ Off until you turn it on in the app:
 On once the computer is paired:
 
 - the other sensors, such as processor, memory, disks, network, battery,
-  uptime, idle time, lock state, user name and volume. Each can be switched
-  off on the Sensors page;
+  uptime, idle time, lock state, user name, volume and whether the screen is
+  on. Each can be switched off on the Sensors page;
 - the built-in controls: lock, sleep, hibernate, shut down, restart, sign out,
-  monitor off, media keys, empty the recycle bin, keep awake, volume and mute.
-  Whoever controls Home Assistant can press them;
+  monitor off, media keys, empty the recycle bin, keep awake, volume and mute,
+  and *Screen brightness*, which sets every display that takes it (the
+  built-in panel and DDC/CI monitors) to any value from 0 to 100 %. Whoever
+  controls Home Assistant can press them. *Screen brightness* can be switched
+  off on the Sensors page;
 - the daily update check. It asks before it installs anything: a new version
   is installed after you choose *Install now*, or by itself only if you
   switch to automatic installs in Settings (see [Updates](#updates)).
