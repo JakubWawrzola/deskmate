@@ -59,7 +59,7 @@ ROLE_SERVICE = "service"
 INFO_ROLES = frozenset({"app", ROLE_SERVICE, "daemon"})
 INFO_PLATFORMS = frozenset({"windows", "linux", "android_tv"})
 INFO_APP_VERSION_PATTERN = r"^\d+\.\d+\.\d+([-+][0-9A-Za-z.-]{1,20})?$"
-LINK_CAPS = ("info", "scoped_declare", "bye")
+LINK_CAPS = ("info", "scoped_declare", "bye", "media_player")
 # What a client may list in the optional `features` of its `info`. The hub
 # sends what a feature adds only to a session that listed it, and ignores a
 # name it does not know.
@@ -140,6 +140,7 @@ PLATFORMS = [
     "text",
     "event",
     "select",
+    "media_player",
 ]
 
 # Wartosci regul rodzinnych na chronionym koncie: HA odklada je ponownie,
