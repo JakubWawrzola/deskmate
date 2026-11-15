@@ -1,0 +1,27 @@
+//! Deskmate without a signed-in user: the part of a computer that Home
+//! Assistant can see and reach before anyone has signed in.
+//!
+//! Everything here is platform-neutral. `runner` is the whole behaviour; a
+//! platform layer feeds it events and serves its status.
+
+#![deny(clippy::undocumented_unsafe_blocks)]
+#![cfg_attr(
+    not(test),
+    deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)
+)]
+
+pub mod admin;
+pub mod audit;
+pub mod config;
+pub mod connector;
+pub mod logging;
+pub mod power;
+pub mod provisioning;
+pub mod retry;
+pub mod runner;
+pub mod secrets;
+pub mod status;
+
+/// Name of the service's folder inside the system's data folder
+/// (`%ProgramData%\Deskmate\service` on Windows).
+pub const DATA_FOLDER: [&str; 2] = ["Deskmate", "service"];

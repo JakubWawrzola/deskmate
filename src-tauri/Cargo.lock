@@ -1086,6 +1086,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "deskmate-service"
+version = "0.8.5"
+dependencies = [
+ "deskmate-core",
+ "futures-util",
+ "keyring",
+ "log",
+ "serde",
+ "serde_json",
+ "sysinfo",
+ "tokio",
+ "tokio-tungstenite",
+ "zeroize",
+]
+
+[[package]]
 name = "digest"
 version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
