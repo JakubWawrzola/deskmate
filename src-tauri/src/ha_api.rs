@@ -195,6 +195,104 @@ pub fn get_state(cfg: &AppConfig, entity_id: &str) -> Result<EntityState, String
     serde_json::from_str::<EntityState>(&raw).map_err(|e| e.to_string())
 }
 
+/// One entry of `GET /api/states`, reduced to what a list of entities shows.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EntitySummary {
+    pub entity_id: String,
+    pub state: String,
+    pub friendly_name: Option<String>,
+}
+
+/// A list of states larger than this is not read. A large installation
+/// answers with a few megabytes.
+const MAX_STATES_BYTES: u64 = 32 * 1024 * 1024;
+
+/// GET /api/states - every entity with its state and friendly name (the
+/// entity lists of the Stream Deck channel).
+pub fn get_all_states(cfg: &AppConfig) -> Result<Vec<EntitySummary>, String> {
+    use std::io::Read;
+    let raw = with_failover(cfg, |agent, base, token| {
+        let response = agent
+            .get(&format!("{base}/api/states"))
+            .set("Authorization", &format!("Bearer {token}"))
+            .call()?;
+        let mut body = Vec::new();
+        response
+            .into_reader()
+            .take(MAX_STATES_BYTES + 1)
+            .read_to_end(&mut body)
+            .map_err(ureq::Error::from)?;
+        Ok(body)
+    })?;
+    if raw.len() as u64 > MAX_STATES_BYTES {
+        return Err("HA API: the list of states is too large".into());
+    }
+    parse_states(&raw)
+}
+
+fn parse_states(raw: &[u8]) -> Result<Vec<EntitySummary>, String> {
+    // Only these fields are kept; the other attributes of an entity can be
+    // large and are skipped while parsing.
+    #[derive(Deserialize)]
+    struct Listed {
+        entity_id: String,
+        state: String,
+        #[serde(default)]
+        attributes: ListedAttributes,
+    }
+    #[derive(Deserialize, Default)]
+    struct ListedAttributes {
+        #[serde(default)]
+        friendly_name: serde_json::Value,
+    }
+    let listed: Vec<Listed> =
+        serde_json::from_slice(raw).map_err(|_| "HA API: unreadable list of states".to_string())?;
+    Ok(listed
+        .into_iter()
+        .map(|entry| EntitySummary {
+            entity_id: entry.entity_id,
+            state: entry.state,
+            friendly_name: entry.attributes.friendly_name.as_str().map(str::to_string),
+        })
+        .collect())
+}
+
+/// The states of several entities, asked over one connection (the watched
+/// entities of the Stream Deck channel). `None`: Home Assistant has no such
+/// entity. Unlike `get_states_for`, a failure to reach Home Assistant is an
+/// error and not an empty answer.
+pub fn get_states_of(cfg: &AppConfig, ids: &[String]) -> Result<Vec<Option<String>>, String> {
+    if ids.iter().any(|id| !is_valid_entity_id(id)) {
+        return Err("invalid entity_id".into());
+    }
+    let bodies = with_failover(cfg, |agent, base, token| {
+        let mut bodies = Vec::with_capacity(ids.len());
+        for id in ids {
+            let answer = agent
+                .get(&format!("{base}/api/states/{id}"))
+                .set("Authorization", &format!("Bearer {token}"))
+                .call();
+            match answer {
+                Ok(response) => {
+                    bodies.push(Some(response.into_string().map_err(ureq::Error::from)?));
+                }
+                Err(ureq::Error::Status(404, _)) => bodies.push(None),
+                Err(error) => return Err(error),
+            }
+        }
+        Ok(bodies)
+    })?;
+    bodies
+        .into_iter()
+        .map(|body| match body {
+            None => Ok(None),
+            Some(raw) => serde_json::from_str::<EntityState>(&raw)
+                .map(|entity| Some(entity.state))
+                .map_err(|_| "HA API: unreadable state".to_string()),
+        })
+        .collect()
+}
+
 fn is_valid_entity_id(id: &str) -> bool {
     let Some((domain, object_id)) = id.split_once('.') else {
         return false;
@@ -224,4 +322,49 @@ pub fn ping(cfg: &AppConfig) -> Result<String, String> {
             .call()
             .map(|r| r.into_string().unwrap_or_default())
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{parse_states, EntitySummary};
+
+    #[test]
+    fn the_list_of_states_keeps_id_state_and_friendly_name() {
+        let raw = br#"[
+            {"entity_id": "light.desk", "state": "on",
+             "attributes": {"friendly_name": "Desk", "brightness": 255, "rgb_color": [1, 2, 3]},
+             "last_changed": "2026-01-01T00:00:00+00:00", "context": {"id": "x"}},
+            {"entity_id": "sun.sun", "state": "below_horizon", "attributes": {}},
+            {"entity_id": "sensor.odd", "state": "1", "attributes": {"friendly_name": 7}},
+            {"entity_id": "sensor.bare", "state": "2"}
+        ]"#;
+        let summary = |entity_id: &str, state: &str, friendly_name: Option<&str>| EntitySummary {
+            entity_id: entity_id.into(),
+            state: state.into(),
+            friendly_name: friendly_name.map(Into::into),
+        };
+        assert_eq!(
+            parse_states(raw).unwrap(),
+            [
+                summary("light.desk", "on", Some("Desk")),
+                summary("sun.sun", "below_horizon", None),
+                summary("sensor.odd", "1", None),
+                summary("sensor.bare", "2", None),
+            ]
+        );
+    }
+
+    #[test]
+    fn an_answer_that_is_not_a_list_of_states_is_an_error() {
+        for raw in [
+            &b"{}"[..],
+            b"[1]",
+            b"[{\"state\": \"on\"}]",
+            b"not json",
+            b"",
+        ] {
+            assert!(parse_states(raw).is_err());
+        }
+        assert_eq!(parse_states(b"[]").unwrap(), []);
+    }
 }

@@ -212,11 +212,19 @@ lowercase form is two code points gives two characters.
 The plugin takes the name from `os.userInfo().username`, which on Windows is
 what `GetUserNameW` returns.
 
+The app takes the name from `GetUserNameW` itself. Both sides are tested
+against one table of names, `streamdeck-plugin/test/pipe-names.json`.
+
 The pipe exists only while the user has **Stream Deck** turned on in
-Deskmate's Settings. The app creates it for the current user alone and for
-local clients only, and keeps a free instance listening so that a second
-client does not have to wait. Each connection is independent: it has its own
-`hello` and its own watch list.
+Deskmate's Settings. The app creates it for the current user alone (and the
+system account) and for local clients only, and keeps a free instance
+listening so that a second client does not have to wait. Each connection is
+independent: it has its own `hello` and its own watch list. The app serves 16
+connections at a time and closes one more at once.
+
+The app only ever creates the pipe; it never joins one that exists. When
+another program holds the name, there is no channel: Deskmate says so in
+Settings and tries again every 5 seconds.
 
 No secret travels over the channel. The Home Assistant token stays in the app.
 
@@ -231,13 +239,16 @@ No secret travels over the channel. The Home Assistant token stays in the app.
 
 ### Requests, responses, events
 
-A request carries a numeric `id` and an `op`. The plugin numbers its requests
-from 1 on every connection and never reuses a number on that connection.
+A request carries a numeric `id` and an `op`. The `id` is an integer that
+JavaScript represents exactly (up to 2^53 - 1 either side of zero). The plugin
+numbers its requests from 1 on every connection and never reuses a number on
+that connection.
 
 Every request gets exactly one response, with the same `id` and `ok` set to
 `true` or `false`. This includes refusals: `version` and `bad_request` carry
 the `id` too. A failure has `error`, a short code, and may have `message`,
-English text meant for the user.
+English text meant for the user. The one response without an `id` is the
+`bad_request` for a request that has no usable `id` itself.
 
 ```
 {"id":3,"ok":false,"error":"unknown_action","message":"That action no longer exists."}
@@ -247,7 +258,9 @@ An event is a line the app sends on its own. It has no `id` and carries `ev`.
 The plugin ignores events it does not know.
 
 Responses may arrive in any order; the plugin matches them by `id`. A response
-whose `id` it is not waiting for is ignored.
+whose `id` it is not waiting for is ignored. The app works on up to 16
+requests of a connection at a time, so that a slow answer from Home Assistant
+does not hold up a key press; it reads further requests as those are answered.
 
 ### hello
 
@@ -259,7 +272,8 @@ The first request on a connection.
 ```
 
 - `v` is the protocol version, currently `1`. `client` names the client and
-  `version` is its own version.
+  `version` is its own version. `client` is 1 to 32 characters from `a-z`,
+  `0-9`, `_` and `-`; `version` is 1 to 32 letters, digits, `.`, `-` and `+`.
 - `app` is the Deskmate version. `ha` says whether the app has a Home
   Assistant address and token configured.
 - A `v` the app does not support is refused:
@@ -282,7 +296,10 @@ The actions the user defined in Deskmate: hotkeys and tray quick actions.
 ```
 
 The prefix of an `id` says what the action is: `hotkey:` or `tray:`. The
-plugin groups the list by it and stores the `id` on the key.
+plugin groups the list by it and stores the `id` on the key. Hotkeys come
+first, each group in the order of the app's lists. An action without a name
+has its own id as the name. Like `entities`, the list is cut to what fits in
+one line.
 
 ### run
 
@@ -291,7 +308,14 @@ plugin groups the list by it and stores the `id` on the key.
 < {"id":3,"ok":true}
 ```
 
-Errors: `unknown_action`.
+Running a hotkey does what pressing it does, the event it sends to Home
+Assistant included. The answer comes once the action has run. An action that asks for a
+confirmation on the PC answers after the confirmation. `ok` says that the
+action exists and was carried out, not how it went: an action that calls Home
+Assistant answers `ok` even when Home Assistant could not be reached.
+
+`action` is made of `a-z`, `0-9`, `_` and `:`, 128 characters at most;
+anything else is a `bad_request`. Errors: `unknown_action`.
 
 ### entities
 
@@ -300,11 +324,13 @@ Errors: `unknown_action`.
 < {"id":4,"ok":true,"entities":[{"entity_id":"light.desk","name":"Desk","state":"on"}]}
 ```
 
-`domains` is optional; without it every entity is listed. `name` is the
-entity's friendly name, or its id when it has none.
+`domains` is optional, with 64 entries at most; without it every entity is
+listed. `name` is the entity's friendly name, or its id when it has none. The
+list is ordered by `entity_id`.
 
 The answer has to fit in one line like any other. If the list would not, the
-app leaves out the entities that do not fit.
+app leaves out the entities that do not fit: the last ones in that order.
+Asking for fewer domains gets a list that fits.
 
 Errors: `ha_not_configured`, `ha_error`.
 
@@ -326,7 +352,16 @@ From then on the app sends an event whenever a watched entity changes:
 < {"ev":"state","entity_id":"light.desk","state":"off"}
 ```
 
-Errors: `ha_not_configured`, `ha_error`.
+The app learns of a change by reading the watched entities from Home
+Assistant every 2 seconds, and once more shortly after a `toggle` or a `call`
+on the same connection went through. It reads only while a connection watches
+something. While Home Assistant cannot be reached it sends no events; the
+changes follow once it answers again.
+
+Errors: `ha_not_configured`, `ha_error`. After `ha_error` the new list is in
+place all the same: the app keeps asking Home Assistant and sends a `state`
+event for every entity of the list as soon as it has an answer. A `watch`
+refused with `bad_request` leaves the previous list as it was.
 
 ### toggle
 

@@ -1,0 +1,17 @@
+[
+  { "user": "Admin", "name": "admin" },
+  { "user": "user42", "name": "user42" },
+  { "user": "Jan Kowalski", "name": "jan_kowalski" },
+  { "user": "anna.nowak-2", "name": "anna_nowak_2" },
+  { "user": "DOMAIN\\Admin", "name": "domain_admin" },
+  { "user": "a_b", "name": "a_b" },
+  { "user": "Łukasz", "name": "_ukasz" },
+  { "user": "Zoë", "name": "zo_" },
+  { "user": "pc😀", "name": "pc_" },
+  { "user": "K", "name": "k" },
+  { "user": "İ", "name": "i_" },
+  { "user": "STRAẞE", "name": "stra_e" },
+  { "user": "ΟΣ", "name": "__" },
+  { "user": "ǅon", "name": "_on" },
+  { "user": "", "name": "" }
+]

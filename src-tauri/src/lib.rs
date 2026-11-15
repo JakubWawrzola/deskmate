@@ -21,6 +21,7 @@ mod notify;
 mod processes;
 mod sensors;
 mod state;
+mod streamdeck;
 mod sys_commands;
 mod transport;
 mod tts;
@@ -186,6 +187,12 @@ async fn save_config(
     new_config.update_state = old.update_state.clone();
     new_config.family = old.family.clone();
     new_config.connection_paused = old.connection_paused;
+    new_config.streamdeck_enabled = old.streamdeck_enabled;
+    // The Home Assistant token is stored per node id, so a renamed node
+    // counts as changed settings for the Stream Deck channel as well.
+    let ha_settings_changed = old.node_id != new_config.node_id
+        || old.ha_url != new_config.ha_url
+        || old.ha_url_remote != new_config.ha_url_remote;
     let link_key = link_key
         .map(|key| zeroize::Zeroizing::new(key.trim().to_string()))
         .filter(|key| !key.is_empty());
@@ -241,6 +248,9 @@ async fn save_config(
     let branding = new_config.toast_branding;
     config::save(&new_config)?;
     *state.config.lock().await = new_config;
+    if ha_settings_changed {
+        streamdeck::ha_settings_changed(&app);
+    }
     // branding in the background (Start Menu shortcut) + restart the connection with the new config
     std::thread::spawn(move || notify::apply_branding(branding));
     tauri::async_runtime::spawn(transport::restart(app));
@@ -271,6 +281,7 @@ async fn get_snapshot(state: State<'_, AppState>) -> Result<Snapshot, String> {
 /// Empty token = keep the existing one; token "-" = delete it.
 #[tauri::command]
 async fn set_ha_api(
+    app: AppHandle,
     state: State<'_, AppState>,
     url: String,
     url_remote: String,
@@ -293,6 +304,9 @@ async fn set_ha_api(
             ha_api::set_token(&cfg, &t)?;
         }
     }
+    // Clients of the Stream Deck channel read "is Home Assistant set up"
+    // once per connection; closing the connections makes them read it again.
+    streamdeck::ha_settings_changed(&app);
     Ok(())
 }
 
@@ -1158,6 +1172,7 @@ pub fn run() {
             updates::spawn(app.handle().clone());
             autostart::reconcile(app.handle());
             family::spawn(app.handle().clone());
+            streamdeck::init(app.handle());
 
             // start the selected transport if configured
             let handle = app.handle().clone();
@@ -1212,7 +1227,9 @@ pub fn run() {
             family::set_family,
             family::protect_family_account,
             family::unprotect_family_account,
-            recent_file_transfers
+            recent_file_transfers,
+            streamdeck::streamdeck_status,
+            streamdeck::set_streamdeck_enabled
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -330,6 +330,11 @@ pub struct AppConfig {
     /// Assistant until the user connects again, also after a restart.
     #[serde(default)]
     pub connection_paused: bool,
+    /// The local channel for the Stream Deck plugin. Off: the app opens no
+    /// pipe, and programs on this computer cannot reach Home Assistant
+    /// through it.
+    #[serde(default)]
+    pub streamdeck_enabled: bool,
 }
 
 fn default_true() -> bool {
@@ -388,6 +393,7 @@ impl Default for AppConfig {
             tray_actions: Vec::new(),
             family: FamilyConfig::default(),
             connection_paused: false,
+            streamdeck_enabled: false,
         }
     }
 }

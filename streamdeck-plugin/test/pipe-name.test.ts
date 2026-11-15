@@ -1,6 +1,18 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { pipePathForUser, resolvePipePath, sanitizeUserName } from "../src/channel/pipe-name.ts";
+
+test("every name of the table shared with the Deskmate app is derived the same way", () => {
+  // The app's own test reads the same file (src-tauri/src/streamdeck/pipe_name.rs).
+  const table: unknown = JSON.parse(
+    readFileSync(new URL("./pipe-names.json", import.meta.url), "utf8"),
+  );
+  assert.ok(Array.isArray(table) && table.length > 0);
+  for (const { user, name } of table as { user: string; name: string }[]) {
+    assert.equal(sanitizeUserName(user), name, JSON.stringify(user));
+  }
+});
 
 test("a plain user name is lowercased", () => {
   assert.equal(sanitizeUserName("Admin"), "admin");
