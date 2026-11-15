@@ -348,11 +348,16 @@ Assistant does not answer it. The reason decides what the closed socket means:
 
 During the 15 seconds after a `handover`, entities keep their states and
 their availability, and the limit of a machine declaration stays in place.
-When the next session authenticates in that time, nothing in Home Assistant
-changes until that session declares and reports. When none does, the computer
-becomes unavailable at the end of the window. A command, a notification or a
-file request in the gap fails as it does for a computer that is not
-connected.
+When the next session authenticates in that time, the computer was never
+unavailable in between. That session starts like any other: without the
+limit, and with the states that Home Assistant last had. When no session
+comes, the computer becomes unavailable at the end of the window. A command,
+a notification or a file request in the gap fails as it does for a computer
+that is not connected.
+
+The 15 seconds run from the moment Home Assistant sees the socket close to
+the `welcome` of the next session. A client that connects while the old
+socket is still open simply replaces it, as before.
 
 A session that ends without `bye` makes the computer unavailable at once, as
 before. So does `handover` while Home Assistant itself is stopping.
