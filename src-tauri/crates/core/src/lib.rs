@@ -10,6 +10,9 @@ pub mod hardware;
 pub mod link;
 pub mod machine;
 pub mod seat;
+pub mod secrets;
 pub mod security;
 pub mod sensors;
 pub mod sys_commands;
+#[cfg(all(test, unix))]
+mod test_tree;

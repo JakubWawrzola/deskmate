@@ -15,12 +15,16 @@ workspace = true
 # tests must not write into the real log. Never enable it as a normal
 # dependency feature, that would switch the audit log off in the program.
 audit-log-off = []
+# Linux only: lets `SecretStore::Keyring` reach the Secret Service (GNOME
+# Keyring, KWallet) through the system's libdbus. The desktop app turns it on.
+# A program that keeps its secrets in key files, such as the daemon, leaves it
+# off and links no D-Bus. Windows always has Credential Manager and ignores it.
+secret-service = ["dep:keyring"]
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sysinfo = "0.33"
-keyring = { version = "3", features = ["windows-native"] }
 # Wipes a secret from memory once it has been moved to its new entry.
 zeroize = "1"
 log = "0.4"
@@ -83,3 +87,16 @@ features = [
   "Win32_System_Performance",
   "Win32_Graphics_Dxgi",
 ]
+
+# The user's keyring behind `SecretStore::Keyring` (secrets.rs). Windows:
+# Credential Manager. Linux: the Secret Service, only with the
+# `secret-service` feature; `crypto-rust` encrypts the secret on its way over
+# D-Bus without OpenSSL.
+[target.'cfg(windows)'.dependencies.keyring]
+version = "3"
+features = ["windows-native"]
+
+[target.'cfg(target_os = "linux")'.dependencies.keyring]
+version = "3"
+optional = true
+features = ["sync-secret-service", "crypto-rust"]

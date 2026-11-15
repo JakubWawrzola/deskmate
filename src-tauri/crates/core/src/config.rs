@@ -1,6 +1,7 @@
 //! Application configuration: config.json in the configuration folder,
 //! %APPDATA%\Deskmate on Windows and the XDG folders on Linux.
-//! MQTT password NEVER lands in JSON - stored in Windows Credential Manager.
+//! Secrets NEVER land in JSON - they are kept in the selected secret store
+//! (secrets.rs), Windows Credential Manager by default.
 
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -8,6 +9,7 @@ use std::path::PathBuf;
 use std::sync::OnceLock;
 
 use crate::consts;
+use crate::secrets;
 
 fn default_kind() -> String {
     "button".into()
@@ -556,83 +558,86 @@ pub fn save(cfg: &AppConfig) -> Result<(), String> {
     Ok(())
 }
 
-fn keyring_entry(cfg: &AppConfig) -> Result<keyring::Entry, String> {
-    let account = format!("{}@{}", cfg.username, cfg.broker_host);
-    keyring::Entry::new(consts::KEYRING_SERVICE, &account).map_err(|e| e.to_string())
+/// Reads a secret from the selected store. A store that cannot be read counts
+/// as "no secret", and the log says why.
+fn read_secret(service: &str, account: &str) -> Option<String> {
+    match secrets::selected().get(service, account) {
+        Ok(secret) => secret.map(|secret| secret.as_str().to_owned()),
+        Err(error) => {
+            log::warn!("cannot read a secret ({service}): {error}");
+            None
+        }
+    }
+}
+
+/// Stores a secret in the selected store. An empty one removes the entry.
+fn store_secret(service: &str, account: &str, secret: &str) -> Result<(), String> {
+    if secret.is_empty() {
+        forget_secret(service, account);
+        return Ok(());
+    }
+    secrets::selected().set(service, account, secret)
+}
+
+/// Removing is a cleanup: a store that cannot do it leaves a line in the log
+/// and does not fail what the user asked for.
+fn forget_secret(service: &str, account: &str) {
+    if let Err(error) = secrets::selected().delete(service, account) {
+        log::warn!("cannot remove a secret ({service}): {error}");
+    }
+}
+
+fn mqtt_account(username: &str, broker_host: &str) -> String {
+    format!("{}@{}", username, broker_host)
 }
 
 pub fn set_password(cfg: &AppConfig, password: &str) -> Result<(), String> {
-    let entry = keyring_entry(cfg)?;
-    if password.is_empty() {
-        let _ = entry.delete_credential();
-        return Ok(());
-    }
-    entry.set_password(password).map_err(|e| e.to_string())
+    let account = mqtt_account(&cfg.username, &cfg.broker_host);
+    store_secret(consts::KEYRING_SERVICE, &account, password)
 }
 
 pub fn get_password(cfg: &AppConfig) -> Option<String> {
-    keyring_entry(cfg).ok()?.get_password().ok()
+    let account = mqtt_account(&cfg.username, &cfg.broker_host);
+    read_secret(consts::KEYRING_SERVICE, &account)
 }
 
-/// Removes the Credential Manager entry for the old user@host (when the broker
+/// Removes the stored password of the old user@host (when the broker
 /// changes), so it doesn't stay orphaned.
 pub fn delete_password_for(username: &str, broker_host: &str) {
-    let account = format!("{}@{}", username, broker_host);
-    if let Ok(e) = keyring::Entry::new(consts::KEYRING_SERVICE, &account) {
-        let _ = e.delete_credential();
-    }
-}
-
-fn link_keyring_entry(node_id: &str) -> Result<keyring::Entry, String> {
-    keyring::Entry::new(consts::LINK_KEYRING_SERVICE, node_id).map_err(|e| e.to_string())
+    let account = mqtt_account(username, broker_host);
+    forget_secret(consts::KEYRING_SERVICE, &account);
 }
 
 pub fn set_link_key(node_id: &str, pairing_key: &str) -> Result<(), String> {
-    let entry = link_keyring_entry(node_id)?;
-    if pairing_key.is_empty() {
-        let _ = entry.delete_credential();
-        return Ok(());
-    }
-    entry.set_password(pairing_key).map_err(|e| e.to_string())
+    store_secret(consts::LINK_KEYRING_SERVICE, node_id, pairing_key)
 }
 
 pub fn get_link_key(node_id: &str) -> Option<String> {
-    link_keyring_entry(node_id).ok()?.get_password().ok()
+    read_secret(consts::LINK_KEYRING_SERVICE, node_id)
 }
 
-/// The cascade key lives in its own Credential Manager entry, never in
+/// The cascade key lives in its own entry of the secret store, never in
 /// config.json, and never next to the primary pairing key.
-fn cascade_keyring_entry(node_id: &str) -> Result<keyring::Entry, String> {
-    keyring::Entry::new(consts::CASCADE_KEYRING_SERVICE, node_id).map_err(|e| e.to_string())
-}
-
 pub fn set_link_cascade_key(node_id: &str, key: &str) -> Result<(), String> {
-    let entry = cascade_keyring_entry(node_id)?;
-    if key.is_empty() {
-        let _ = entry.delete_credential();
-        return Ok(());
-    }
-    entry.set_password(key).map_err(|e| e.to_string())
+    store_secret(consts::CASCADE_KEYRING_SERVICE, node_id, key)
 }
 
 pub fn get_link_cascade_key(node_id: &str) -> Option<String> {
-    cascade_keyring_entry(node_id).ok()?.get_password().ok()
+    read_secret(consts::CASCADE_KEYRING_SERVICE, node_id)
 }
 
-/// Moves one Credential Manager secret from `old` to `new` account names.
-/// The target is only written when it is still empty, so a key the user just
-/// pasted is never overwritten by the one it replaces.
+/// Moves one secret from the `old` to the `new` account name. The target is
+/// only written when it is still empty, so a key the user just pasted is
+/// never overwritten by the one it replaces.
 fn move_secret(service: &str, old: &str, new: &str) -> Result<(), String> {
-    let source = keyring::Entry::new(service, old).map_err(|e| e.to_string())?;
-    let Ok(secret) = source.get_password() else {
+    let store = secrets::selected();
+    let Ok(Some(secret)) = store.get(service, old) else {
         return Ok(());
     };
-    let secret = zeroize::Zeroizing::new(secret);
-    let target = keyring::Entry::new(service, new).map_err(|e| e.to_string())?;
-    if target.get_password().is_err() {
-        target.set_password(&secret).map_err(|e| e.to_string())?;
+    if !matches!(store.get(service, new), Ok(Some(_))) {
+        store.set(service, new, &secret)?;
     }
-    let _ = source.delete_credential();
+    forget_secret(service, old);
     Ok(())
 }
 

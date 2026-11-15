@@ -7,13 +7,14 @@ pub const CONFIG_DIR: &str = "Deskmate";
 /// Folder name under the XDG base directories, /etc and /var/lib.
 #[cfg(not(windows))]
 pub const CONFIG_DIR: &str = "deskmate";
-/// Service name in Windows Credential Manager (MQTT password)
+/// Service name in the secret store (MQTT password). In Windows Credential
+/// Manager it is part of the entry's name.
 pub const KEYRING_SERVICE: &str = "Deskmate MQTT";
-/// Service name in Windows Credential Manager (Deskmate Link pairing key).
+/// Service name in the secret store (Deskmate Link pairing key).
 pub const LINK_KEYRING_SERVICE: &str = "Deskmate Link";
-/// Service name in Windows Credential Manager (cascade layer key).
+/// Service name in the secret store (cascade layer key).
 pub const CASCADE_KEYRING_SERVICE: &str = "Deskmate Link Cascade";
-/// Service name in Windows Credential Manager (Home Assistant long-lived token).
+/// Service name in the secret store (Home Assistant long-lived token).
 pub const HA_TOKEN_KEYRING_SERVICE: &str = "Deskmate HA Token";
 /// Toast AUMID: in release builds NSIS registers the identifier from tauri.conf.json
 pub const TOAST_AUMID: &str = "com.deskmate.desktop";
