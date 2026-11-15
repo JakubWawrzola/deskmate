@@ -4,6 +4,7 @@
 //!  "actions":[{"title":"OK","action":"ok"},{"title":"Snooze","action":"snooze"}]}
 //! A clicked button publishes `{action}` to `deskmate/<node>/notify/action`.
 
+use deskmate_core::link::notify::NotifyPriority;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -62,7 +63,7 @@ pub struct NotifyAction {
     pub action: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct NotifyPayload {
     #[serde(default)]
     pub title: String,
@@ -72,6 +73,12 @@ pub struct NotifyPayload {
     pub image: Option<String>,
     #[serde(default)]
     pub actions: Vec<NotifyAction>,
+    /// Set from a checked Link `notify` frame only, never from an MQTT
+    /// payload (notify_tags.rs).
+    #[serde(skip)]
+    pub tag: Option<String>,
+    #[serde(skip)]
+    pub priority: NotifyPriority,
 }
 
 /// A button on a notification Deskmate shows about itself. `link` is a
@@ -92,6 +99,8 @@ pub struct NotifyRecord {
     pub image: Option<String>,
     /// local time hh:mm:ss (for the UI list)
     pub received_at: String,
+    pub tag: Option<String>,
+    pub priority: NotifyPriority,
 }
 
 /// Parses the payload; tolerates plain text (message without JSON).
@@ -113,8 +122,7 @@ pub fn parse(payload: &str) -> NotifyPayload {
         Err(_) => NotifyPayload {
             title: crate::consts::APP_NAME.into(),
             message: payload.trim().chars().take(500).collect(),
-            image: None,
-            actions: Vec::new(),
+            ..NotifyPayload::default()
         },
     }
 }
@@ -593,7 +601,8 @@ fn toast_xml(
         actions_xml = format!("<actions>{actions_xml}</actions>");
     }
     format!(
-        "<toast><visual><binding template=\"ToastGeneric\"><text>{}</text><text>{}</text>{}</binding></visual>{}</toast>",
+        "<toast{}><visual><binding template=\"ToastGeneric\"><text>{}</text><text>{}</text>{}</binding></visual>{}</toast>",
+        crate::notify_tags::scenario_attribute(p.priority, crate::notify_tags::urgent_supported()),
         xml_escape(&p.title),
         xml_escape(&p.message),
         image_xml,
@@ -615,30 +624,51 @@ pub fn show_toast(p: &NotifyPayload) -> Result<(), String> {
     show_toast_with(p, &[])
 }
 
+/// The identity that toasts are shown under now.
+#[cfg(windows)]
+pub fn toast_aumid() -> &'static str {
+    if BRANDED.load(Ordering::Relaxed) {
+        crate::consts::TOAST_AUMID
+    } else {
+        POWERSHELL_AUMID
+    }
+}
+
 /// A notification from Deskmate itself, with buttons handled inside the app.
 #[cfg(windows)]
 pub fn show_toast_with(p: &NotifyPayload, own_buttons: &[OwnButton]) -> Result<(), String> {
     use windows::core::HSTRING;
     use windows::Data::Xml::Dom::XmlDocument;
-    use windows::UI::Notifications::{ToastNotification, ToastNotificationManager};
-
-    let aumid = if BRANDED.load(Ordering::Relaxed) {
-        crate::consts::TOAST_AUMID
-    } else {
-        POWERSHELL_AUMID
+    use windows::UI::Notifications::{
+        ToastNotification, ToastNotificationManager, ToastNotificationPriority,
     };
+
+    let aumid = toast_aumid();
     let img = p.image.as_deref().and_then(fetch_image);
     if let Some(path) = &img {
         schedule_image_removal(path.clone());
     }
     let xml = toast_xml(p, img.as_deref(), own_buttons);
-    let show = || -> windows::core::Result<()> {
+    let show = || -> windows::core::Result<ToastNotification> {
         let doc = XmlDocument::new()?;
         doc.LoadXml(&HSTRING::from(xml.as_str()))?;
         let toast = ToastNotification::CreateToastNotification(&doc)?;
-        ToastNotificationManager::CreateToastNotifierWithId(&HSTRING::from(aumid))?.Show(&toast)
+        if let Some(tag) = &p.tag {
+            // The same tag and group replace the toast shown earlier.
+            toast.SetTag(&HSTRING::from(tag.as_str()))?;
+            toast.SetGroup(&HSTRING::from(crate::notify_tags::GROUP))?;
+        }
+        if p.priority != NotifyPriority::Normal {
+            toast.SetPriority(ToastNotificationPriority::High)?;
+        }
+        ToastNotificationManager::CreateToastNotifierWithId(&HSTRING::from(aumid))?.Show(&toast)?;
+        Ok(toast)
     };
-    show().map_err(|e| format!("toast: {e}"))
+    let toast = show().map_err(|e| format!("toast: {e}"))?;
+    if let Some(tag) = &p.tag {
+        crate::notify_tags::remember(tag, toast, aumid);
+    }
+    Ok(())
 }
 
 #[cfg(not(windows))]

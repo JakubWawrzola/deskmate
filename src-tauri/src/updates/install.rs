@@ -271,6 +271,7 @@ pub async fn settle_last_install(app: &AppHandle) {
         message: "Settings and pairing are unchanged.".into(),
         image: None,
         actions: Vec::new(),
+        ..NotifyPayload::default()
     };
     let shown = tokio::task::spawn_blocking(move || crate::notify::show_toast(&toast)).await;
     if let Ok(Err(error)) = shown {

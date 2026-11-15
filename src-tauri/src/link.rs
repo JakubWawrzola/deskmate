@@ -13,6 +13,7 @@ use tokio_tungstenite::tungstenite::Message;
 use zeroize::Zeroizing;
 
 use deskmate_core::link::media::declares_media_player;
+use deskmate_core::link::notify::{parse_notify_clear, parse_notify_extras};
 use deskmate_core::link::{
     auth_retry_delay, classify_connect_error, client_handshake, feature, info_frame, parse_info,
     state_frame, ClientPlatform, ClientRole, HubInfo, LinkError, LinkFailure, SessionCodecs,
@@ -30,7 +31,7 @@ const FAREWELL_SEND: Duration = Duration::from_secs(1);
 
 /// The optional protocol features that this app implements, for its `info`
 /// frame. Home Assistant uses a feature only with a session that lists it.
-const APP_FEATURES: &[&str] = &[feature::MEDIA_PLAYER];
+const APP_FEATURES: &[&str] = &[feature::MEDIA_PLAYER, feature::NOTIFY_TAG];
 
 pub async fn restart(app: AppHandle) {
     let state = app.state::<AppState>();
@@ -380,6 +381,17 @@ async fn handle_incoming(app: &AppHandle, tx: &mpsc::UnboundedSender<Value>, pay
         }
         Some("notify") => {
             let id = payload.get("id").cloned().unwrap_or(Value::Null);
+            let extras = match parse_notify_extras(&payload) {
+                Ok(extras) => extras,
+                Err(error) => {
+                    // Only the fact is logged, never what was received.
+                    crate::security::audit("notification", "blocked_invalid_field");
+                    log::warn!("refusing a notification: {}", error.message());
+                    let _ = tx
+                        .send(json!({"t": "ack", "id": id, "ok": false, "error": error.message()}));
+                    return;
+                }
+            };
             let actions: Vec<Value> =
                 payload
                     .get("actions")
@@ -397,8 +409,31 @@ async fn handle_incoming(app: &AppHandle, tx: &mpsc::UnboundedSender<Value>, pay
                 "image": payload.get("image").cloned().unwrap_or(Value::Null),
                 "actions": actions,
             });
-            crate::transport::handle_notify(app, &notification.to_string()).await;
+            let mut parsed = crate::notify::parse(&notification.to_string());
+            parsed.tag = extras.tag;
+            parsed.priority = extras.priority;
+            crate::transport::show_notification(app, parsed).await;
             let _ = tx.send(json!({"t": "ack", "id": id, "ok": true}));
+        }
+        Some("notify_clear") => {
+            let app = app.clone();
+            let tx = tx.clone();
+            tauri::async_runtime::spawn(async move {
+                let id = payload.get("id").cloned().unwrap_or(Value::Null);
+                let result = match parse_notify_clear(&payload) {
+                    Ok(tag) => crate::transport::clear_notification(&app, tag).await,
+                    Err(error) => {
+                        crate::security::audit("notification_clear", "blocked_invalid_field");
+                        log::warn!("refusing to clear a notification: {}", error.message());
+                        Err(error.message().to_string())
+                    }
+                };
+                let mut ack = json!({"t": "ack", "id": id, "ok": result.is_ok()});
+                if let Err(error) = result {
+                    ack["error"] = json!(error);
+                }
+                let _ = tx.send(ack);
+            });
         }
         Some("ping") => {
             let _ = tx.send(json!({"t": "pong"}));
@@ -508,6 +543,6 @@ mod tests {
     #[test]
     fn the_app_announces_exactly_what_it_implements() {
         let frame = info_frame(ClientRole::App, ClientPlatform::Windows, APP_FEATURES);
-        assert_eq!(frame["features"], json!(["media_player"]));
+        assert_eq!(frame["features"], json!(["media_player", "notify_tag"]));
     }
 }

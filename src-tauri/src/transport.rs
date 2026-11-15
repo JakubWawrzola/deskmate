@@ -220,6 +220,42 @@ pub async fn handle_notify(app: &AppHandle, payload: &str) {
     crate::mqtt::legacy_handle_notify(app, payload).await;
 }
 
+/// Shows a notification whose tag and priority have been checked already.
+pub async fn show_notification(app: &AppHandle, notification: crate::notify::NotifyPayload) {
+    crate::mqtt::show_notification(app, notification).await;
+}
+
+/// Removes the notification with a checked tag from the screen, the
+/// notification centre and the history in the window. Succeeds when nothing
+/// has the tag.
+pub async fn clear_notification(app: &AppHandle, tag: String) -> Result<(), String> {
+    #[cfg(windows)]
+    let aumid = crate::notify::toast_aumid();
+    #[cfg(not(windows))]
+    let aumid = "";
+    let blocking_tag = tag.clone();
+    let result =
+        tokio::task::spawn_blocking(move || crate::notify_tags::clear(&blocking_tag, aumid))
+            .await
+            .map_err(|e| e.to_string())
+            .and_then(|result| result);
+    crate::security::audit(
+        "notification_clear",
+        if result.is_ok() { "completed" } else { "error" },
+    );
+    if let Err(error) = &result {
+        log::warn!("clearing a notification failed: {error}");
+        return Err("could not clear the notification".into());
+    }
+    app.state::<AppState>()
+        .notif_history
+        .lock()
+        .await
+        .retain(|record| record.tag.as_deref() != Some(tag.as_str()));
+    let _ = app.emit("deskmate://notify-clear", tag);
+    Ok(())
+}
+
 fn payload_string(value: Option<&Value>) -> String {
     match value {
         Some(Value::String(value)) => value.clone(),

@@ -139,6 +139,10 @@ export function onSensors(cb: (v: Record<string, string>) => void): Promise<Unli
 export function onNotify(cb: (n: NotifyRecord) => void): Promise<UnlistenFn> {
   return listen<NotifyRecord>("deskmate://notify", (e) => cb(e.payload));
 }
+/** Home Assistant removed the notification with this tag. */
+export function onNotifyClear(cb: (tag: string) => void): Promise<UnlistenFn> {
+  return listen<string>("deskmate://notify-clear", (e) => cb(e.payload));
+}
 /** Drives, GPU or temperature sensors were found or went away. */
 export function onSensorDefs(cb: () => void): Promise<UnlistenFn> {
   return listen("deskmate://sensor-defs", () => cb());

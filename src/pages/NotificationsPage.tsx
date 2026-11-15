@@ -75,6 +75,13 @@ export default function NotificationsPage({
             </div>
             <p className="text-[13px] text-muted">{n.message}</p>
             {n.image && <p className="mono text-[11px] text-faint truncate">{n.image}</p>}
+            {(n.tag !== null || n.priority !== "normal") && (
+              <p className="mono text-[11px] text-faint">
+                {[n.tag !== null && `tag ${n.tag}`, n.priority !== "normal" && n.priority]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+            )}
           </div>
         ))}
       </Panel>

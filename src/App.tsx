@@ -3,6 +3,7 @@ import {
   api,
   onConfigChanged,
   onNotify,
+  onNotifyClear,
   onSensorDefs,
   onSensors,
   onShowUpdate,
@@ -70,8 +71,17 @@ export default function App() {
         ),
       ),
       onNotify((n: NotifyRecord) =>
+        setSnapshot((prev) => {
+          if (!prev) return prev;
+          // A tagged notification replaces the earlier one with the same tag.
+          const kept =
+            n.tag === null ? prev.notifications : prev.notifications.filter((o) => o.tag !== n.tag);
+          return { ...prev, notifications: [n, ...kept].slice(0, 50) };
+        }),
+      ),
+      onNotifyClear((tag) =>
         setSnapshot((prev) =>
-          prev ? { ...prev, notifications: [n, ...prev.notifications].slice(0, 50) } : prev,
+          prev ? { ...prev, notifications: prev.notifications.filter((n) => n.tag !== tag) } : prev,
         ),
       ),
       // Drives and GPU are found after the window has loaded its list (#9).

@@ -20,6 +20,7 @@ mod media_activity;
 mod media_player;
 mod mqtt;
 mod notify;
+mod notify_tags;
 mod power_events;
 mod processes;
 mod sensors;
@@ -942,6 +943,7 @@ fn test_toast() -> Result<(), String> {
                 action: "test_snooze".into(),
             },
         ],
+        ..notify::NotifyPayload::default()
     })
 }
 

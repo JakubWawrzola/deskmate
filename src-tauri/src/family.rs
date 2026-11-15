@@ -482,6 +482,7 @@ fn toast(title: &str, message: &str, ask_for_time: bool) {
         } else {
             Vec::new()
         },
+        ..crate::notify::NotifyPayload::default()
     };
     if let Err(e) = crate::notify::show_toast(&payload) {
         log::warn!("family: {e}");

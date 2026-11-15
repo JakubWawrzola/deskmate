@@ -287,6 +287,7 @@ async fn announce(app: &AppHandle, info: &UpdateInfo, ask: bool) {
         message: message.into(),
         image: None,
         actions: Vec::new(),
+        ..NotifyPayload::default()
     };
     let buttons = if ask {
         vec![

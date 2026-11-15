@@ -29,6 +29,7 @@ use zeroize::Zeroizing;
 
 mod frames;
 pub mod media;
+pub mod notify;
 
 pub use frames::{
     feature, info_frame, parse_info, state_frame, ClientPlatform, ClientRole, HubInfo,

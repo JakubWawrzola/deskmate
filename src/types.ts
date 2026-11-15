@@ -249,7 +249,12 @@ export interface NotifyRecord {
   message: string;
   image: string | null;
   received_at: string;
+  /** A later notification with the same tag replaces this one. */
+  tag: string | null;
+  priority: NotifyPriority;
 }
+
+export type NotifyPriority = "normal" | "high" | "urgent";
 
 export interface Snapshot {
   status: StatusView;

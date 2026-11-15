@@ -314,6 +314,12 @@ pub async fn publish_action_network(app: &AppHandle, action: &str) {
 }
 
 pub(crate) async fn legacy_handle_notify(app: &AppHandle, payload: &str) {
+    show_notification(app, crate::notify::parse(payload)).await;
+}
+
+/// Shows a parsed notification and adds it to the history. A tagged one
+/// replaces the earlier entry with the same tag, as its toast does.
+pub(crate) async fn show_notification(app: &AppHandle, mut parsed: crate::notify::NotifyPayload) {
     {
         const WINDOW: Duration = Duration::from_secs(60);
         const LIMIT: usize = 10;
@@ -333,7 +339,6 @@ pub(crate) async fn legacy_handle_notify(app: &AppHandle, payload: &str) {
         }
         times.push_back(now);
     }
-    let mut parsed = crate::notify::parse(payload);
     if let Some(image) = parsed.image.as_deref() {
         let cfg = app.state::<AppState>().config.lock().await.clone();
         if crate::sys_commands::parse_allowed_web_url(&cfg, image).is_err() {
@@ -346,10 +351,15 @@ pub(crate) async fn legacy_handle_notify(app: &AppHandle, payload: &str) {
         message: parsed.message.clone(),
         image: parsed.image.clone(),
         received_at: now_hms(),
+        tag: parsed.tag.clone(),
+        priority: parsed.priority,
     };
     {
         let state = app.state::<AppState>();
         let mut hist = state.notif_history.lock().await;
+        if record.tag.is_some() {
+            hist.retain(|earlier| earlier.tag != record.tag);
+        }
         hist.push_front(record.clone());
         hist.truncate(50);
     }
