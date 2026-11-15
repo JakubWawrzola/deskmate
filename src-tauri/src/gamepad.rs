@@ -9,12 +9,22 @@
 //! trigger is pushed past the dead zone Microsoft recommends, before or after
 //! the change. Sticks that drift a little at rest change the number too; the
 //! dead zone keeps them from counting as someone playing.
+//!
+//! XInputGetState reports only the state at the moment of the call, so a
+//! button pressed and released between two calls leaves no trace. A
+//! connected controller is therefore asked more often than a quick tap
+//! lasts. Empty slots are asked once a second only: Microsoft advises
+//! against asking them often, because each such call looks for a new device.
 
 use std::time::{Duration, Instant};
 
-/// How often the controllers are asked. Idle time is reported in seconds, so
-/// once a second loses nothing.
-const POLL_INTERVAL: Duration = Duration::from_secs(1);
+/// How often a connected controller is asked. A quick tap of a button lasts
+/// about 60 to 100 ms; asking every 50 ms sees each one at least once.
+const ACTIVE_POLL_INTERVAL: Duration = Duration::from_millis(50);
+
+/// How often every slot is asked, to find a controller that was switched on
+/// or plugged in.
+const SCAN_INTERVAL: Duration = Duration::from_secs(1);
 
 /// The number of controller slots XInput has (XUSER_MAX_COUNT).
 const SLOT_COUNT: usize = 4;
@@ -74,9 +84,31 @@ fn is_input(previous: Option<&Reading>, current: Option<&Reading>) -> bool {
 struct Tracker {
     slots: [Option<Reading>; SLOT_COUNT],
     primed: bool,
+    last_scan: Option<Instant>,
 }
 
 impl Tracker {
+    /// The slots to ask in the poll taken at `now`: the connected ones, and
+    /// every slot when a scan is due.
+    fn slots_to_read(&mut self, now: Instant) -> [bool; SLOT_COUNT] {
+        let scan = self
+            .last_scan
+            .is_none_or(|at| now.saturating_duration_since(at) >= SCAN_INTERVAL);
+        if scan {
+            self.last_scan = Some(now);
+        }
+        std::array::from_fn(|index| scan || self.slots[index].is_some())
+    }
+
+    /// The wait before the next poll: short while a controller is connected.
+    fn wait(&self) -> Duration {
+        if self.slots.iter().any(Option::is_some) {
+            ACTIVE_POLL_INTERVAL
+        } else {
+            SCAN_INTERVAL
+        }
+    }
+
     /// Takes one poll of all slots. True when any controller was used since
     /// the previous poll. The first poll only records what is connected: a
     /// controller lying on the desk when the sensor starts is not input.
@@ -121,12 +153,13 @@ impl Watcher {
             .spawn(move || {
                 let mut tracker = Tracker::default();
                 loop {
-                    if tracker.update(read_slots()) {
+                    let wanted = tracker.slots_to_read(Instant::now());
+                    if tracker.update(read_slots(wanted)) {
                         if let Ok(mut last) = shared.lock() {
                             *last = Some(Instant::now());
                         }
                     }
-                    match stopped.recv_timeout(POLL_INTERVAL) {
+                    match stopped.recv_timeout(tracker.wait()) {
                         Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
                         _ => break,
                     }
@@ -151,13 +184,17 @@ impl Watcher {
     }
 }
 
-/// One reading of every slot. A slot without a controller is None.
+/// One reading of the wanted slots. A slot without a controller, or one that
+/// was not asked, is None.
 #[cfg(windows)]
-fn read_slots() -> [Option<Reading>; SLOT_COUNT] {
+fn read_slots(wanted: [bool; SLOT_COUNT]) -> [Option<Reading>; SLOT_COUNT] {
     use windows::Win32::Foundation::ERROR_SUCCESS;
     use windows::Win32::UI::Input::XboxController::{XInputGetState, XINPUT_STATE};
     let mut slots = [None; SLOT_COUNT];
-    for (index, slot) in (0u32..).zip(slots.iter_mut()) {
+    for ((index, slot), wanted) in (0u32..).zip(slots.iter_mut()).zip(wanted) {
+        if !wanted {
+            continue;
+        }
         let mut state = XINPUT_STATE::default();
         // SAFETY: `state` is a valid, writable XINPUT_STATE for the duration
         // of the call, which only fills it in; `index` is below
@@ -180,7 +217,7 @@ fn read_slots() -> [Option<Reading>; SLOT_COUNT] {
 }
 
 #[cfg(not(windows))]
-fn read_slots() -> [Option<Reading>; SLOT_COUNT] {
+fn read_slots(_wanted: [bool; SLOT_COUNT]) -> [Option<Reading>; SLOT_COUNT] {
     [None; SLOT_COUNT]
 }
 
@@ -313,6 +350,62 @@ mod tests {
         });
         assert!(tracker.update(moved));
         assert!(!tracker.update(moved));
+    }
+
+    /// Runs the polling schedule against a controller in slot 0 whose A
+    /// button is held from `start` for `length`, and says whether a poll saw
+    /// it. The thread's waits are replaced by a clock that jumps ahead.
+    fn tap_is_seen(start: Duration, length: Duration) -> bool {
+        let origin = Instant::now();
+        let controller = |at: Duration| {
+            if at < start {
+                at_rest(1)
+            } else if at < start + length {
+                Reading {
+                    buttons: A_BUTTON,
+                    ..at_rest(2)
+                }
+            } else {
+                at_rest(3)
+            }
+        };
+        let mut tracker = Tracker::default();
+        let mut now = Duration::ZERO;
+        let mut seen = false;
+        while now < start + length + SCAN_INTERVAL {
+            let wanted = tracker.slots_to_read(origin + now);
+            let slots =
+                std::array::from_fn(|index| (index == 0 && wanted[0]).then(|| controller(now)));
+            seen |= tracker.update(slots);
+            now += tracker.wait();
+        }
+        seen
+    }
+
+    #[test]
+    fn a_quick_tap_between_two_seconds_is_seen() {
+        const QUICK_TAP: Duration = Duration::from_millis(60);
+        for offset_ms in (0..2_000).step_by(7) {
+            let start = Duration::from_millis(1_000 + offset_ms);
+            assert!(tap_is_seen(start, QUICK_TAP), "tap at {start:?}");
+        }
+    }
+
+    #[test]
+    fn empty_slots_are_asked_only_once_a_second() {
+        let origin = Instant::now();
+        let mut tracker = Tracker::default();
+        assert_eq!(tracker.slots_to_read(origin), [true; SLOT_COUNT]);
+        tracker.update(only(2, at_rest(1)));
+        assert_eq!(tracker.wait(), ACTIVE_POLL_INTERVAL);
+        let soon = origin + ACTIVE_POLL_INTERVAL;
+        assert_eq!(tracker.slots_to_read(soon), [false, false, true, false]);
+        assert_eq!(
+            tracker.slots_to_read(origin + SCAN_INTERVAL),
+            [true; SLOT_COUNT]
+        );
+        tracker.update([None; SLOT_COUNT]);
+        assert_eq!(tracker.wait(), SCAN_INTERVAL, "nothing connected");
     }
 
     #[test]
