@@ -69,6 +69,8 @@ features = [
   "Win32_System_IO",
   "Win32_Storage_FileSystem",
   "Win32_Security",
+  # the descriptor of the seat object a service creates (seat.rs)
+  "Win32_Security_Authorization",
   "Win32_System_LibraryLoader",
   "Win32_System_TaskScheduler",
   "Win32_System_Threading",
