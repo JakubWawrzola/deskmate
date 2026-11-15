@@ -341,7 +341,7 @@ service the folder stays empty and the panel says so.
 |---|---|
 | `service` | The commands `service_status`, `set_up_service` (install, update, apply) and `remove_service`, and what `--remove-service` (`uninstall.rs`, started by the uninstaller) does. `view` turns the status line into the panel's state, `provision` builds the settings and the `provision` line with the service crate's own code |
 | `service::win` | The one-time provisioning pipe, the elevated launch, the service manager query and the status pipe read |
-| `farewell` | Which `bye` to send when the app quits, the user signs out, Windows sleeps or shuts down, and the reconnect after a wake-up |
+| `farewell` | Which `bye` to send when the app quits, restarts for an update, the user signs out, Windows sleeps or shuts down, and the reconnect after a wake-up |
 | `power_events` | A hidden window that receives `WM_POWERBROADCAST` and `WM_ENDSESSION` |
 
 Install and Apply run `install --provision-pipe <name>`, Update `install`,

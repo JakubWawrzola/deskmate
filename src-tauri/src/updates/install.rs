@@ -148,11 +148,18 @@ async fn run(app: &AppHandle, mut update: Update, auto: bool) -> Result<(), Fail
     audit(RUNNING_VERSION, &update.version, "starting_installer");
     set_installing(app);
 
+    // With the Deskmate service installed, Home Assistant keeps the computer
+    // while the installer replaces the app (farewell.rs).
+    let said_goodbye = crate::farewell::before_update(app).await;
+
     // Verifies the bytes once more, writes them to a temporary file and runs
     // it in the installer's update mode. On Windows a started installer ends
     // this process, so this returns only when it could not be started.
     let job = update.clone();
     let outcome = tokio::task::spawn_blocking(move || job.install(installer)).await;
+    if said_goodbye && !matches!(outcome, Ok(Ok(()))) {
+        crate::farewell::update_failed(app);
+    }
     match outcome {
         Ok(Ok(())) => app.restart(),
         Ok(Err(error)) => {

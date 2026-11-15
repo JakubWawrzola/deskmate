@@ -1,9 +1,9 @@
 //! What the app tells Home Assistant before its Link session ends on purpose
 //! (docs/LINK.md, "bye"), and the reconnect after the computer wakes up.
 //!
-//! - Quitting or signing out while the Deskmate service is installed:
-//!   `handover`, so Home Assistant keeps the computer available while the
-//!   service takes over.
+//! - Quitting, signing out, or restarting for an app update while the
+//!   Deskmate service is installed: `handover`, so Home Assistant keeps the
+//!   computer available while the service takes over.
 //! - Windows goes to sleep: `suspend`. The connection stays closed until the
 //!   computer wakes up, and then it is opened again at once.
 //! - Windows shuts down or restarts: `shutdown`.
@@ -30,6 +30,9 @@ pub enum Ending {
     Quit,
     /// The user signs out of Windows.
     SignOut,
+    /// The updater starts the installer of a new version, which ends the
+    /// app and starts it again.
+    Update,
     /// Windows goes to sleep or hibernates.
     Suspend,
     /// Windows shuts down or restarts.
@@ -46,7 +49,7 @@ pub fn bye_reason(
         return None;
     }
     match ending {
-        Ending::Quit | Ending::SignOut => service_installed.then_some("handover"),
+        Ending::Quit | Ending::SignOut | Ending::Update => service_installed.then_some("handover"),
         Ending::Suspend => Some("suspend"),
         Ending::Shutdown => Some("shutdown"),
     }
@@ -69,8 +72,8 @@ pub fn say_goodbye(app: &AppHandle, ending: Ending) -> bool {
         return false;
     }
     // Asked only when it matters: the service manager is a system call.
-    let service_installed =
-        matches!(ending, Ending::Quit | Ending::SignOut) && crate::service::is_installed();
+    let service_installed = matches!(ending, Ending::Quit | Ending::SignOut | Ending::Update)
+        && crate::service::is_installed();
     let Some(reason) = bye_reason(ending, service_installed, hub_has_bye) else {
         return false;
     };
@@ -94,6 +97,29 @@ pub fn quit(app: &AppHandle) {
                 .await;
         app.exit(0);
     });
+}
+
+/// Just before the updater starts the installer, which ends the app: say
+/// `handover` if there is a reason to, and keep the connection closed so
+/// the installer does not end a fresh session without a goodbye. Returns
+/// whether a `bye` went out; then `update_failed` must follow when the
+/// installer could not be started.
+pub async fn before_update(app: &AppHandle) -> bool {
+    let farewell_app = app.clone();
+    let said =
+        tauri::async_runtime::spawn_blocking(move || say_goodbye(&farewell_app, Ending::Update))
+            .await
+            .unwrap_or(false);
+    if said {
+        crate::transport::stop(app).await;
+    }
+    said
+}
+
+/// The installer did not start after `before_update` said goodbye: connect
+/// again.
+pub fn update_failed(app: &AppHandle) {
+    tauri::async_runtime::spawn(crate::transport::restart(app.clone()));
 }
 
 /// Suspends seen, and the last suspend a wake-up has answered.
@@ -153,9 +179,17 @@ pub fn on_session_end(app: &AppHandle, signing_out: bool) {
 mod tests {
     use super::*;
 
+    const ALL_ENDINGS: [Ending; 5] = [
+        Ending::Quit,
+        Ending::SignOut,
+        Ending::Update,
+        Ending::Suspend,
+        Ending::Shutdown,
+    ];
+
     #[test]
     fn handover_only_with_the_service_installed() {
-        for ending in [Ending::Quit, Ending::SignOut] {
+        for ending in [Ending::Quit, Ending::SignOut, Ending::Update] {
             assert_eq!(bye_reason(ending, true, true), Some("handover"));
             assert_eq!(bye_reason(ending, false, true), None);
         }
@@ -174,12 +208,7 @@ mod tests {
 
     #[test]
     fn never_to_an_integration_without_bye() {
-        for ending in [
-            Ending::Quit,
-            Ending::SignOut,
-            Ending::Suspend,
-            Ending::Shutdown,
-        ] {
+        for ending in ALL_ENDINGS {
             for service in [true, false] {
                 assert_eq!(bye_reason(ending, service, false), None, "{ending:?}");
             }
@@ -188,12 +217,7 @@ mod tests {
 
     #[test]
     fn every_reason_is_one_home_assistant_knows() {
-        for ending in [
-            Ending::Quit,
-            Ending::SignOut,
-            Ending::Suspend,
-            Ending::Shutdown,
-        ] {
+        for ending in ALL_ENDINGS {
             if let Some(reason) = bye_reason(ending, true, true) {
                 assert!(matches!(reason, "handover" | "suspend" | "shutdown"));
                 let frame = deskmate_service::runner::bye_frame(reason);
