@@ -22,17 +22,25 @@ use tokio::sync::watch;
 pub fn turn(node: &str) -> bool {
     imp::turn(node)
 }
-#[cfg(not(windows))]
-pub fn turn(_node: &str) -> bool {
-    true
+#[cfg(target_os = "linux")]
+pub fn turn(node: &str) -> bool {
+    linux::turn(node)
 }
+
+/// The same contract on Linux, for the daemon and the desktop apps.
+#[cfg(target_os = "linux")]
+pub mod linux;
 
 /// How often a connected session checks whether to hand over.
 pub const CHECK_EVERY: Duration = Duration::from_secs(5);
 
 /// What a waiting process tells its user.
+#[cfg(windows)]
 pub const WAITING_STATUS: &str =
     "Another Windows user on this computer holds the connection. Waiting...";
+#[cfg(target_os = "linux")]
+pub const WAITING_STATUS: &str =
+    "Another Deskmate on this computer holds the connection. Waiting...";
 
 /// Waits until this process may connect as `node`. Returns false if `stop`
 /// fired first. `announce` is called once, with `WAITING_STATUS`, when the
@@ -69,6 +77,8 @@ pub async fn wait_for_turn(
 fn stand_down(_node: &str) {
     #[cfg(windows)]
     imp::set_waiting(_node, false);
+    #[cfg(target_os = "linux")]
+    linux::set_waiting(_node, false);
 }
 
 #[cfg(windows)]
