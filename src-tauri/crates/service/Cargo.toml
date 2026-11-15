@@ -48,3 +48,27 @@ sysinfo = "0.33"
 [dev-dependencies]
 # Paused time: the tests of the runner control every timer.
 tokio = { version = "1", features = ["test-util"] }
+
+[target.'cfg(windows)'.dependencies]
+# Service Control Manager plumbing: the dispatcher, the control handler and
+# the calls that register a service.
+windows-service = "0.8"
+
+[target.'cfg(windows)'.dependencies.windows]
+version = "0.61"
+features = [
+  "Win32_Foundation",
+  # descriptors of the pipes and the data folder, the elevation check
+  "Win32_Security",
+  "Win32_Security_Authorization",
+  # the data folder and the delayed removal of the running executable
+  "Win32_Storage_FileSystem",
+  # the process behind the one-time provisioning pipe
+  "Win32_System_Pipes",
+  "Win32_System_Threading",
+  # the list of privileges the service keeps
+  "Win32_System_Services",
+  # where Program Files and ProgramData are
+  "Win32_UI_Shell",
+  "Win32_System_Com",
+]

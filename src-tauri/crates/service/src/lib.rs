@@ -1,8 +1,10 @@
 //! Deskmate without a signed-in user: the part of a computer that Home
 //! Assistant can see and reach before anyone has signed in.
 //!
-//! Everything here is platform-neutral. `runner` is the whole behaviour; a
-//! platform layer feeds it events and serves its status.
+//! Everything here except `win` is platform-neutral. `runner` is the whole
+//! behaviour; the platform layer feeds it events and serves its status. The
+//! Windows layer (`win`) is the service wrapper, the two named pipes, the
+//! access checks and the install and uninstall steps.
 
 #![deny(clippy::undocumented_unsafe_blocks)]
 #![cfg_attr(
@@ -12,6 +14,7 @@
 
 pub mod admin;
 pub mod audit;
+pub mod cli;
 pub mod config;
 pub mod connector;
 pub mod logging;
@@ -21,6 +24,8 @@ pub mod retry;
 pub mod runner;
 pub mod secrets;
 pub mod status;
+#[cfg(windows)]
+pub mod win;
 
 /// Name of the service's folder inside the system's data folder
 /// (`%ProgramData%\Deskmate\service` on Windows).
