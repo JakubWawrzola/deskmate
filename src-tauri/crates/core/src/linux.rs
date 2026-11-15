@@ -9,6 +9,7 @@ use std::str::FromStr;
 
 pub mod disks;
 pub mod gpu;
+pub mod power;
 pub mod power_supply;
 pub mod thermal;
 
