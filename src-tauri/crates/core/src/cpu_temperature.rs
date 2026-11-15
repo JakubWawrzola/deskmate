@@ -17,6 +17,9 @@
 //!
 //! x64 only: ARM processors have no such registers. The helper stops serving
 //! once Deskmate is uninstalled, so a leftover task does nothing.
+//!
+//! Windows only: the module is not built for Linux, where the kernel reports
+//! the temperature (linux/thermal.rs).
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -130,11 +133,6 @@ fn query_helper() -> Option<Answer> {
     }
 }
 
-#[cfg(not(windows))]
-fn query_helper() -> Option<Answer> {
-    None
-}
-
 fn plausible(celsius: f64) -> bool {
     (1.0..=125.0).contains(&celsius)
 }
@@ -201,11 +199,6 @@ pub fn run_elevated(arg: &str) -> Result<(), String> {
             Err(format!("the elevated step failed (code {code})"))
         }
     }
-}
-
-#[cfg(not(windows))]
-pub fn run_elevated(_arg: &str) -> Result<(), String> {
-    Err("windows only".into())
 }
 
 /// From the app: install the helper (one UAC prompt).

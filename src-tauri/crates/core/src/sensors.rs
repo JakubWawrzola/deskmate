@@ -409,10 +409,18 @@ impl MachineCollector {
         self.disks.refresh(true);
         if is_enabled(cfg, "disk") {
             // system drive (usually C:)
+            #[cfg(windows)]
             let sysdrive = std::env::var("SystemDrive").unwrap_or_else(|_| "C:".into());
             for d in self.disks.list() {
-                let mp = d.mount_point().to_string_lossy().to_string();
-                if mp.starts_with(&sysdrive) {
+                #[cfg(windows)]
+                let is_system_drive = d
+                    .mount_point()
+                    .to_string_lossy()
+                    .starts_with(sysdrive.as_str());
+                #[cfg(target_os = "linux")]
+                let is_system_drive =
+                    d.mount_point() == std::path::Path::new(crate::linux::disks::ROOT_MOUNT);
+                if is_system_drive {
                     let total = d.total_space().max(1);
                     let used = total - d.available_space();
                     out.insert(
@@ -427,6 +435,12 @@ impl MachineCollector {
             self.networks.refresh(true);
             let (mut rx, mut tx) = (0u64, 0u64);
             for (_name, data) in self.networks.iter() {
+                // Linux counts what programs on this computer send each
+                // other; that is not network traffic.
+                #[cfg(target_os = "linux")]
+                if _name == LOOPBACK_INTERFACE {
+                    continue;
+                }
                 rx += data.received();
                 tx += data.transmitted();
             }
@@ -459,7 +473,6 @@ impl MachineCollector {
             out.insert("uptime".into(), System::uptime().to_string());
         }
 
-        #[cfg(windows)]
         if is_enabled(cfg, "battery") || is_enabled(cfg, "ac_power") {
             if let Some((pct, ac)) = battery() {
                 if is_enabled(cfg, "battery") {
@@ -492,6 +505,18 @@ fn battery() -> Option<(Option<u8>, bool)> {
     };
     Some((pct, st.ACLineStatus == 1))
 }
+
+/// The same pair from the power supplies in sysfs. None on a computer with
+/// neither a battery nor a power adapter to ask.
+#[cfg(target_os = "linux")]
+fn battery() -> Option<(Option<u8>, bool)> {
+    let status = crate::linux::power_supply::read(std::path::Path::new(crate::linux::SYS));
+    Some((status.battery_percent, status.plugged_in?))
+}
+
+/// The name of the loopback interface on Linux.
+#[cfg(target_os = "linux")]
+const LOOPBACK_INTERFACE: &str = "lo";
 
 #[cfg(test)]
 mod tests {

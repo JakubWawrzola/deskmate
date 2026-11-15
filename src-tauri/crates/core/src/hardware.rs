@@ -1,10 +1,16 @@
-//! Optional Windows hardware telemetry.
-//! Missing PDH/DXGI/WMI data is represented by omitting the sensor definition.
+//! Optional hardware telemetry: drives, disk activity, GPU, temperatures.
+//! Windows reads PDH, DXGI and WMI, Linux reads sysfs (linux.rs). A reading
+//! the computer does not offer is represented by omitting the sensor
+//! definition.
 
+#[cfg(target_os = "linux")]
+use crate::linux::gpu::GpuCounters;
 use crate::sensors::OwnedSensorDef;
+#[cfg(windows)]
+use pdh::GpuCounters;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
-use sysinfo::Disks;
+use sysinfo::{Disk, Disks};
 
 /// How many collection ticks a detected sensor survives without a reading
 /// before its definition is withdrawn (about 2.5 minutes at the default 15 s).
@@ -12,7 +18,7 @@ const MISSED_TICKS_BEFORE_DROP: u32 = 10;
 
 pub struct HardwareCollector {
     disk_primed: bool,
-    gpu: Option<pdh::GpuCounters>,
+    gpu: Option<GpuCounters>,
     gpu_total_mib: Option<f64>,
     temperatures: TemperatureCache,
     /// Every definition seen so far, with the number of ticks it has been
@@ -26,13 +32,13 @@ pub struct HardwareCollector {
 impl HardwareCollector {
     #[allow(
         clippy::new_without_default,
-        reason = "new() opens a PDH query and enumerates the DXGI adapters; Default would hide that work"
+        reason = "new() opens the GPU counters and looks for the graphics cards; Default would hide that work"
     )]
     pub fn new() -> Self {
         Self {
             disk_primed: false,
-            gpu: pdh::GpuCounters::new(),
-            gpu_total_mib: dxgi_total_vram_mib(),
+            gpu: GpuCounters::new(),
+            gpu_total_mib: total_vram_mib(),
             temperatures: TemperatureCache::default(),
             known: HashMap::new(),
         }
@@ -48,17 +54,14 @@ impl HardwareCollector {
 
         let mut read_bytes = 0u64;
         let mut written_bytes = 0u64;
-        for disk in disks.list() {
-            let Some(letter) = drive_letter(disk.mount_point()) else {
-                continue;
-            };
-            let prefix = format!("disk_{}", letter.to_ascii_lowercase());
+        for Volume { disk, key, label } in volumes(disks) {
+            let prefix = format!("disk_{key}");
             let total = disk.total_space();
             if total > 0 {
                 let free_id = format!("{prefix}_free");
                 defs.push(sensor(
                     &free_id,
-                    &format!("Disk {letter} free"),
+                    &format!("Disk {label} free"),
                     Some("GiB"),
                     "mdi:harddisk",
                 ));
@@ -70,7 +73,7 @@ impl HardwareCollector {
                 let usage_id = format!("{prefix}_usage");
                 defs.push(sensor(
                     &usage_id,
-                    &format!("Disk {letter} usage"),
+                    &format!("Disk {label} usage"),
                     Some("%"),
                     "mdi:harddisk",
                 ));
@@ -205,6 +208,55 @@ fn sensor(id: &str, name: &str, unit: Option<&str>, icon: &str) -> OwnedSensorDe
     }
 }
 
+/// A drive with sensors of its own: `disk_<key>_free`, "Disk <label> free".
+struct Volume<'a> {
+    disk: &'a Disk,
+    key: String,
+    label: String,
+}
+
+/// On Windows a drive is a volume with a letter: `disk_c_free`, "Disk C free".
+#[cfg(windows)]
+fn volumes(disks: &Disks) -> Vec<Volume<'_>> {
+    disks
+        .list()
+        .iter()
+        .filter_map(|disk| {
+            let letter = drive_letter(disk.mount_point())?;
+            Some(Volume {
+                disk,
+                key: letter.to_ascii_lowercase().to_string(),
+                label: letter.to_string(),
+            })
+        })
+        .collect()
+}
+
+/// On Linux a drive is named by its mount point: `disk_root_free`,
+/// "Disk / free" (linux/disks.rs).
+#[cfg(target_os = "linux")]
+fn volumes(disks: &Disks) -> Vec<Volume<'_>> {
+    let list = disks.list();
+    let mounts: Vec<(String, std::path::PathBuf)> = list
+        .iter()
+        .map(|disk| {
+            (
+                disk.name().to_string_lossy().into_owned(),
+                disk.mount_point().to_path_buf(),
+            )
+        })
+        .collect();
+    crate::linux::disks::volumes(&mounts)
+        .into_iter()
+        .map(|volume| Volume {
+            disk: &list[volume.index],
+            key: volume.key,
+            label: volume.label,
+        })
+        .collect()
+}
+
+#[cfg(windows)]
 fn drive_letter(path: &std::path::Path) -> Option<char> {
     let text = path.to_string_lossy();
     let mut chars = text.chars();
@@ -231,7 +283,7 @@ impl TemperatureCache {
             .map(|at| at.elapsed() >= Duration::from_secs(60))
             .unwrap_or(true)
         {
-            self.values = wmi_temperatures();
+            self.values = read_temperatures();
             self.last_read = Some(Instant::now());
         }
         self.values
@@ -259,9 +311,28 @@ fn dxgi_total_vram_mib() -> Option<f64> {
     }
 }
 
-#[cfg(not(windows))]
-fn dxgi_total_vram_mib() -> Option<f64> {
-    None
+#[cfg(windows)]
+fn total_vram_mib() -> Option<f64> {
+    dxgi_total_vram_mib()
+}
+
+#[cfg(target_os = "linux")]
+fn total_vram_mib() -> Option<f64> {
+    crate::linux::gpu::read(std::path::Path::new(crate::linux::SYS)).memory_total_mib
+}
+
+#[cfg(windows)]
+fn read_temperatures() -> Temperatures {
+    wmi_temperatures()
+}
+
+#[cfg(target_os = "linux")]
+fn read_temperatures() -> Temperatures {
+    let sys = std::path::Path::new(crate::linux::SYS);
+    Temperatures {
+        cpu: crate::linux::thermal::cpu_celsius(sys),
+        gpu: crate::linux::gpu::read(sys).temperature_celsius,
+    }
 }
 
 #[cfg(windows)]
@@ -392,11 +463,6 @@ fn wmi_temperatures() -> Temperatures {
         unsafe { CoUninitialize() };
     }
     result
-}
-
-#[cfg(not(windows))]
-fn wmi_temperatures() -> Temperatures {
-    Temperatures::default()
 }
 
 #[cfg(windows)]
@@ -544,24 +610,30 @@ mod pdh {
     }
 }
 
-#[cfg(not(windows))]
-mod pdh {
-    pub struct GpuCounters;
-    impl GpuCounters {
-        pub fn new() -> Option<Self> {
-            None
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    #[cfg(windows)]
     #[test]
     fn accepts_only_drive_letter_mounts() {
         assert_eq!(drive_letter(std::path::Path::new(r"C:\")), Some('C'));
         assert_eq!(drive_letter(std::path::Path::new(r"d:\data")), Some('D'));
         assert_eq!(drive_letter(std::path::Path::new(r"\\server\share")), None);
+    }
+
+    /// Runs the real probes of the computer the test runs on: whatever it
+    /// reports, a value never goes out without its definition.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn every_collected_value_has_a_definition() {
+        let disks = Disks::new_with_refreshed_list();
+        let mut collector = HardwareCollector::new();
+        for _ in 0..2 {
+            let (values, defs) = collector.collect(&disks, 1.0);
+            for key in values.keys() {
+                assert!(defs.iter().any(|def| &def.id == key), "{key}");
+            }
+        }
     }
 }
