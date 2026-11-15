@@ -19,6 +19,8 @@ env:
   # Pinned so that a new compiler release cannot turn a green tree red.
   RUST_TOOLCHAIN: "1.95.0"
   RUFF_VERSION: "0.17.4"
+  # What scripts/fake_link_hub.py needs on the Windows runner.
+  FAKE_HUB_PACKAGES: "aiohttp==3.14.5 cryptography==50.0.1"
   GITLEAKS_VERSION: "8.30.1"
   # gitleaks_8.30.1_linux_x64.tar.gz, from the release's checksums file
   GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
