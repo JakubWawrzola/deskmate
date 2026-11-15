@@ -128,6 +128,7 @@ events, a widget panel, files from the phone).
 ## Documentation
 
 - [docs/GUIDE.md](docs/GUIDE.md): the guide, start here
+- [docs/LINUX.md](docs/LINUX.md): the Linux daemon (preview), with the sensors and power buttons
 - [docs/LINK.md](docs/LINK.md): the connection, pairing, remote access, protocol
 - [docs/SECURITY.md](docs/SECURITY.md): threat model and defaults
 - [docs/HA-SETUP.md](docs/HA-SETUP.md) and [docs/MIGRATION.md](docs/MIGRATION.md):

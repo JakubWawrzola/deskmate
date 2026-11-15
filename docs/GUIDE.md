@@ -36,6 +36,8 @@ Assistant, so nothing on the PC is exposed to the network and no MQTT broker is
 needed. In the code and in [LINK.md](LINK.md) this connection is called
 *Deskmate Link*.
 
+On Linux, a daemon brings the sensors and power buttons: see [LINUX.md](LINUX.md).
+
 ## 2. Install the Home Assistant integration
 
 With HACS (Deskmate is in the default catalog, no custom repository needed):

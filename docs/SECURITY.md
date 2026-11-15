@@ -1,6 +1,7 @@
 # Security
 
-Last reviewed: 2026-11-15. Scope: Deskmate 0.8.5: the Windows app, the Home
+Last reviewed: 2026-11-15. Scope: Deskmate 0.8.5: the Windows app, the
+[Linux daemon](#the-linux-daemon), the Home
 Assistant integration (`deskmate_link`), the Deskmate Link connection between
 them, the optional MQTT and REST channels, what Home Assistant can do on
 the PC through them, and the local channel for the Stream Deck plugin, which
@@ -182,6 +183,72 @@ The [Deskmate service](#the-deskmate-service) uses the same seat. It takes it
 only while no app wants it and gives it up as soon as one does. An app whose
 user pressed *Disconnect* keeps the seat without connecting while the service
 is installed, so the service does not connect against the user's wish.
+
+## The Linux daemon
+
+The Linux preview is a daemon without a window ([LINUX.md](LINUX.md)). It
+serves the machine scope only: the sensors that need no user and the four
+power buttons. Home Assistant's `notify` and `fs` requests get an immediate
+refusal, and every other command key is refused and never run, as in the
+Windows service.
+
+**The user.** It runs as the system user `deskmate` (systemd-sysusers, no
+home, no login shell), not as root and not with `DynamicUser`: the files that
+`pair` writes and the polkit rule both need a user that exists before the
+daemon first starts.
+
+**The unit.** `deskmate.service` takes every capability away
+(`CapabilityBoundingSet=` empty, `NoNewPrivileges=yes`), mounts the system
+read-only (`ProtectSystem=strict`), hides the home folders, `/tmp`, the
+devices, the kernel's tunables, modules, logs and clock, other users'
+processes (`ProtectProc=invisible`) and the control groups, refuses socket
+families other than Unix, IPv4 and IPv6, new namespaces, realtime scheduling,
+set-user-id files, writable and executable memory and system calls outside
+`@system-service` (minus `@privileged` and `@resources`). It can write only
+its state folder and its runtime folder. `systemd-analyze security` rates it
+1.2 ("OK"). What keeps the number from going lower is what the daemon needs:
+the network for Home Assistant, Unix sockets for D-Bus and the seat, and
+`/proc` for the CPU and memory sensors.
+
+**The polkit rule.** `50-deskmate.rules` answers yes for the user `deskmate`
+to `org.freedesktop.login1.suspend`, `hibernate`, `power-off` and `reboot`,
+each also in its `-multiple-sessions` form, so the buttons work while other
+users are signed in. Every other polkit action asked for by `deskmate` is
+refused, the `-ignore-inhibit` forms included: a program that holds an
+inhibitor lock still blocks the button. Nothing changes for any other user.
+The daemon runs these four actions through `systemctl suspend`, `hibernate`,
+`poweroff` and `reboot`, a fixed table that nothing received from the network
+reaches.
+
+**The keys.** The pairing key and the optional cascade key are files in
+`/var/lib/deskmate` (`machine.deskmate-service-link.key` and
+`machine.deskmate-service-link-cascade.key`), mode 0600, owned by
+`deskmate`, in a folder with mode 0700. Root and the daemon can read them;
+the daemon refuses a key file that the group or others can read. The
+settings in `/etc/deskmate/config.json` hold no key; they are mode 0600 and
+read-only for the daemon. At start the daemon refuses both folders if they
+belong to someone other than root or `deskmate`, or if the group or others
+can write to them. `deskmate-service pair` reads the pairing code from
+standard input, never from the command line, where it would land in the
+shell history and in the process list. It writes as root and then gives the
+files to `deskmate`.
+
+**What any local user sees.** `/run/deskmate/status.json` is readable by
+every user. It holds the state, the node id, a short fixed text and the
+settings fingerprint (HMAC-SHA256 under the pairing key), never an address or
+a key. The seat is an abstract Unix socket named after the node; a local
+program could bind it first and keep the daemon offline, a local denial of
+service only.
+
+**The log.** The daemon logs to the journal (`journalctl -u deskmate`)
+without keys, frames or anything Home Assistant sent. Power commands and their
+results go to `/var/lib/deskmate/security.log`, readable by root and the
+daemon only.
+
+**Sleep.** `deskmate-sleep.service` runs as root under `sleep.target` and
+sends the daemon SIGUSR1 before a sleep and SIGUSR2 after the wake-up, through
+`systemctl kill`. The daemon does not listen on D-Bus for logind's signals:
+monitoring the system bus needs root.
 
 ## What Home Assistant can do on the PC
 

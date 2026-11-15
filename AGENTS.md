@@ -18,7 +18,8 @@ by anyone, and so is the history.
 |---|---|---|
 | `src-tauri/` | Windows app, x64 and ARM64, and the root of the Cargo workspace | Rust, Tauri 2 |
 | `src-tauri/crates/core/` | `deskmate-core`, the library for code that must not depend on Tauri: configuration, the Link protocol, the entity descriptors, and the sensors and commands that work without a signed-in user | Rust |
-| `src-tauri/crates/service/` | `deskmate-service`, the Windows service that keeps the computer connected while nobody is signed in. Everything outside its `win` module is platform-neutral | Rust |
+| `src-tauri/crates/service/` | `deskmate-service`, the Windows service that keeps the computer connected while nobody is signed in, and the Linux daemon (preview). Everything outside its `win` and `linux` modules is platform-neutral | Rust |
+| `packaging/linux/` | The Linux daemon's systemd units, polkit rule, install script and package build | systemd, POSIX sh |
 | `src/` | The app's window | React 19, TypeScript strict, Tailwind 4 |
 | `custom_components/deskmate_link/` | Home Assistant integration, in the default HACS catalog | Python |
 | `streamdeck-plugin/` | Stream Deck plugin, versioned on its own | Node 24, TypeScript strict, Stream Deck SDK 3 |
@@ -307,6 +308,8 @@ most mistakes.
 |---|---|---|
 | `src-tauri/`, `crates/core` included | `cargo fmt --all --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` | formatted, no warnings, all tests pass |
 | `src-tauri/crates/service/` | the row above, then `cargo clippy -p deskmate-service --all-targets --features test-hooks -- -D warnings`, `cargo build -p deskmate-service --features test-hooks` and `python tests/service_e2e.py --console` | no warnings; the script ends with "end-to-end test passed" |
+| `src-tauri/crates/service/`, its Linux side | on Linux or in WSL: `cargo clippy -p deskmate-service --all-targets -- -D warnings` and `cargo test -p deskmate-service`, each also with `--features test-hooks`, then `cargo build -p deskmate-service --features test-hooks` and `python3 tests/daemon_e2e.py --binary <that build> --hub-python <a Python with aiohttp and cryptography>` | no warnings, all tests pass; the script ends with "end-to-end test passed" |
+| `packaging/linux/` | `systemd-analyze verify` on both units (with the program at `/usr/bin/deskmate-service`, as in the `daemon` job of CI) and `systemd-analyze security --offline=yes --threshold=15 packaging/linux/deskmate.service` | no errors; exposure 1.5 or lower |
 | Rust dependencies | `cargo tree --workspace --prefix none --target <target>` for both Windows targets, `cargo tree -p deskmate-core`, `cargo tree -p deskmate-service` | no `ring`, `openssl`, `openssl-sys` or `rustls` for a Windows target; no `tauri` crate under `deskmate-core` or `deskmate-service` |
 | `src/` | `npx tsc --noEmit`, `npm run lint` | no errors |
 | `streamdeck-plugin/` | `npx tsc --noEmit`, `npm run lint`, `npm test`, `npm run build` in that folder | no errors, all tests pass, the check after the build passes |
@@ -351,7 +354,11 @@ installing the app, anything that talks to Home Assistant, browser or
 screenshot verification, and multi-agent audit workflows. Installing the
 service on a developer's computer belongs here too, and so does
 `tests/service_e2e.py --service`, which installs it for real: that mode is
-for the `service` job in CI.
+for the `service` job in CI. The same goes for the Linux daemon: installing
+its package, enabling its units, creating its user, or running a release
+build of `deskmate-service run` or `pair` against the real folders.
+`tests/daemon_e2e.py` installs nothing and runs a test-hooks build in
+temporary folders, so it runs without asking.
 
 Most behaviour here needs real hardware or a live Home Assistant, which you
 cannot verify. So every reply that finishes code work ends with a manual test
@@ -433,6 +440,7 @@ it. This is the standard for this repository:
 | Secret scan | gitleaks with `.gitleaks.toml`: locally in `.githooks/pre-commit`, in CI as the `secrets` job of `ci.yml` |
 | Code CI | `.github/workflows/ci.yml`: the checks from section 8 on every push and pull request, including the ARM64 target and the dependency-tree rule |
 | The service, end to end | the `service` job of `ci.yml`: installs `deskmate-service` as LocalSystem on the runner, drives it with the fake hub and checks that uninstalling leaves nothing |
+| The Linux daemon | the `daemon` job of `ci.yml`: lints and tests the crate on Linux, runs `tests/daemon_e2e.py` against the fake hub, and checks the units with `systemd-analyze verify` and `security`; `daemon-package` builds the `.deb` and the tarball for x86_64 and aarch64 as workflow artifacts |
 | Dependency audit | `.github/workflows/audit.yml` (`cargo audit`, `npm audit`) and `.github/dependabot.yml` |
 | Formatters and linters | rustfmt and clippy (`src-tauri/`), Biome (`src/`, `streamdeck-plugin/`), ruff (the integration and `scripts/`) |
 | Stream Deck plugin | the `streamdeck` job of `ci.yml`: type check, Biome, unit tests, and a build that checks the built folder and runs the bundle against stand-ins |

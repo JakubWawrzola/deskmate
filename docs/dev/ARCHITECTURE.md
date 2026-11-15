@@ -110,7 +110,7 @@ plugin.
 |---|---|---|
 | `deskmate` | `src-tauri/` | The app: window, tray, Tauri commands, the connection loops (`mqtt.rs`, `link.rs`, `transport.rs`) and everything that reads or acts on the signed-in user's session (`sensors.rs`, `sys_commands.rs`, `audio.rs`, `media.rs`, `clipboard.rs`, `keys.rs`, `family.rs`, `notify.rs`, `link_files.rs`) |
 | `deskmate-core` | `src-tauri/crates/core/` | Code that does not depend on Tauri and works without a signed-in user. A program without a window, such as a service or a daemon, is built on it. It builds for Windows and for Linux |
-| `deskmate-service` | `src-tauri/crates/service/` | The Windows service: the computer's sensors and power buttons while nobody is signed in. Described under [The Windows service](#the-windows-service) |
+| `deskmate-service` | `src-tauri/crates/service/` | The Windows service and the Linux daemon: the computer's sensors and power buttons while nobody is signed in. Described under [The Windows service](#the-windows-service) and [The Linux daemon](#the-linux-daemon) |
 
 Modules of `deskmate-core`:
 
@@ -150,7 +150,7 @@ behind `cfg(windows)` and `cfg(target_os = "linux")`.
 | `gpu_usage`, `gpu_memory`, `gpu_memory_total`, `gpu_temperature` | PDH counters, DXGI, WMI | The DRM devices in sysfs, for AMD and Intel, as far as the driver has the files. NVIDIA is not covered |
 | Entities a computer may lack (`machine::Offered`) | All are declared | `battery`, `ac_power` and the Hibernate button are declared only when the computer has them. Hibernation needs `disk` in `/sys/power/state` and a "yes" from logind |
 | Power commands | `rundll32` and `shutdown` | `systemctl suspend`, `hibernate`, `poweroff`, `reboot` |
-| Seat | Named objects in the `Global\` namespace. A session is in use while Windows reports it active | Unix sockets in the abstract namespace. A desktop app is in use while the virtual terminal of its session is on the screen; the daemon declares itself with `seat::linux::set_role` and yields to any waiting app |
+| Seat | Named objects in the `Global\` namespace. A session is in use while Windows reports it active | Unix sockets in the abstract namespace. A desktop app is in use while the virtual terminal of its session is on the screen; the daemon declares itself with `seat::linux::set_role`, asks `machine_turn` like the Windows service and yields to any waiting app |
 | Device model | "Deskmate for Windows" | "Deskmate for Linux" |
 | Confirmation dialog (`security::confirm`) | A message box | None: the answer is no |
 
@@ -164,8 +164,9 @@ checks on Linux in its own job, with and without the `secret-service` feature.
 Deskmate app wants it. It declares only the machine scope
 (`deskmate_core::machine`): the sensors that need no user and the four power
 buttons. The crate is a library (`deskmate_service`) and a program
-(`deskmate-service.exe`). Everything outside the `win` module is
-platform-neutral.
+(`deskmate-service.exe`). Everything outside the `win` and `linux` modules
+is platform-neutral; the same runner drives the
+[Linux daemon](#the-linux-daemon).
 
 | Module | What |
 |---|---|
@@ -176,16 +177,18 @@ platform-neutral.
 | `secrets` | `KeyStore`, `CredentialVault` (keyring) and, with `test-hooks`, `KeyFile` |
 | `provisioning` | `Provisioner` (settings and keys together), `AdminActions` (what an admin frame does) |
 | `admin` | The frames of the admin pipe: `parse`, `Request`, `Refusal`, the answers, `provision_frame` for a client |
-| `status`, `retry`, `audit`, `logging`, `cli` | The status line, the retry schedule, `security.log`, `service.log`, the command line |
+| `status`, `retry`, `audit`, `logging`, `cli` | The status line, the retry schedule, `security.log`, `service.log`, the Windows command line |
+| `pairing` | The `DMP1.` pairing code, read as `src/pairing.ts` reads it, and the settings it leads to |
 | `win` | `host` puts the parts together; `service` (service manager), `pipes`, `security` (descriptors, folder check, elevation), `install` |
+| `linux` | `host` puts the parts together; `events` (signals, wake-ups), `status_file`, `keys` (key files), `pair`, `files`, `journal`, `cli` and `app` (the Linux command line) |
 
 ### What the runner does
 
 1. Takes the seat when no app waits for it (`seat::machine_turn`).
 2. Connects to `link_url`, then `link_url_remote`, with the delays the app
    uses (`retry::RetrySchedule`).
-3. Sends `info` with `role: "service"` and waits 10 seconds for Home
-   Assistant's `info`.
+3. Sends `info` with `role: "service"` (`"daemon"` on Linux) and waits 10
+   seconds for Home Assistant's `info`.
 4. Without the `scoped_declare` capability, or without an answer, it sends
    no `declare`: an integration older than 0.9.0 would delete the user's
    other entities. It closes, frees the seat, shows `integration_too_old`
@@ -355,6 +358,67 @@ The unit tests cover the runner against a stand-in hub with paused time, and
 the parsers. `tests/service_e2e.py` runs the program against
 `scripts/fake_link_hub.py`: `--console` on a developer's machine, `--service`
 in the `service` job of CI, which installs the service for real.
+
+## The Linux daemon
+
+The same crate builds `deskmate-service` for Linux, with the `linux` module
+in place of `win`. systemd starts it as the system user `deskmate`
+(`packaging/linux/deskmate.service`). It is the computer's only Deskmate
+client for now: it sends `info` with `role: "daemon"` and
+`platform: "linux"` and declares the machine scope, with everything the
+runner does on Windows (the `scoped_declare` gate, states, pings, the four
+power commands behind the five-minute valve, `bye`, reconnecting). `notify`
+and `fs` get `ok: false` with "not supported by the Deskmate daemon". A Linux
+desktop app will take the connection over through the seat
+(`seat::machine_turn`, `seat::release`), as the Windows app does with the
+service.
+
+| Path | What |
+|---|---|
+| `/etc/deskmate/config.json` | The settings, the schema and checks of the Windows `config.json`. Mode 0600, owned by `deskmate`, read-only under `ProtectSystem=strict` |
+| `/var/lib/deskmate/machine.deskmate-service-link.key` | The pairing key, a key file of `deskmate_core::secrets` (mode 0600; looser modes are refused). `machine.deskmate-service-link-cascade.key` with cascade encryption |
+| `/var/lib/deskmate/security.log` | `<unix time> <event> <result>`, as on Windows |
+| `/run/deskmate/status.json` | The status line of the Windows status pipe, mode 0644, written through a temporary file and a rename on every change, removed at exit |
+
+The log goes to stderr with a `<n>` syslog priority in front of each line,
+which journald reads. At start the daemon refuses the config and state
+folders when they belong to someone other than root or its own user, or when
+the group or others can write to them.
+
+| Event | Source |
+|---|---|
+| `Stop` | SIGINT, or SIGTERM while `systemctl is-system-running` does not answer `stopping` |
+| `Shutdown` | SIGTERM while it does |
+| `Reload` | SIGHUP (`systemctl reload deskmate`) |
+| `Suspend` | SIGUSR1 from `deskmate-sleep.service` (`Before=sleep.target`) |
+| `Resume` | SIGUSR2 from the same unit when `sleep.target` stops, and the clock check: every 5 s the gap between `/proc/uptime` (with sleep) and `Instant` (without) is compared, and a growth of more than 3 s is a wake-up |
+
+logind's `PrepareForSleep` is not used: hearing it takes a D-Bus client, and
+`busctl monitor` needs root on the system bus.
+
+| Command | What |
+|---|---|
+| `deskmate-service run` | What systemd starts |
+| `deskmate-service pair` | Reads a `DMP1.` code from stdin (never from an argument), checks the key, writes the key files and then `config.json`, gives them to `deskmate` and asks systemd to reload the daemon. Needs root |
+| `deskmate-service unpair` | Removes `config.json` and both key files. Needs root |
+| `deskmate-service status` | Prints the status file |
+
+Exit codes: 0 done, 1 failed, 2 wrong usage, 5 `pair` or `unpair` without
+root. A build with `test-hooks` adds `console` (the daemon in the
+foreground; stdin takes `stop`, `shutdown`, `suspend`, `resume` and
+`reload`, and SIGTERM is always a stop), `--config-dir`, `--data-dir`,
+`--status-file` and `--dry-run-power`; with its own folders `pair` and
+`unpair` need no root and change no owner.
+
+`packaging/linux/` holds the units, the polkit rule (`50-deskmate.rules`),
+the sysusers and tmpfiles snippets, `install.sh` for the tarball, the Debian
+maintainer scripts and `build.sh`, which packs a release binary into
+`deskmate-daemon_<version>_<arch>.deb` and
+`deskmate-daemon-<version>-<arch>-linux.tar.gz`. The `daemon` job of CI runs
+the crate's lints and tests on Linux with and without `test-hooks`,
+`tests/daemon_e2e.py` against the fake hub, and `systemd-analyze verify` and
+`security` on the units; `daemon-package` builds both packages on Ubuntu
+22.04, x86_64 and aarch64, and keeps them as workflow artifacts.
 
 ## Dependencies
 
