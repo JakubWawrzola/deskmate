@@ -70,3 +70,13 @@ export function describeStatus(status: ConnectionStatus): StatusText {
   }
   return { text: "Not connected.", hint: `${OPEN_DESKMATE}, or ${ENTER_ADDRESS}.` };
 }
+
+/**
+ * The same for a Deskmate Action key. Only the app can run its actions, so
+ * the connection setting and the Direct connection do not come into it.
+ */
+export function describeAppStatus(channel: ChannelStatus): StatusText {
+  return channel.state === "ready"
+    ? { text: "Connected to the Deskmate app.", hint: undefined }
+    : { text: "Not connected to the Deskmate app.", hint: channelHint(channel) };
+}

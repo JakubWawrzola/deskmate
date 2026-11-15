@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Deskmate Action</title>
+    <!-- Elgato's property inspector components, as in the official plugin template -->
+    <script src="https://sdpi-components.dev/releases/v4/sdpi-components.js"></script>
+    <link rel="stylesheet" href="inspector.css" />
+  </head>
+  <body>
+    <!-- Key settings. The name is saved next to the id, so the choice still
+         reads well while Deskmate is closed and the list is empty. -->
+    <sdpi-item label="Action">
+      <sdpi-select
+        setting="actionId"
+        label-setting="actionName"
+        datasource="getActions"
+        placeholder="Choose an action"
+        loading="Loading actions..."
+        hot-reload
+        show-refresh
+      ></sdpi-select>
+    </sdpi-item>
+
+    <!-- These actions run in the Deskmate app, so only its connection matters -->
+    <sdpi-item label="Status">
+      <p id="status-text" class="status" role="status"></p>
+      <p id="status-hint" class="status hint" hidden></p>
+    </sdpi-item>
+
+    <script src="inspector.js"></script>
+  </body>
+</html>

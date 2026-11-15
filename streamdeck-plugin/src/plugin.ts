@@ -3,6 +3,7 @@ import { userInfo } from "node:os";
 import streamDeck from "@elgato/streamdeck";
 import { ActivateScene } from "./actions/activate-scene.ts";
 import { CallService } from "./actions/call-service.ts";
+import { DeskmateAction } from "./actions/deskmate-action.ts";
 import { ToggleEntity } from "./actions/toggle-entity.ts";
 import { ChannelClient } from "./channel/client.ts";
 import { resolvePipePath } from "./channel/pipe-name.ts";
@@ -36,6 +37,9 @@ streamDeck.actions.registerAction(
 );
 streamDeck.actions.registerAction(
   new ActivateScene(hub, streamDeck.logger.createScope("activate-scene")),
+);
+streamDeck.actions.registerAction(
+  new DeskmateAction(hub, streamDeck.logger.createScope("deskmate-action")),
 );
 connectInspector(hub, streamDeck.logger.createScope("inspector"));
 

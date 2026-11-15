@@ -181,6 +181,16 @@ const houseSymbol = (x, y) => {
   return false;
 };
 
+const boltSymbol = (x, y) =>
+  inPolygon(x, y, [
+    [41, 11],
+    [19, 40],
+    [33, 40],
+    [29, 61],
+    [53, 31],
+    [38, 31],
+  ]);
+
 // palette (monochrome, like the Deskmate window)
 const WHITE = [255, 255, 255, 255];
 const NEAR_BLACK = [17, 17, 19, 255];
@@ -227,6 +237,12 @@ const files = [
   ["actions/scene/icon@2x.png", 40, bare(sunSymbol, WHITE)],
   ["actions/scene/key.png", 72, key(sunSymbol, BG_DARK, WHITE)],
   ["actions/scene/key@2x.png", 144, key(sunSymbol, BG_DARK, WHITE)],
+
+  // Deskmate Action: bolt
+  ["actions/deskmate/icon.png", 20, bare(boltSymbol, WHITE)],
+  ["actions/deskmate/icon@2x.png", 40, bare(boltSymbol, WHITE)],
+  ["actions/deskmate/key.png", 72, key(boltSymbol, BG_DARK, WHITE)],
+  ["actions/deskmate/key@2x.png", 144, key(boltSymbol, BG_DARK, WHITE)],
 ];
 
 for (const [rel, size, paint] of files) {

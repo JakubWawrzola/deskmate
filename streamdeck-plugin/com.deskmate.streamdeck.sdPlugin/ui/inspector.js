@@ -26,8 +26,10 @@
     statusText.textContent = status.text;
     statusHint.textContent = status.hint;
     statusHint.hidden = status.hint === "";
-    // The address and token mean nothing while only the app is used.
-    directSettings.hidden = status.mode === "deskmate";
+    if (directSettings) {
+      // The address and token mean nothing while only the app is used.
+      directSettings.hidden = status.mode === "deskmate";
+    }
   }
 
   function showPicker(items) {

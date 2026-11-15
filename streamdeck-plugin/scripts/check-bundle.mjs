@@ -26,6 +26,7 @@ const STEP_TIMEOUT_MS = 15_000;
 const DEVICE_ID = "check-device";
 const HA_TOKEN = "check-token";
 const ENTITY_ID = "light.desk";
+const ACTION_ID = "hotkey:lights";
 
 const pluginDir = join(dirname(fileURLToPath(import.meta.url)), "..", PLUGIN_FOLDER);
 
@@ -278,6 +279,10 @@ class AppStandIn {
       case "toggle":
       case "call":
         return { ok: true };
+      case "actions":
+        return { ok: true, actions: [{ id: ACTION_ID, name: "Lights" }] };
+      case "run":
+        return request.action === ACTION_ID ? { ok: true } : { ok: false, error: "unknown_action" };
       default:
         return { ok: false, error: "bad_request" };
     }
@@ -407,6 +412,14 @@ async function checkBehaviour(manifest) {
   const toggleKey = "check-toggle";
   const serviceKey = "check-service";
   const sceneKey = "check-scene";
+  const actionKey = "check-action";
+
+  const inspect = (action, context) =>
+    streamDeck.send({ event: "propertyInspectorDidAppear", action, context, device: DEVICE_ID });
+  const stopInspecting = (action, context) =>
+    streamDeck.send({ event: "propertyInspectorDidDisappear", action, context, device: DEVICE_ID });
+  const ask = (action, context, event) =>
+    streamDeck.send({ event: "sendToPlugin", action, context, payload: { event } });
 
   try {
     const port = await streamDeck.ready();
@@ -518,27 +531,44 @@ async function checkBehaviour(manifest) {
     );
     await streamDeck.expect("showOk", sceneKey);
 
-    // The property inspector of the toggle key.
-    streamDeck.send({
-      event: "propertyInspectorDidAppear",
-      action: uuid("toggle"),
-      context: toggleKey,
-      device: DEVICE_ID,
-    });
-    const ask = (event) =>
-      streamDeck.send({
-        event: "sendToPlugin",
-        action: uuid("toggle"),
-        context: toggleKey,
-        payload: { event },
-      });
-    ask("getStatus");
+    // A Deskmate action: one the app knows, then one it does not.
+    const actionSettings = { actionId: ACTION_ID, actionName: "Lights" };
+    streamDeck.appear(uuid("action"), actionKey, actionSettings);
+    streamDeck.press(uuid("action"), actionKey, actionSettings);
+    await app.expect("run", (request) => request.action === ACTION_ID);
+    await streamDeck.expect("showOk", actionKey);
+    streamDeck.press(uuid("action"), actionKey, { actionId: "hotkey:gone" });
+    await app.expect("run", (request) => request.action === "hotkey:gone");
+    await streamDeck.expect("showAlert", actionKey);
+
+    // The property inspector of the Deskmate Action key, then of the toggle key.
+    inspect(uuid("action"), actionKey);
+    ask(uuid("action"), actionKey, "getActions");
+    await streamDeck.expect(
+      "sendToPropertyInspector",
+      actionKey,
+      (message) =>
+        message.payload.event === "getActions" &&
+        message.payload.items.some((group) =>
+          group.children?.some((item) => item.value === ACTION_ID),
+        ),
+    );
+    ask(uuid("action"), actionKey, "getStatus");
+    await streamDeck.expect(
+      "sendToPropertyInspector",
+      actionKey,
+      (message) => message.payload.event === "status" && message.payload.active === "deskmate",
+    );
+    stopInspecting(uuid("action"), actionKey);
+
+    inspect(uuid("toggle"), toggleKey);
+    ask(uuid("toggle"), toggleKey, "getStatus");
     await streamDeck.expect(
       "sendToPropertyInspector",
       toggleKey,
       (message) => message.payload.event === "status" && message.payload.active === "deskmate",
     );
-    ask("getEntities");
+    ask(uuid("toggle"), toggleKey, "getEntities");
     await streamDeck.expect(
       "sendToPropertyInspector",
       toggleKey,
@@ -584,9 +614,8 @@ async function checkBehaviour(manifest) {
     await streamDeck.expect("showOk", sceneKey);
     confirmed.push("keys work against a stand-in for Home Assistant");
 
-    // With neither connection, a press is answered with an alert. In direct
-    // mode the plugin had let go of the app's channel, so the app can leave
-    // before the plugin is told to look for it again.
+    // With neither connection, a press is answered with an alert. The app
+    // leaves first, so that the plugin cannot find it again.
     await app.close();
     streamDeck.send({ event: "didReceiveGlobalSettings", payload: { settings: {} } });
     await streamDeck.expect(
@@ -596,6 +625,8 @@ async function checkBehaviour(manifest) {
     );
     streamDeck.press(uuid("toggle"), toggleKey, toggleSettings);
     await streamDeck.expect("showAlert", toggleKey);
+    streamDeck.press(uuid("action"), actionKey, actionSettings);
+    await streamDeck.expect("showAlert", actionKey);
     confirmed.push("without a connection a press shows the alert");
 
     return confirmed;

@@ -2,12 +2,15 @@ import streamDeck from "@elgato/streamdeck";
 import type { ConnectionHub } from "./connection/hub.ts";
 import { errorCode } from "./errors.ts";
 import {
+  actionItems,
   entityDomainsFor,
   entityItems,
+  type InspectorGroup,
   type InspectorItem,
   readInspectorRequest,
   statusMessage,
 } from "./inspector-items.ts";
+import { ACTION_UUID } from "./plugin-info.ts";
 
 type InspectorLog = { warn(message: string): void };
 
@@ -18,12 +21,13 @@ type InspectedAction = {
 };
 
 /**
- * Answers the property inspectors: which connection is in use, and which
- * entities can be picked. Both are sent again whenever the connection
- * changes, so an open inspector follows along.
+ * Answers the property inspectors: which connection is in use, which
+ * entities can be picked and which Deskmate actions exist. All of it is sent
+ * again whenever the connection changes, so an open inspector follows along.
  */
 export function connectInspector(hub: ConnectionHub, log: InspectorLog): void {
-  const sendStatus = () => streamDeck.ui.sendToPropertyInspector(statusMessage(hub.status));
+  const sendStatus = (action: InspectedAction) =>
+    streamDeck.ui.sendToPropertyInspector(statusMessage(hub.status, action.manifestId));
 
   const sendEntities = async (action: InspectedAction) => {
     let items: InspectorItem[] = [];
@@ -37,20 +41,36 @@ export function connectInspector(hub: ConnectionHub, log: InspectorLog): void {
     await streamDeck.ui.sendToPropertyInspector({ event: "getEntities", items });
   };
 
+  const sendActions = async () => {
+    let items: (InspectorItem | InspectorGroup)[] = [];
+    try {
+      items = actionItems(await hub.listActions());
+    } catch (error) {
+      log.warn(`Listing Deskmate actions failed: ${errorCode(error)}`);
+    }
+    await streamDeck.ui.sendToPropertyInspector({ event: "getActions", items });
+  };
+
+  /** The list the inspector of this action shows. */
+  const sendList = (action: InspectedAction) =>
+    action.manifestId === ACTION_UUID.deskmateAction ? sendActions() : sendEntities(action);
+
   streamDeck.ui.onSendToPlugin((ev) => {
     const request = readInspectorRequest(ev.payload);
     if (request === "getStatus") {
-      void sendStatus();
+      void sendStatus(ev.action);
     } else if (request === "getEntities") {
       void sendEntities(ev.action);
+    } else if (request === "getActions") {
+      void sendActions();
     }
   });
 
   hub.onStatus(() => {
-    void sendStatus();
     const inspected = streamDeck.ui.action;
     if (inspected) {
-      void sendEntities(inspected);
+      void sendStatus(inspected);
+      void sendList(inspected);
     }
   });
 }

@@ -8,4 +8,5 @@ export const ACTION_UUID = {
   toggleEntity: `${PLUGIN_UUID}.toggle`,
   callService: `${PLUGIN_UUID}.call-service`,
   activateScene: `${PLUGIN_UUID}.scene`,
+  deskmateAction: `${PLUGIN_UUID}.action`,
 } as const;

@@ -3,7 +3,7 @@
 	"Name": "Deskmate for Home Assistant",
 	"Version": "0.2.0.0",
 	"Author": "Jakub Wawrzola",
-	"Description": "Control Home Assistant from Stream Deck: toggle entities with live state, call any service, activate scenes.",
+	"Description": "Control Home Assistant from Stream Deck, through the Deskmate app or directly: toggle entities with live state, call any service, activate scenes, and run the actions you defined in Deskmate.",
 	"Category": "Deskmate",
 	"CategoryIcon": "imgs/plugin/category-icon",
 	"CodePath": "bin/plugin.js",
@@ -66,6 +66,20 @@
 			"States": [
 				{
 					"Image": "imgs/actions/scene/key",
+					"TitleAlignment": "bottom"
+				}
+			]
+		},
+		{
+			"Name": "Deskmate Action",
+			"UUID": "com.deskmate.streamdeck.action",
+			"Icon": "imgs/actions/deskmate/icon",
+			"Tooltip": "Run an action you defined in Deskmate: a hotkey or a tray quick action.",
+			"PropertyInspectorPath": "ui/deskmate-action.html",
+			"Controllers": ["Keypad"],
+			"States": [
+				{
+					"Image": "imgs/actions/deskmate/key",
 					"TitleAlignment": "bottom"
 				}
 			]
