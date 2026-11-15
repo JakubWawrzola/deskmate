@@ -84,6 +84,8 @@ features = [
   "Win32_Foundation",
   "Win32_UI_WindowsAndMessaging",
   "Win32_UI_Input_KeyboardAndMouse",
+  # game controller input for the idle time sensor (gamepad.rs)
+  "Win32_UI_Input_XboxController",
   "Win32_System_SystemInformation",
   "Win32_System_StationsAndDesktops",
   "Win32_System_Shutdown",

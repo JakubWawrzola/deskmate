@@ -10,6 +10,7 @@ mod dashboard;
 mod discovery;
 mod family;
 mod farewell;
+mod gamepad;
 mod ha_api;
 mod hotkeys;
 mod keys;

@@ -12,6 +12,8 @@ pub struct Collector {
     machine: deskmate_core::sensors::MachineCollector,
     last_clipboard_fingerprint: Option<u64>,
     approved_clipboard_fingerprint: Option<u64>,
+    /// Game controller input for the idle sensors, while they are on.
+    gamepad: Option<crate::gamepad::Watcher>,
 }
 
 impl Collector {
@@ -20,6 +22,7 @@ impl Collector {
             machine: deskmate_core::sensors::MachineCollector::new(),
             last_clipboard_fingerprint: None,
             approved_clipboard_fingerprint: None,
+            gamepad: None,
         }
     }
 
@@ -40,11 +43,27 @@ impl Collector {
 
         #[cfg(windows)]
         {
-            if is_enabled(cfg, "idle") {
-                out.insert("idle".into(), win::idle_seconds().to_string());
-            }
-            if is_enabled(cfg, "last_active") {
-                out.insert("last_active".into(), last_active(win::idle_seconds()));
+            let idle_on = is_enabled(cfg, "idle");
+            let last_active_on = is_enabled(cfg, "last_active");
+            if idle_on || last_active_on {
+                if self.gamepad.is_none() {
+                    self.gamepad = crate::gamepad::Watcher::start();
+                }
+                let idle = crate::gamepad::combined_idle_seconds(
+                    win::idle_seconds(),
+                    self.gamepad
+                        .as_ref()
+                        .and_then(crate::gamepad::Watcher::idle_seconds),
+                );
+                if idle_on {
+                    out.insert("idle".into(), idle.to_string());
+                }
+                if last_active_on {
+                    out.insert("last_active".into(), last_active(idle));
+                }
+            } else {
+                // Stops polling the controllers.
+                self.gamepad = None;
             }
             crate::custom_sensors::collect(cfg, &mut out);
             if is_enabled(cfg, "session_locked") {
