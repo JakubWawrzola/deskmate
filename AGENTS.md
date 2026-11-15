@@ -165,9 +165,11 @@ into logs or into the chat.
 
 - A new dependency is a decision. Say in the commit body why it is needed and
   what you considered instead.
-- The Rust crypto and TLS stack is pure Rust or Windows Schannel. `cargo tree`
-  must not list `ring`, `openssl` or `rustls`: they pull in a C toolchain and
-  break the ARM64 build.
+- On the Windows targets the Rust crypto and TLS stack is pure Rust or Windows
+  Schannel. `cargo tree --workspace --prefix none --target x86_64-pc-windows-msvc`
+  and the same for `aarch64-pc-windows-msvc` must not list `ring`, `openssl`,
+  `openssl-sys` or `rustls`: they pull in a C toolchain and break the ARM64
+  build. On Linux the system's OpenSSL through `native-tls` is allowed.
 - Lockfiles are committed. Nothing is installed through a piped shell script
   or from an unpinned git reference.
 - GitHub Actions are pinned to a commit SHA and CI tools to a version. The
@@ -295,7 +297,7 @@ most mistakes.
 | You changed | Run | Expect |
 |---|---|---|
 | `src-tauri/`, `crates/core` included | `cargo fmt --all --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` | formatted, no warnings, all tests pass |
-| Rust dependencies | `cargo tree --workspace`, `cargo tree -p deskmate-core` | no `ring`, `openssl` or `rustls`; no `tauri` crate under `deskmate-core` |
+| Rust dependencies | `cargo tree --workspace --prefix none --target <target>` for both Windows targets, `cargo tree -p deskmate-core` | no `ring`, `openssl`, `openssl-sys` or `rustls` for a Windows target; no `tauri` crate under `deskmate-core` |
 | `src/` | `npx tsc --noEmit`, `npm run lint` | no errors |
 | `streamdeck-plugin/` | `npx tsc --noEmit`, `npm run lint`, `npm test`, `npm run build` in that folder | no errors, all tests pass, the check after the build passes |
 | The integration | `ruff check` and `ruff format --check` on `custom_components scripts tests`, `python -m py_compile` on the changed files, `python -m pytest` | no errors, all tests pass |

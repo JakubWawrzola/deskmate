@@ -150,9 +150,47 @@ jobs:
       - run: cargo test --workspace
       - name: The ARM64 target still compiles
         run: cargo check --workspace --target aarch64-pc-windows-msvc
-      - name: No C toolchain in the dependency tree
+      # Asked per target: the tree of a Linux target may hold the system's
+      # OpenSSL, the tree of a Windows target may not.
+      - name: No C toolchain in the dependency tree of the Windows targets
         run: |
-          if cargo tree --workspace --prefix none | grep -E '^(ring|openssl|openssl-sys|rustls) '; then
-            echo "::error::ring, openssl and rustls break the ARM64 build (AGENTS.md section 5.5)"
-            exit 1
-          fi
+          for target in x86_64-pc-windows-msvc aarch64-pc-windows-msvc; do
+            tree=$(cargo tree --workspace --prefix none --target "$target")
+            if echo "$tree" | grep -E '^(ring|openssl|openssl-sys|rustls) '; then
+              echo "::error::ring, openssl and rustls break the Windows ARM64 build (AGENTS.md section 5.5); found for $target"
+              exit 1
+            fi
+          done
+
+  core-linux:
+    name: Core on Linux (Rust)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src-tauri
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # libdbus is what the `secret-service` feature links. Without the
+      # feature the crate needs no system package.
+      - name: Install the system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y libdbus-1-dev pkg-config
+      - name: Install the Rust toolchain
+        run: |
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal --no-self-update \
+            --component clippy --target aarch64-unknown-linux-gnu
+          rustup default "$RUST_TOOLCHAIN"
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: src-tauri
+      # The crate as a program without a user builds it: secrets in key files.
+      - run: cargo clippy -p deskmate-core --all-targets -- -D warnings
+      - run: cargo test -p deskmate-core
+      # The crate as a desktop app builds it: the user's keyring as well.
+      - run: cargo clippy -p deskmate-core --all-targets --features secret-service -- -D warnings
+      - run: cargo test -p deskmate-core --features secret-service
+      - name: The ARM64 target still compiles
+        run: cargo check -p deskmate-core --target aarch64-unknown-linux-gnu
