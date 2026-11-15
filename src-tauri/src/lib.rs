@@ -20,6 +20,7 @@ mod mqtt;
 mod notify;
 mod processes;
 mod sensors;
+mod service;
 mod state;
 mod streamdeck;
 mod sys_commands;
@@ -1231,7 +1232,10 @@ pub fn run() {
             streamdeck::streamdeck_status,
             streamdeck::set_streamdeck_enabled,
             streamdeck::install_streamdeck_plugin,
-            streamdeck::remove_streamdeck_plugin
+            streamdeck::remove_streamdeck_plugin,
+            service::service_status,
+            service::set_up_service,
+            service::remove_service
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

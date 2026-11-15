@@ -27,6 +27,9 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 # The part of Deskmate that does not depend on Tauri.
 deskmate-core = { path = "crates/core" }
+# The service's settings type, its fingerprint, the provisioning frame and its
+# pipe helpers: the app sets the service up with the same code that reads it.
+deskmate-service = { path = "crates/service" }
 tauri = { version = "2", features = ["tray-icon", "image-png"] }
 tauri-plugin-autostart = "2"
 # single-instance: przekazuje aktywacje protokolu deskmate: (klik przycisku toastu) do dzialajacej apki
@@ -110,6 +113,10 @@ features = [
   "Win32_Security_Authorization",
   # Credential Manager cleanup on uninstall (uninstall.rs)
   "Win32_Security_Credentials",
+  # the one-time provisioning pipe of the Deskmate service (service/)
+  "Win32_System_Pipes",
+  "Win32_System_IO",
+  "Win32_Storage_FileSystem",
   # toasts from our own XML (buttons need it, see notify.rs)
   "UI_Notifications",
   "Data_Xml_Dom",
