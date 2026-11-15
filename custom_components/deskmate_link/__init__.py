@@ -23,7 +23,7 @@ from .const import (
 )
 from .files import async_setup_files, async_unload_files
 from .hub import DeskmateHub
-from .notify_tag import NOTIFY_PRIORITIES, validate_tag
+from .notify_tag import NOTIFY_PRIORITIES, clear_failures_error, validate_tag
 from .service_role import refuse_service_only
 from .tv import (
     async_camera_data_uri,
@@ -122,9 +122,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if not hass.services.has_service(DOMAIN, SERVICE_CLEAR_NOTIFICATION):
 
         async def _clear_notification(call: ServiceCall) -> None:
-            for h in _notify_targets(hass, call.data.get("node_id")):
-                refuse_service_only(h)
-                await h.async_notify_clear(call.data["tag"])
+            # Every computer is tried: one that is asleep or too old must not
+            # leave the notification on the computers after it.
+            targets = _notify_targets(hass, call.data.get("node_id"))
+            failures: list[tuple[str, HomeAssistantError]] = []
+            for h in targets:
+                try:
+                    refuse_service_only(h)
+                    await h.async_notify_clear(call.data["tag"])
+                except HomeAssistantError as err:
+                    failures.append((h.node_id or h.entry.title, err))
+            error = clear_failures_error(len(targets), failures)
+            if error is not None:
+                raise error
 
         hass.services.async_register(
             DOMAIN,

@@ -231,8 +231,10 @@ data:
   tag: doorbell
 ```
 
-Like `notify`, it goes to every paired PC unless you set `node_id`. It fails
-for a PC whose Deskmate is too old to clear notifications.
+Like `notify`, it goes to every paired PC unless you set `node_id`. A PC
+that is off, or whose Deskmate is too old to clear notifications, does not
+stop the others: every PC is tried, and the action then fails with an error
+that names each PC it could not clear and why.
 
 ## 6. Controlling the PC
 

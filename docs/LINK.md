@@ -494,7 +494,9 @@ A session that did not list `notify_tag` gets neither field and no
 `notify_clear`. The `deskmate_link.notify` action leaves `tag` and `priority`
 out of the notification for it, and `deskmate_link.clear_notification` fails
 with an error that says the computer's Deskmate is too old to clear
-notifications.
+notifications. Without `node_id`, the action still sends `notify_clear` to
+every other computer before it fails, and the error names each computer that
+was not cleared.
 
 ### `fs` and `fs_res`
 

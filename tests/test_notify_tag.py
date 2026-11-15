@@ -2,16 +2,31 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from typing import Any
 
 import pytest
 import voluptuous as vol
+from aiohttp.test_utils import TestClient
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.deskmate_link.const import DOMAIN
+from custom_components.deskmate_link import hub as hub_module
+from custom_components.deskmate_link.const import (
+    CONF_CASCADE_KEY,
+    CONF_KEY,
+    CONF_MIN_VERSION,
+    CONF_NODE_ID,
+    DOMAIN,
+    PROTO_V2,
+    UNBOUND_TITLE,
+)
+from custom_components.deskmate_link.crypto import gen_psk
 from custom_components.deskmate_link.notify_tag import (
+    NO_ANSWER_TO_CLEAR_ERROR,
+    NOT_CONNECTED_TO_CLEAR_ERROR,
+    REFUSED_TO_CLEAR_ERROR,
     TOO_OLD_TO_CLEAR_ERROR,
     notify_clear_frame,
     notify_frame,
@@ -19,7 +34,7 @@ from custom_components.deskmate_link.notify_tag import (
 )
 from custom_components.deskmate_link.service_role import SERVICE_ONLY_ERROR
 
-from .link_client import Connect, LinkClient
+from .link_client import NODE_ID, Connect, LinkClient
 
 INFO = {"t": "info", "role": "app", "platform": "windows", "app": "0.9.0"}
 NOTIFICATION = {"title": "Doorbell", "message": "Someone is at the door."}
@@ -29,6 +44,34 @@ TAGGED = {**NOTIFICATION, "tag": "doorbell", "priority": "urgent"}
 OLDER_CLIENTS = [None, [], ["media_player"]]
 VALID_TAGS = ["a", "Z", "0", "door_bell-2", "x" * 64]
 INVALID_TAGS = ["", "x" * 65, "door bell", "door.bell", "doorbell\n", "dörbell", "#1"]
+# A second paired computer, set up after the one in the `entry` fixture.
+SECOND_NODE_ID = "desk_pc"
+SHORT_ACK_TIMEOUT_S = 0.05
+
+
+@pytest.fixture
+async def second_computer(
+    hass: HomeAssistant, entry: MockConfigEntry, http: TestClient
+) -> AsyncGenerator[LinkClient]:
+    """A session of `SECOND_NODE_ID` that lists `notify_tag`, on its own entry."""
+    second_entry = MockConfigEntry(
+        domain=DOMAIN,
+        title=UNBOUND_TITLE,
+        data={
+            CONF_NODE_ID: "",
+            CONF_KEY: gen_psk(),
+            CONF_CASCADE_KEY: "",
+            CONF_MIN_VERSION: PROTO_V2,
+        },
+    )
+    second_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(second_entry.entry_id)
+    await hass.async_block_till_done()
+    client = await LinkClient.connect(http, SECOND_NODE_ID, second_entry.data[CONF_KEY])
+    await client.send({**INFO, "features": ["notify_tag"]})
+    assert (await client.receive())["t"] == "info"
+    yield client
+    await client.close()
 
 
 async def session(
@@ -188,8 +231,27 @@ async def test_clear_notification_fails_when_the_client_refuses(
 
     await client.send({"t": "ack", "id": frame["id"], "ok": False, "error": "busy"})
 
-    with pytest.raises(RuntimeError, match="busy"):
+    with pytest.raises(HomeAssistantError) as refused:
         await call
+    # The client's own text is not checked, so it does not reach the user.
+    assert str(refused.value) == REFUSED_TO_CLEAR_ERROR
+
+
+async def test_clear_notification_fails_when_the_client_does_not_answer(
+    hass: HomeAssistant, connect: Connect, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(hub_module, "CMD_ACK_TIMEOUT", SHORT_ACK_TIMEOUT_S)
+    client = await session(connect, ["notify_tag"])
+    call = hass.async_create_task(
+        hass.services.async_call(
+            DOMAIN, "clear_notification", {"tag": "doorbell"}, blocking=True
+        )
+    )
+    assert (await client.receive())["t"] == "notify_clear"
+
+    with pytest.raises(HomeAssistantError) as unanswered:
+        await call
+    assert str(unanswered.value) == NO_ANSWER_TO_CLEAR_ERROR
 
 
 @pytest.mark.parametrize("features", OLDER_CLIENTS)
@@ -226,10 +288,90 @@ async def test_clear_notification_is_refused_while_the_service_is_connected(
 async def test_clear_notification_without_a_session_fails_as_not_connected(
     hass: HomeAssistant, entry: MockConfigEntry
 ) -> None:
-    with pytest.raises(ConnectionError, match="deskmate not connected"):
+    with pytest.raises(HomeAssistantError) as refused:
         await hass.services.async_call(
             DOMAIN, "clear_notification", {"tag": "doorbell"}, blocking=True
         )
+
+    assert str(refused.value) == NOT_CONNECTED_TO_CLEAR_ERROR
+
+
+async def first_computer_offline(
+    connect: Connect, wait_until_session_ended: Callable[[], Awaitable[None]]
+) -> None:
+    """Paired as `NODE_ID`, then gone, like a laptop that went to sleep."""
+    client = await session(connect, ["notify_tag"])
+    await client.close()
+    await wait_until_session_ended()
+
+
+async def first_computer_too_old(
+    connect: Connect, wait_until_session_ended: Callable[[], Awaitable[None]]
+) -> None:
+    await session(connect, [])
+
+
+async def first_computer_service_only(
+    connect: Connect, wait_until_session_ended: Callable[[], Awaitable[None]]
+) -> None:
+    await session(connect, ["notify_tag"], role="service")
+
+
+@pytest.mark.parametrize(
+    ("first_computer", "reason"),
+    [
+        (first_computer_offline, NOT_CONNECTED_TO_CLEAR_ERROR),
+        (first_computer_too_old, TOO_OLD_TO_CLEAR_ERROR),
+        (first_computer_service_only, SERVICE_ONLY_ERROR),
+    ],
+    ids=["offline", "too_old", "service_only"],
+)
+async def test_clear_notification_reaches_every_computer_when_one_cannot(
+    hass: HomeAssistant,
+    connect: Connect,
+    wait_until_session_ended: Callable[[], Awaitable[None]],
+    second_computer: LinkClient,
+    first_computer: Callable[..., Awaitable[None]],
+    reason: str,
+) -> None:
+    # The computer that fails comes first, so a loop that stops at it would
+    # never reach the second one.
+    await first_computer(connect, wait_until_session_ended)
+    call = hass.async_create_task(
+        hass.services.async_call(
+            DOMAIN, "clear_notification", {"tag": "doorbell"}, blocking=True
+        )
+    )
+
+    frame = await second_computer.receive()
+    await second_computer.send({"t": "ack", "id": frame["id"], "ok": True})
+
+    assert frame == {"t": "notify_clear", "id": frame["id"], "tag": "doorbell"}
+    with pytest.raises(HomeAssistantError) as refused:
+        await call
+    message = str(refused.value)
+    assert message.startswith(
+        "Deskmate: the notification was not cleared on 1 of 2 computers."
+    )
+    assert f"{NODE_ID}: {reason.removeprefix('Deskmate: ')}" in message
+    assert SECOND_NODE_ID not in message
+
+
+async def test_clear_notification_reaches_every_connected_computer(
+    hass: HomeAssistant, connect: Connect, second_computer: LinkClient
+) -> None:
+    first = await session(connect, ["notify_tag"])
+    call = hass.async_create_task(
+        hass.services.async_call(
+            DOMAIN, "clear_notification", {"tag": "doorbell"}, blocking=True
+        )
+    )
+
+    for client in (first, second_computer):
+        frame = await client.receive()
+        assert frame == {"t": "notify_clear", "id": frame["id"], "tag": "doorbell"}
+        await client.send({"t": "ack", "id": frame["id"], "ok": True})
+    await call
 
 
 async def test_clear_notification_for_an_unknown_computer_fails(

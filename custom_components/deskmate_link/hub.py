@@ -64,7 +64,14 @@ from .declare_scope import (
     merge_machine_declaration,
 )
 from .device_compat import async_entry_device, async_hand_device_over
-from .notify_tag import notify_clear_frame, notify_frame, require_notify_tag
+from .notify_tag import (
+    NO_ANSWER_TO_CLEAR_ERROR,
+    NOT_CONNECTED_TO_CLEAR_ERROR,
+    REFUSED_TO_CLEAR_ERROR,
+    notify_clear_frame,
+    notify_frame,
+    require_notify_tag,
+)
 from .presence import Presence, connection_unique_id
 from .session_info import async_info_answer, client_features, invalid_info_field
 
@@ -630,10 +637,18 @@ class DeskmateHub:
 
     async def async_notify_clear(self, tag: str) -> None:
         payload = notify_clear_frame(tag)
-        # Without a session the request fails below as "not connected".
-        if self.connected:
-            require_notify_tag(self.session_features)
-        await self._send_with_ack(payload)
+        if not self.connected:
+            raise HomeAssistantError(NOT_CONNECTED_TO_CLEAR_ERROR)
+        require_notify_tag(self.session_features)
+        try:
+            await self._send_with_ack(payload)
+        except ConnectionError as err:
+            raise HomeAssistantError(NOT_CONNECTED_TO_CLEAR_ERROR) from err
+        except TimeoutError as err:
+            raise HomeAssistantError(NO_ANSWER_TO_CLEAR_ERROR) from err
+        except RuntimeError as err:
+            # A refusing `ack` arrives as RuntimeError, see _handle.
+            raise HomeAssistantError(REFUSED_TO_CLEAR_ERROR) from err
 
     async def _send_fs_request(
         self, payload: dict[str, Any], timeout: float = FS_RESPONSE_TIMEOUT

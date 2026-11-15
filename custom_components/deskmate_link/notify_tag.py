@@ -22,6 +22,15 @@ TOO_OLD_TO_CLEAR_ERROR = (
     "Deskmate: this computer's Deskmate is too old to clear notifications. "
     "Update Deskmate on it."
 )
+NOT_CONNECTED_TO_CLEAR_ERROR = (
+    "Deskmate: the computer is not connected, so its notification was not cleared"
+)
+NO_ANSWER_TO_CLEAR_ERROR = (
+    "Deskmate: the computer did not confirm that it cleared the notification"
+)
+# The client's own error text is not shown: nothing checks what it contains.
+REFUSED_TO_CLEAR_ERROR = "Deskmate: the computer could not clear the notification"
+_ERROR_PREFIX = "Deskmate: "
 _TAG_RE = re.compile(NOTIFY_TAG_PATTERN, re.ASCII)
 
 
@@ -76,3 +85,24 @@ def require_notify_tag(features: frozenset[str]) -> None:
     """Raise when the session cannot clear a notification by its tag."""
     if FEATURE_NOTIFY_TAG not in features:
         raise HomeAssistantError(TOO_OLD_TO_CLEAR_ERROR)
+
+
+def clear_failures_error(
+    target_count: int, failures: list[tuple[str, HomeAssistantError]]
+) -> HomeAssistantError | None:
+    """One error for the computers that were not cleared, or None if all were.
+
+    A call for one computer keeps that computer's own error. A call for
+    several names each computer that failed, after every computer was tried.
+    """
+    if not failures:
+        return None
+    if target_count == 1:
+        return failures[0][1]
+    reasons = "; ".join(
+        f"{name}: {str(error).removeprefix(_ERROR_PREFIX)}" for name, error in failures
+    )
+    return HomeAssistantError(
+        f"Deskmate: the notification was not cleared on {len(failures)} of "
+        f"{target_count} computers. {reasons}"
+    )
