@@ -25,6 +25,18 @@ const PONG_TIMEOUT_MS = 10_000;
 const HTTP_UNAUTHORIZED = 401;
 const HTTP_NOT_FOUND = 404;
 
+/** What Node's code of a failed connection looks like: `ECONNREFUSED`. */
+const SOCKET_ERROR_CODE_PATTERN = /^[A-Z][A-Z0-9_]{0,31}$/;
+
+/**
+ * The code of a WebSocket error for the log. The message is never used: for
+ * a failed connection it names the address of Home Assistant.
+ */
+function socketErrorCode(error: Error): string {
+  const code = "code" in error ? error.code : undefined;
+  return typeof code === "string" && SOCKET_ERROR_CODE_PATTERN.test(code) ? code : "no code";
+}
+
 export type DirectLog = {
   info(message: string): void;
   error(message: string): void;
@@ -215,7 +227,7 @@ export class DirectTransport implements DirectLink {
         this.handleMessage(socket, config, raw.toString());
       }
     });
-    socket.on("error", (error) => this.log.error(`WebSocket error: ${error.message}`));
+    socket.on("error", (error) => this.log.error(`WebSocket error: ${socketErrorCode(error)}`));
     socket.on("close", () => {
       if (this.socket !== socket) {
         return;
