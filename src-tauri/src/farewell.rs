@@ -19,14 +19,19 @@
 )]
 
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::mpsc::{Receiver, RecvTimeoutError};
 use std::time::Duration;
 use tauri::{AppHandle, Manager};
 
 use crate::state::AppState;
 use deskmate_service::runner::CAP_BYE;
 
-/// How long the app waits for its session to say goodbye and close.
+/// How long the app waits for its session to say goodbye and close. Windows
+/// gives a program about this long to answer the suspend event.
 const FAREWELL_WAIT: Duration = Duration::from_secs(2);
+// The session's own goodbye and close must fit in the wait with room to
+// spare, or a goodbye that went out would look like one that did not.
+const _: () = assert!(2 * crate::link::FAREWELL_SEND.as_millis() <= FAREWELL_WAIT.as_millis());
 /// A sleep that is never followed by a wake-up event must not keep the app
 /// offline for good.
 const SUSPEND_FALLBACK: Duration = Duration::from_secs(60);
@@ -72,7 +77,9 @@ pub struct Farewell {
 
 /// Tells Home Assistant why the session ends, when there is a reason to and
 /// the integration understands it, and waits until the session has closed.
-/// Returns whether a `bye` went out. Blocking: call it off the runtime.
+/// Returns whether the session took the request (`took_farewell`); the
+/// caller then keeps the connection loop from opening a new session.
+/// Blocking: call it off the runtime.
 pub fn say_goodbye(app: &AppHandle, ending: Ending) -> bool {
     let state = app.state::<AppState>();
     let hub_has_bye = state.link_info().is_some_and(|info| info.has_cap(CAP_BYE));
@@ -92,7 +99,18 @@ pub fn say_goodbye(app: &AppHandle, ending: Ending) -> bool {
     if session.send(Farewell { reason, done }).is_err() {
         return false;
     }
-    closed.recv_timeout(FAREWELL_WAIT).is_ok()
+    took_farewell(&closed, FAREWELL_WAIT)
+}
+
+/// Waits up to `wait` for the session to answer a farewell. A session that is
+/// still busy when the wait runs out, for example with a slow send, still
+/// says goodbye as its last frame, so only one that ended without reading
+/// the request counts as no goodbye.
+fn took_farewell(closed: &Receiver<()>, wait: Duration) -> bool {
+    !matches!(
+        closed.recv_timeout(wait),
+        Err(RecvTimeoutError::Disconnected)
+    )
 }
 
 /// Tray > Quit: say goodbye if there is a reason to, then exit.
@@ -110,8 +128,8 @@ pub fn quit(app: &AppHandle) {
 /// Just before the updater starts the installer, which ends the app: say
 /// `handover` if there is a reason to, and keep the connection closed so
 /// the installer does not end a fresh session without a goodbye. Returns
-/// whether a `bye` went out; then `update_failed` must follow when the
-/// installer could not be started.
+/// whether the session took the goodbye; then `update_failed` must follow
+/// when the installer could not be started.
 pub async fn before_update(app: &AppHandle) -> bool {
     let farewell_app = app.clone();
     let said =
@@ -143,8 +161,8 @@ pub fn on_suspend(app: &AppHandle) {
     if !say_goodbye(app, Ending::Suspend) {
         return;
     }
-    // The session has closed; keep the connection loop from opening a new
-    // one while the network goes away.
+    // The session has closed or closes after its goodbye; keep the
+    // connection loop from opening a new one while the network goes away.
     tauri::async_runtime::block_on(crate::transport::stop(app));
     crate::mqtt::set_status(app, false, ASLEEP_STATUS);
     let suspend = SUSPENDS.fetch_add(1, Ordering::SeqCst) + 1;
@@ -194,6 +212,28 @@ mod tests {
         Ending::Suspend,
         Ending::Shutdown,
     ];
+
+    #[test]
+    fn a_session_that_answers_took_the_farewell() {
+        let (done, closed) = std::sync::mpsc::channel();
+        done.send(()).ok();
+        assert!(took_farewell(&closed, Duration::from_millis(10)));
+    }
+
+    /// The session still sends the `bye` after the wait, so the caller must
+    /// stop the connection loop, or it opens a new session at once.
+    #[test]
+    fn a_session_still_busy_when_the_wait_runs_out_took_the_farewell() {
+        let (_done, closed) = std::sync::mpsc::channel::<()>();
+        assert!(took_farewell(&closed, Duration::from_millis(10)));
+    }
+
+    #[test]
+    fn a_session_that_ended_without_the_request_did_not_take_it() {
+        let (done, closed) = std::sync::mpsc::channel::<()>();
+        drop(done);
+        assert!(!took_farewell(&closed, Duration::from_millis(10)));
+    }
 
     #[test]
     fn handover_only_with_the_service_installed() {

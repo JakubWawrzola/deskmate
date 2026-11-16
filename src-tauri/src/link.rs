@@ -25,8 +25,9 @@ use crate::farewell::Farewell;
 use crate::state::AppState;
 use deskmate_service::runner::bye_frame;
 
-/// Longest wait for the `bye` frame and for the close after it.
-const FAREWELL_SEND: Duration = Duration::from_secs(1);
+/// Longest wait for the `bye` frame and the close after it, together. It
+/// stays well inside the time the app waits for them (`farewell.rs`).
+pub(crate) const FAREWELL_SEND: Duration = Duration::from_secs(1);
 
 /// The optional protocol features that this app implements, for its `info`
 /// frame. Home Assistant uses a feature only with a session that lists it.
@@ -338,25 +339,22 @@ async fn run_session(
     let mut ping = tokio::time::interval(PING_INTERVAL);
     let mut seat_check = tokio::time::interval(crate::seat::CHECK_EVERY);
     let mut handed_over = false;
-    let mut goodbye: Option<std::sync::mpsc::Sender<()>> = None;
+    let mut farewell: Option<Farewell> = None;
     loop {
         tokio::select! {
-            _ = stop.changed() => break,
+            _ = stop.changed() => {
+                // A goodbye asked for just before the stop still goes out:
+                // the app stops the loop when its wait for the goodbye ran out.
+                farewell = farewell_rx.try_recv().ok();
+                break;
+            }
             _ = &mut info_wait, if opening == Opening::AwaitingInfo => {
                 if opening.on_wait_over() == DeclareStep::First {
                     declare_session(app, &out_tx).await?;
                 }
             }
-            Some(farewell) = farewell_rx.recv() => {
-                // The last frame of the session; the socket closes below.
-                if let Ok(frame) = encoder.encrypt(&bye_frame(farewell.reason)) {
-                    let _ = tokio::time::timeout(
-                        FAREWELL_SEND,
-                        writer.send(Message::Text(frame.into())),
-                    )
-                    .await;
-                }
-                goodbye = Some(farewell.done);
+            Some(asked) = farewell_rx.recv() => {
+                farewell = Some(asked);
                 break;
             }
             _ = ping.tick() => { let _ = out_tx.send(json!({"t": "ping"})); }
@@ -399,6 +397,14 @@ async fn run_session(
             }
         }
     }
+    // The last frame of the session; the socket closes below.
+    let goodbye = farewell.map(|farewell| (farewell, tokio::time::Instant::now() + FAREWELL_SEND));
+    if let Some((farewell, deadline)) = &goodbye {
+        if let Ok(frame) = encoder.encrypt(&bye_frame(farewell.reason)) {
+            let _ =
+                tokio::time::timeout_at(*deadline, writer.send(Message::Text(frame.into()))).await;
+        }
+    }
     let stopped = *stop.borrow();
     if !stopped {
         // After a stop, what is shared may belong to the next session
@@ -406,11 +412,11 @@ async fn run_session(
         *app.state::<AppState>().link_tx.lock().await = None;
         app.state::<AppState>().set_link_farewell(None);
     }
-    if let Some(done) = goodbye {
+    if let Some((farewell, deadline)) = goodbye {
         // Windows may end the process right after the goodbye; it waits
         // only a moment for the close.
-        let _ = tokio::time::timeout(FAREWELL_SEND, writer.close()).await;
-        let _ = done.send(());
+        let _ = tokio::time::timeout_at(deadline, writer.close()).await;
+        let _ = farewell.done.send(());
         return Ok(());
     }
     let _ = writer.close().await;
