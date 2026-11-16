@@ -2,9 +2,14 @@
 # woke up. sleep.target starts this unit before a suspend or hibernation and,
 # because nothing needs it any more, stops it again after the wake-up.
 #
-# The daemon then says goodbye to Home Assistant before the network goes
-# down (SIGUSR1) and connects again at once (SIGUSR2). Without this unit it
-# notices the wake-up a few seconds later on its own.
+# The daemon then says goodbye to Home Assistant (SIGUSR1) and connects again
+# at once after the wake-up (SIGUSR2). Without this unit it notices the
+# wake-up a few seconds later on its own.
+#
+# sleep.target comes late. logind first lets the programs that hold a delay
+# lock prepare, and NetworkManager is one of them: it takes the network down
+# before this unit starts. Where it does, the goodbye does not reach Home
+# Assistant, which then shows the computer as Disconnected, not Sleeping.
 [Unit]
 Description=Tell the Deskmate daemon about sleep
 Before=sleep.target

@@ -394,7 +394,13 @@ the group or others can write to them.
 | `Resume` | SIGUSR2 from the same unit when `sleep.target` stops, and the clock check: every 5 s the gap between `/proc/uptime` (with sleep) and `Instant` (without) is compared, and a growth of more than 3 s is a wake-up |
 
 logind's `PrepareForSleep` is not used: hearing it takes a D-Bus client, and
-`busctl monitor` needs root on the system bus.
+`busctl monitor` needs root on the system bus. The price: `sleep.target`
+starts only after logind's delay locks are released, and NetworkManager holds
+one to take the network down first. Where it does, the `bye` with the reason
+`suspend` is written into a link that is already gone, and Home Assistant
+shows the computer as disconnected, not sleeping. Hearing the sleep in time
+takes a delay lock of the daemon's own and `PrepareForSleep`, through a D-Bus
+client.
 
 | Command | What |
 |---|---|

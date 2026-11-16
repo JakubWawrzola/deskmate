@@ -261,7 +261,10 @@ daemon only.
 **Sleep.** `deskmate-sleep.service` runs as root under `sleep.target` and
 sends the daemon SIGUSR1 before a sleep and SIGUSR2 after the wake-up, through
 `systemctl kill`. The daemon does not listen on D-Bus for logind's signals:
-monitoring the system bus needs root.
+monitoring the system bus needs root. Where NetworkManager takes the network
+down before `sleep.target`, the goodbye is lost and Home Assistant sees the
+computer drop off. The five-minute pause of the power buttons after a wake-up
+does not depend on it: SIGUSR2 and the clock check start it.
 
 ## The Linux desktop app
 

@@ -41,7 +41,11 @@ computer off as soon as it connects would otherwise do so on every start.
 
 **Connection**: the diagnostic sensor that Home Assistant adds shows *Daemon*
 while the daemon is connected, and *Sleeping* or *Off* when the computer went
-to sleep or shut down.
+to sleep or shut down. The daemon hears of a sleep from systemd, after the
+programs that prepare for it. NetworkManager is one of them and takes the
+network down first, so on a computer that uses it the goodbye does not get
+through: a computer that went to sleep shows *Disconnected* instead of
+*Sleeping*.
 
 Notifications and Link Files need the desktop app. Home Assistant gets an
 answer at once that the daemon does not support them, so an automation that
