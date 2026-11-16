@@ -58,9 +58,9 @@ env_logger = "0.11"
 # Link Files: transfer encoding and checksums (link_files.rs). The Link
 # protocol and its crypto are in deskmate-core.
 base64 = "0.22"
-sha2 = "0.10"
+sha2 = "0.11"
 futures-util = "0.3"
-rand = "0.8"
+rand = "0.9"
 tokio-tungstenite = { version = "0.28", default-features = false, features = ["connect", "native-tls"] }
 # Wipes pairing keys from memory when they go out of scope.
 zeroize = "1"
