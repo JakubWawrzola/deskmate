@@ -708,7 +708,9 @@ vendor; custom commands you define yourself do run PowerShell by design.
 
 **An update does not install.** The Status page says why the last attempt
 stopped, and *Release page* opens the download: running that installer over
-the old version always works. If Deskmate does not come back after an update,
+the old version always works. *Install automatically* does not try a failed
+version again by itself while Deskmate keeps running, daily checks included;
+press *Try again* when the cause is fixed. If Deskmate does not come back after an update,
 start it again; the Status page then offers the update once more.
 
 **Entities are unavailable after switching Windows users.** The other account

@@ -18,6 +18,7 @@
 mod check;
 mod decision;
 mod install;
+mod known;
 mod policy;
 mod prompt;
 
@@ -175,13 +176,9 @@ async fn check(app: &AppHandle) -> Result<Option<UpdateInfo>, String> {
     };
     {
         let mut shared = shared();
-        // A download that is running keeps the release it started with.
-        if !shared.info.as_ref().is_some_and(UpdateInfo::in_progress) {
-            shared.info = found
-                .as_ref()
-                .map(|(version, update)| UpdateInfo::found(*version, update.is_some()));
-            shared.update = found.and_then(|(_, update)| update);
-        }
+        let (info, update) = known::after_check(shared.info.take(), shared.update.take(), found);
+        shared.info = info;
+        shared.update = update;
     }
     refresh(app).await;
     Ok(available())
