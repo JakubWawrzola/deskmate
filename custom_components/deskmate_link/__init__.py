@@ -66,13 +66,16 @@ def _notify_targets(hass: HomeAssistant, node_id: str | None) -> list[DeskmateHu
     hubs: dict[str, DeskmateHub] = _domain_data(hass)["hubs"]
     # Bez node_id: tylko komputery. Telewizor (DeskmateTV) dostaje
     # dymek wylacznie przy jawnym node_id, inaczej toast "na komputer"
-    # wyskakiwalby tez na ekranie TV.
+    # wyskakiwalby tez na ekranie TV. An entry still waiting for pairing has
+    # no computer to reach, so it is never a target.
     targets = [
         h
         for h in hubs.values()
-        if (node_id is None and not h.is_tv) or h.node_id == node_id
+        if h.node_id and ((node_id is None and not h.is_tv) or h.node_id == node_id)
     ]
     if not targets:
+        if node_id is None:
+            raise HomeAssistantError("Deskmate: no paired computer")
         raise HomeAssistantError(
             f"Deskmate: no paired computer with node id {node_id!r}"
         )

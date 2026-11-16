@@ -39,6 +39,11 @@ from .link_client import NODE_ID, Connect, LinkClient
 INFO = {"t": "info", "role": "app", "platform": "windows", "app": "0.9.0"}
 NOTIFICATION = {"title": "Doorbell", "message": "Someone is at the door."}
 TAGGED = {**NOTIFICATION, "tag": "doorbell", "priority": "urgent"}
+# The two actions that go to every computer, with the frame each one sends.
+TAGGED_ACTIONS = [
+    ("notify", TAGGED, "notify"),
+    ("clear_notification", {"tag": "doorbell"}, "notify_clear"),
+]
 # Sessions that must get neither the two fields nor `notify_clear`: no
 # `info` at all, `info` without `features`, and features without this one.
 OLDER_CLIENTS = [None, [], ["media_player"]]
@@ -286,14 +291,47 @@ async def test_clear_notification_is_refused_while_the_service_is_connected(
 
 
 async def test_clear_notification_without_a_session_fails_as_not_connected(
-    hass: HomeAssistant, entry: MockConfigEntry
+    hass: HomeAssistant,
+    connect: Connect,
+    wait_until_session_ended: Callable[[], Awaitable[None]],
 ) -> None:
+    await first_computer_offline(connect, wait_until_session_ended)
+
     with pytest.raises(HomeAssistantError) as refused:
         await hass.services.async_call(
             DOMAIN, "clear_notification", {"tag": "doorbell"}, blocking=True
         )
 
     assert str(refused.value) == NOT_CONNECTED_TO_CLEAR_ERROR
+
+
+@pytest.mark.parametrize(
+    ("service", "data"), [(service, data) for service, data, _ in TAGGED_ACTIONS]
+)
+async def test_an_action_without_a_paired_computer_fails(
+    hass: HomeAssistant, entry: MockConfigEntry, service: str, data: dict[str, Any]
+) -> None:
+    with pytest.raises(HomeAssistantError) as refused:
+        await hass.services.async_call(DOMAIN, service, data, blocking=True)
+
+    assert str(refused.value) == "Deskmate: no paired computer"
+
+
+@pytest.mark.parametrize(("service", "data", "frame_type"), TAGGED_ACTIONS)
+async def test_an_entry_waiting_for_pairing_is_not_a_target(
+    hass: HomeAssistant,
+    entry: MockConfigEntry,
+    second_computer: LinkClient,
+    service: str,
+    data: dict[str, Any],
+    frame_type: str,
+) -> None:
+    # `entry` was set up first and never paired: a loop that counted it
+    # would fail, or stop, before the computer that is paired.
+    frame = await answered(hass, second_computer, service, data)
+
+    assert frame["t"] == frame_type
+    assert frame["tag"] == "doorbell"
 
 
 async def first_computer_offline(
