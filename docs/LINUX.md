@@ -27,9 +27,11 @@ this page is about the daemon.
 
 **Sensors**: CPU, memory, the root file system, network down and up, uptime,
 and where the computer has them: battery and AC power, drives by their mount
-point (*Disk / free*), disk read and write, CPU
+point (*Disk / free*, *Disk /mnt/data free*), disk read and write, CPU
 temperature, and for AMD and Intel graphics the GPU load, memory and
-temperature.
+temperature. The unit hides `/home` from the daemon, so a home folder on a
+partition of its own gets no drive sensors; every other drive does, even
+though the daemon sees all of them read-only.
 
 **Buttons**: Sleep, Hibernate, Shutdown and Restart. Hibernate appears only
 when the computer can hibernate (the kernel offers it and logind agrees, which

@@ -236,13 +236,27 @@ fn volumes(disks: &Disks) -> Vec<Volume<'_>> {
 /// "Disk / free" (linux/disks.rs).
 #[cfg(target_os = "linux")]
 fn volumes(disks: &Disks) -> Vec<Volume<'_>> {
+    use crate::linux::disks::{top_mounts, Mount, MOUNTINFO};
+
     let list = disks.list();
-    let mounts: Vec<crate::linux::disks::Mount> = list
+    let tops = match std::fs::read_to_string(MOUNTINFO) {
+        Ok(text) => top_mounts(&text),
+        Err(error) => {
+            log::debug!("cannot read {MOUNTINFO}, going by statvfs: {error}");
+            HashMap::new()
+        }
+    };
+    let mounts: Vec<Mount> = list
         .iter()
-        .map(|disk| crate::linux::disks::Mount {
-            device: disk.name().to_string_lossy().into_owned(),
-            point: disk.mount_point().to_path_buf(),
-            read_only: disk.is_read_only(),
+        .map(|disk| {
+            let point = disk.mount_point().to_path_buf();
+            let top = tops.get(&point);
+            Mount::new(
+                disk.name().to_string_lossy().into_owned(),
+                point,
+                disk.is_read_only(),
+                top,
+            )
         })
         .collect();
     crate::linux::disks::volumes(&mounts)
