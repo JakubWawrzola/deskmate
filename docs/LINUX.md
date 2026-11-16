@@ -181,7 +181,9 @@ A file with an unknown field or a value out of range is refused as a whole;
 ## Update
 
 Install the new `.deb` the same way, or run `install.sh` from the new tarball.
-The daemon restarts; its settings and keys stay.
+The daemon restarts; its settings and keys stay. The `.deb` keeps a daemon that
+you stopped or disabled (`sudo systemctl disable --now deskmate`) as it was;
+`install.sh` enables and starts it again.
 
 ## Remove
 

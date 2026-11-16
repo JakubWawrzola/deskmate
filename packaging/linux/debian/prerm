@@ -1,6 +1,6 @@
 #!/bin/sh
-# Stops and disables the daemon before its files go. An upgrade keeps it
-# enabled; postinst restarts it.
+# Stops and disables the daemon before its files go. An upgrade leaves it as
+# the administrator set it; postinst restarts it if it runs.
 set -e
 
 if [ "$1" = "remove" ]; then

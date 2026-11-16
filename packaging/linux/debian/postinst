@@ -1,14 +1,23 @@
 #!/bin/sh
-# Creates the daemon's user and folders, then enables and (re)starts it.
+# Creates the daemon's user and folders. A first install enables and starts
+# the daemon. An upgrade ($2 is the version it replaces) keeps what the
+# administrator chose: it enables nothing, and restarts the daemon only when
+# it was running.
 set -e
 
 if [ "$1" = "configure" ]; then
     systemd-sysusers /usr/lib/sysusers.d/deskmate.conf
     systemd-tmpfiles --create /usr/lib/tmpfiles.d/deskmate.conf
-    systemctl enable deskmate-sleep.service deskmate.service >/dev/null 2>&1 || true
+    if [ -z "$2" ]; then
+        systemctl enable deskmate-sleep.service deskmate.service >/dev/null 2>&1 || true
+    fi
     if [ -d /run/systemd/system ]; then
         systemctl daemon-reload
-        systemctl restart deskmate.service
+        if [ -z "$2" ]; then
+            systemctl restart deskmate.service
+        else
+            systemctl try-restart deskmate.service
+        fi
     fi
     echo "Pair the Deskmate daemon with Home Assistant: sudo deskmate-service pair"
 fi
