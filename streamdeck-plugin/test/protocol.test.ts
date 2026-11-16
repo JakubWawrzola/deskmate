@@ -34,6 +34,31 @@ test("a failure carries the error code and the optional message", () => {
   );
 });
 
+test("an error code that is not a short code is replaced before it can reach the log", () => {
+  for (const error of [
+    "x\n2026-11-16T10:00:00.000Z INFO  channel: Connected to the Deskmate app",
+    "a".repeat(33),
+    "HA_ERROR",
+    "ha error",
+    "_ha",
+    "",
+    7,
+  ]) {
+    const line = JSON.stringify({ id: 5, ok: false, error });
+    assert.deepEqual(parseServerLine(line), {
+      kind: "response",
+      id: 5,
+      ok: false,
+      error: "error",
+      message: undefined,
+    });
+  }
+  assert.equal(
+    (parseServerLine(`{"id":6,"ok":false,"error":"${"a".repeat(32)}"}`) as { error: string }).error,
+    "a".repeat(32),
+  );
+});
+
 test("a failure without an id is still read as a response", () => {
   assert.deepEqual(parseServerLine('{"ok":false,"error":"version"}'), {
     kind: "response",

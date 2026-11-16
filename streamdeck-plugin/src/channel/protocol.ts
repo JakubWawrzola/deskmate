@@ -66,6 +66,21 @@ function requireRecord(value: unknown, what: string): JsonRecord {
   return value;
 }
 
+/** What an error code from the app looks like: `ha_error`, `unknown_action`. */
+const ERROR_CODE_PATTERN = /^[a-z][a-z0-9_]{0,31}$/;
+/** Stands in for an error code that does not look like one. */
+const UNREADABLE_ERROR_CODE = "error";
+
+/**
+ * The plugin does not know who serves the pipe, and the code goes into its
+ * log, so only a short code passes.
+ */
+function readErrorCode(error: unknown): string {
+  return typeof error === "string" && ERROR_CODE_PATTERN.test(error)
+    ? error
+    : UNREADABLE_ERROR_CODE;
+}
+
 /**
  * Reads one line from the app. Throws when the line is not a JSON object:
  * the caller closes the connection over that.
@@ -92,7 +107,7 @@ export function parseServerLine(line: string): ServerMessage {
       kind: "response",
       id: responseId,
       ok: false,
-      error: typeof parsed.error === "string" ? parsed.error : "error",
+      error: readErrorCode(parsed.error),
       message: typeof parsed.message === "string" ? parsed.message : undefined,
     };
   }

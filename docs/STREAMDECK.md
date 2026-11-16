@@ -276,8 +276,10 @@ that connection.
 Every request gets exactly one response, with the same `id` and `ok` set to
 `true` or `false`. This includes refusals: `version` and `bad_request` carry
 the `id` too. A failure has `error`, a short code, and may have `message`,
-English text meant for the user. The one response without an `id` is the
-`bad_request` for a request that has no usable `id` itself.
+English text meant for the user. A code is a lowercase letter followed by at
+most 31 lowercase letters, digits and `_`; the plugin reads any other value
+as `error`, since it writes codes to its log. The one response without an
+`id` is the `bad_request` for a request that has no usable `id` itself.
 
 ```
 {"id":3,"ok":false,"error":"unknown_action","message":"That action no longer exists."}
