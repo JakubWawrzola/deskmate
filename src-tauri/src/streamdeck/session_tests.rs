@@ -150,18 +150,15 @@ async fn a_line_that_never_ends_closes_the_connection() {
 }
 
 #[tokio::test]
-async fn a_request_is_answered_before_a_later_broken_line_closes() {
+async fn a_broken_line_read_with_a_request_closes_without_answering_it() {
     let mut harness = greeted().await;
     harness
         .client
         .send_raw(b"{\"id\":2,\"op\":\"actions\"}\nnot json\n")
         .await;
-    // The session ends at the broken line; whether the answer still went out
-    // is not promised, but nothing else may.
-    if let Some(message) = harness.client.next().await {
-        assert_eq!(message["id"], 2);
-        harness.client.expect_closed().await;
-    }
+    // Both lines arrive in one read. The session ends at the broken line
+    // before the request ahead of it has been answered.
+    harness.client.expect_closed().await;
 }
 
 #[tokio::test]

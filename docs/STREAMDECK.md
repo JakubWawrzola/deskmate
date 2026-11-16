@@ -263,7 +263,8 @@ No secret travels over the channel. The Home Assistant token stays in the app.
 - A line is at most 65536 bytes, not counting the `\n`.
 - A longer line, a line that is not valid UTF-8, a line that is not JSON and a
   line whose JSON is not an object (an empty line included) all close the
-  connection. The side that receives such a line closes; it sends no answer.
+  connection. The side that receives such a line closes; it sends no answer,
+  also not to requests ahead of the line that were not answered yet.
 - Both sides ignore fields they do not know.
 
 ### Requests, responses, events
