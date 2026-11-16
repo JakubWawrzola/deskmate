@@ -12,10 +12,15 @@ const PLUGIN_BUILD_OUTPUT: [&str; 2] = ["bin/plugin.js", "bin/package.json"];
 const SERVICE_BUNDLE_DIR: &str = "service-bin";
 
 fn main() {
-    if let Err(message) = check_stream_deck_plugin() {
-        // Fails the build with this message.
-        println!("cargo::error={message}");
-        return;
+    // Only the Windows installer carries the plugin (tauri.linux.conf.json
+    // leaves it out of the Linux packages).
+    let windows = std::env::var("CARGO_CFG_TARGET_OS").is_ok_and(|os| os == "windows");
+    if windows {
+        if let Err(message) = check_stream_deck_plugin() {
+            // Fails the build with this message.
+            println!("cargo::error={message}");
+            return;
+        }
     }
     // Tauri refuses a resource folder that does not exist and skips an empty
     // one, so `cargo check`, `cargo test` and `tauri dev` work without a

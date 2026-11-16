@@ -323,3 +323,59 @@ jobs:
           name: deskmate-daemon-${{ matrix.arch }}
           path: dist-linux/
           if-no-files-found: error
+
+  # The desktop app on Linux (preview): linted and tested, then packed by
+  # Tauri's bundler into a .deb and an AppImage, on Ubuntu 22.04 for its
+  # glibc, natively for both architectures. tauri.linux.conf.json sets the
+  # bundles and leaves the Windows resources out.
+  desktop-linux:
+    name: Desktop app on Linux (${{ matrix.arch }})
+    strategy:
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-22.04
+          - arch: aarch64
+            runner: ubuntu-22.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # WebKitGTK and GTK for the window, AppIndicator for the tray, libdbus
+      # for the session's services and the keyring, OpenSSL for native-tls;
+      # patchelf and file for the AppImage.
+      - name: Install the system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev \
+            libayatana-appindicator3-dev librsvg2-dev libssl-dev libdbus-1-dev \
+            pkg-config build-essential file patchelf xdg-utils
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install the Rust toolchain
+        run: |
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal --no-self-update \
+            --component clippy
+          rustup default "$RUST_TOOLCHAIN"
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: src-tauri
+          key: desktop-linux
+      - run: npm ci
+      - run: npm run build
+      - run: cargo clippy -p deskmate --all-targets -- -D warnings
+        working-directory: src-tauri
+      - run: cargo test -p deskmate
+        working-directory: src-tauri
+      - name: Build the .deb and the AppImage
+        run: npx tauri build --bundles deb,appimage
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: deskmate-desktop-${{ matrix.arch }}
+          path: |
+            src-tauri/target/release/bundle/deb/*.deb
+            src-tauri/target/release/bundle/appimage/*.AppImage
+          if-no-files-found: error
