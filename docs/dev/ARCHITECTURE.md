@@ -301,7 +301,7 @@ be set up again (`ServiceConfig::fingerprint`).
 | Command | What |
 |---|---|
 | `deskmate-service install [--provision-pipe <name>]` | Copies itself to Program Files, creates the data folder, registers `DeskmateService` (LocalSystem, delayed automatic start, restart after 5 s, 30 s and 5 min on failure, a token limited to `SeChangeNotifyPrivilege` and `SeShutdownPrivilege`) and starts it. Over an existing service it replaces the program and keeps settings and keys, unless the installed program reports a later version (`deskmate-service version`). With `--provision-pipe` it then opens `\\.\pipe\<name>`, checks that the pipe is served by a program named `deskmate.exe`, reads one `provision` line and passes it to the admin pipe |
-| `deskmate-service uninstall` | Asks the service to forget settings and keys, stops and removes it, deletes both folders. Run from the installed copy, that copy is removed at the next restart |
+| `deskmate-service uninstall` | Asks the service to forget settings and keys, stops and removes it, deletes both folders after the same check the service makes at its start (a folder that fails it stays, with a warning). Run from the installed copy, that copy is removed at the next restart |
 | `deskmate-service status` | Prints the status line |
 | `deskmate-service run` | What the service manager starts |
 

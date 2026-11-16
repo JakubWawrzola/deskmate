@@ -619,7 +619,12 @@ during an approved step.
 
 *Remove* in Settings, or uninstalling Deskmate, runs `uninstall` with one
 administrator approval: the service forgets its settings and keys, is removed,
-and both folders are deleted. An update of the app does not touch the
+and both folders are deleted. Before it deletes anything in
+`%ProgramData%\Deskmate`, it checks both folders as the service does at every
+start. While that folder is missing any user may create it, for example as a
+link to another folder; a folder that is a link, or that someone other than
+SYSTEM and Administrators can change, is left in place with a warning instead
+of being deleted with administrator rights. An update of the app does not touch the
 service, whether the updater installs it or someone runs the new installer
 over the old version and keeps *Uninstall before installing*: that
 uninstaller runs inside the install folder, where the one started from

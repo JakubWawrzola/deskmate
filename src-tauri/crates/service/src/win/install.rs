@@ -441,6 +441,45 @@ fn remove_folder(path: &Path) -> Result<(), String> {
     }
 }
 
+/// Whether something is at `path`. Anything but "not found" counts as
+/// something, so that the check that follows reports it.
+fn is_present(path: &Path) -> bool {
+    !matches!(fs::symlink_metadata(path), Err(error) if error.kind() == std::io::ErrorKind::NotFound)
+}
+
+/// Deletes the data folder and, when nothing else lives in it, the folder
+/// above. Both are checked first, as at every start of the service: while
+/// `%ProgramData%\Deskmate` is missing any user may create it, for example
+/// as a link to another folder, and deleting through it with administrator
+/// rights would delete whatever it leads to. A folder that fails the check
+/// is left in place with a warning.
+fn remove_data_folders(
+    parent: &Path,
+    data: &Path,
+    say: &mut dyn FnMut(&str),
+) -> Result<(), String> {
+    if !is_present(parent) {
+        return Ok(());
+    }
+    let checked = check_private_folder(parent).and_then(|()| {
+        if is_present(data) {
+            check_private_folder(data)
+        } else {
+            Ok(())
+        }
+    });
+    if let Err(problem) = checked {
+        say(&format!(
+            "Warning: {problem}. It was left in place: look at what it is before you delete it."
+        ));
+        return Ok(());
+    }
+    remove_folder(data)?;
+    // The folder above goes only when nothing else lives in it.
+    let _ = fs::remove_dir(parent);
+    Ok(())
+}
+
 /// Removes the service, its settings and keys and its two folders. `say`
 /// receives what was done, one line at a time.
 pub fn uninstall(say: &mut dyn FnMut(&str)) -> Result<(), String> {
@@ -479,9 +518,7 @@ pub fn uninstall(say: &mut dyn FnMut(&str)) -> Result<(), String> {
         say("The service is not registered.");
     }
 
-    remove_folder(&data_dir()?)?;
-    // The folder above goes only when nothing else lives in it.
-    let _ = fs::remove_dir(data_parent()?);
+    remove_data_folders(&data_parent()?, &data_dir()?, say)?;
 
     let program = program_dir()?;
     let running_from_it = std::env::current_exe()
@@ -555,5 +592,76 @@ mod tests {
             assert!(!reports_newer_version(printed, "0.9.0"), "{printed}");
         }
         assert!(!reports_newer_version("deskmate-service 9.9.9", "unknown"));
+    }
+
+    /// A folder of its own in the user's temp folder, which is not private.
+    fn scratch(name: &str) -> std::path::PathBuf {
+        let base = std::env::temp_dir().join(format!(
+            "deskmate-service-{name}-test-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&base);
+        fs::create_dir_all(&base).unwrap();
+        base
+    }
+
+    fn remove_collecting(parent: &Path, data: &Path) -> Vec<String> {
+        let mut said = Vec::new();
+        remove_data_folders(parent, data, &mut |line| said.push(line.to_string())).unwrap();
+        said
+    }
+
+    #[test]
+    fn uninstall_does_not_delete_through_a_planted_link() {
+        let base = scratch("uninstall-link");
+        let elsewhere = base.join("elsewhere");
+        fs::create_dir_all(elsewhere.join("service")).unwrap();
+        fs::write(elsewhere.join("service").join("keep.txt"), b"keep").unwrap();
+        let parent = base.join("Deskmate");
+        let made = Command::new("cmd")
+            .arg("/C")
+            .arg("mklink")
+            .arg("/J")
+            .arg(&parent)
+            .arg(&elsewhere)
+            .output()
+            .unwrap();
+        assert!(made.status.success(), "{made:?}");
+
+        let said = remove_collecting(&parent, &parent.join("service"));
+        assert!(elsewhere.join("service").join("keep.txt").exists());
+        assert!(
+            said.len() == 1
+                && (said[0].contains("is a link") || said[0].contains("is not a folder")),
+            "{said:?}"
+        );
+        // Removes the link only.
+        fs::remove_dir(&parent).unwrap();
+        fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[test]
+    fn uninstall_leaves_folders_others_can_change() {
+        let base = scratch("uninstall-open");
+        let parent = base.join("Deskmate");
+        fs::create_dir_all(parent.join("service")).unwrap();
+        fs::write(parent.join("service").join("keep.txt"), b"keep").unwrap();
+
+        let said = remove_collecting(&parent, &parent.join("service"));
+        assert!(parent.join("service").join("keep.txt").exists());
+        assert!(
+            said.len() == 1 && said[0].contains("cannot be trusted"),
+            "{said:?}"
+        );
+        fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[test]
+    fn uninstall_without_data_folders_has_nothing_to_do() {
+        let base = scratch("uninstall-missing");
+        let parent = base.join("Deskmate");
+        assert!(remove_collecting(&parent, &parent.join("service")).is_empty());
+        assert!(!parent.exists());
+        fs::remove_dir_all(&base).unwrap();
     }
 }
