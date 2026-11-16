@@ -302,7 +302,8 @@ a way to ask the user yet, *Ask on this computer* is not offered.
 service that reads markup, so text from Home Assistant cannot become a link
 or an image. A button carries a random key, and a click counts once, only for
 a notification the app showed and only from the notification service's bus
-name. Downloaded images go to the user's runtime folder (mode 0700), not to
+name. The app's `info` frame lists `media_player` but not `notify_tag`, so
+Home Assistant sends it no tags, no urgent priority and no `notify_clear`. Downloaded images go to the user's runtime folder (mode 0700), not to
 the shared `/tmp`.
 
 **Updates.** The app only says that a new version is out; it never downloads

@@ -272,7 +272,7 @@ running. *Start when I sign in* in Settings writes
 | Window, setup wizard, pairing, Link and MQTT | Yes | Yes |
 | Machine sensors, Sleep, Hibernate, Shutdown, Restart | Yes | Yes |
 | Idle time, locked, Lock (logind) | Yes | Yes |
-| Media sensors and keys (MPRIS) | Yes | Yes |
+| Media sensors and keys, the media player (MPRIS) | Yes | Yes |
 | Volume and mute (`wpctl` or `pactl`) | Yes | Yes |
 | Notifications, with buttons where the notification service has them | Yes | Yes |
 | Open URL (`xdg-open`), Link Files | Yes | Yes |
@@ -282,8 +282,12 @@ running. *Start when I sign in* in Settings writes
 
 Home Assistant gets only the entities that work on the computer: no Hibernate
 button where the computer cannot hibernate, no volume without `wpctl` or
-`pactl`, no Lock without a logind session. Where a feature is missing, the
-window says so in one line in its place.
+`pactl`, no Lock without a logind session. With an integration that supports
+it, the media player entity comes with the media sensors. Notification tags,
+the urgent priority and clearing a notification are not part of the preview:
+the app does not offer them to Home Assistant, so a tagged notification shows
+as an ordinary one. Where a feature is missing, the window says so in one
+line in its place.
 
 Idle time comes from logind's idle hint, which the desktop sets after its own
 idle delay; until then the computer counts as in use. The power buttons go
