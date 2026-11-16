@@ -326,7 +326,7 @@ async fn run_session(
             _ = stop.changed() => break,
             _ = &mut info_wait, if opening == Opening::AwaitingInfo => {
                 if opening.on_wait_over() == DeclareStep::First {
-                    declare_session(app, cfg, &out_tx).await?;
+                    declare_session(app, &out_tx).await?;
                 }
             }
             Some(farewell) = farewell_rx.recv() => {
@@ -364,7 +364,7 @@ async fn run_session(
                             match opening.on_info_answer() {
                                 DeclareStep::First => {
                                     remember_hub_info(app, info, false).await;
-                                    declare_session(app, cfg, &out_tx).await?;
+                                    declare_session(app, &out_tx).await?;
                                 }
                                 DeclareStep::Again => remember_hub_info(app, info, true).await,
                                 DeclareStep::Nothing => {}
@@ -496,18 +496,22 @@ async fn handle_incoming(app: &AppHandle, tx: &mpsc::UnboundedSender<Value>, pay
 /// in its `info` answer if it has answered, and the last known states after
 /// it. Other tasks reach the session only from here on, so none of them can
 /// declare before it.
+///
+/// It reads the current settings, not the ones the connection loop started
+/// with: the window changes sensors and features without a restart, and Home
+/// Assistant removes whatever a full declaration leaves out.
 async fn declare_session(
     app: &AppHandle,
-    cfg: &AppConfig,
     out_tx: &mpsc::UnboundedSender<Value>,
 ) -> Result<(), LinkError> {
-    crate::monitor::brightness::probe_before_declare(cfg).await;
     let state = app.state::<AppState>();
+    let cfg = state.config.lock().await.clone();
+    crate::monitor::brightness::probe_before_declare(&cfg).await;
     let hub = state.link_info();
     let hardware_defs = state.hardware_sensor_defs.lock().await.clone();
     out_tx
         .send(crate::discovery::build_link_declare(
-            cfg,
+            &cfg,
             &hardware_defs,
             hub.as_ref(),
         ))
@@ -519,7 +523,7 @@ async fn declare_session(
             .map_err(|e| e.to_string())?;
     }
     *state.link_tx.lock().await = Some(out_tx.clone());
-    if declares_media_player(cfg, hub.as_ref()) {
+    if declares_media_player(&cfg, hub.as_ref()) {
         // Its own task: reading the media session blocks.
         let app = app.clone();
         tauri::async_runtime::spawn(async move {
