@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api } from "../api";
 import { Button, Panel, StatusDot } from "../components";
+import { isLinux, usePlatform } from "../platform";
 import type { AppConfig, Snapshot } from "../types";
 import ServiceBanner from "./ServiceBanner";
 import UpdateBanner from "./UpdateBanner";
@@ -43,10 +44,12 @@ export default function StatusPage({
     }
   };
 
+  const linux = isLinux(usePlatform());
+
   return (
     <>
       {snapshot.update && <UpdateBanner update={snapshot.update} />}
-      <ServiceBanner />
+      {!linux && <ServiceBanner />}
       <div className="grid grid-cols-3 gap-3">
         <Readout label="CPU" value={num("cpu")} unit="%" />
         <Readout label="Memory" value={num("memory")} unit="%" />

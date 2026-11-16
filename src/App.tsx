@@ -23,6 +23,7 @@ import SettingsPage from "./pages/SettingsPage";
 import StatusPage from "./pages/StatusPage";
 import WidgetsPage from "./pages/WidgetsPage";
 import Wizard from "./pages/Wizard";
+import { isLinux, UnavailablePanel, usePlatform } from "./platform";
 import type { AppConfig, NotifyRecord, Snapshot, StatusView } from "./types";
 
 const PAGES = [
@@ -47,6 +48,7 @@ export default function App() {
   const [hasCascadeKey, setHasCascadeKey] = useState(false);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [page, setPage] = useState<Page>("Status");
+  const platform = usePlatform();
 
   const reloadConfig = useCallback(async () => {
     const view = await api.getConfig();
@@ -166,7 +168,12 @@ export default function App() {
               }}
             />
           )}
-          {page === "Clipboard" && (
+          {page === "Clipboard" && !platform.clipboard && (
+            <UnavailablePanel title="Clipboard">
+              Sharing the clipboard with Home Assistant is not part of the Linux preview.
+            </UnavailablePanel>
+          )}
+          {page === "Clipboard" && platform.clipboard && (
             <ClipboardPage
               config={config}
               snapshotClipboard={snapshot?.sensor_values.clipboard}
@@ -176,7 +183,13 @@ export default function App() {
               }}
             />
           )}
-          {page === "Family" && <FamilyPage />}
+          {page === "Family" && isLinux(platform) && (
+            <UnavailablePanel title="Screen time and family rules">
+              Screen time and family rules work with Windows accounts and are not part of the Linux
+              preview.
+            </UnavailablePanel>
+          )}
+          {page === "Family" && !isLinux(platform) && <FamilyPage />}
           {page === "Hotkeys" && snapshot && (
             <HotkeysPage snapshot={snapshot} config={config} onChanged={reloadConfig} />
           )}

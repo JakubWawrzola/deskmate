@@ -2,6 +2,7 @@ import { useState } from "react";
 import { api } from "../api";
 import { Button, Field, StatusDot } from "../components";
 import { parsePairingCode } from "../pairing";
+import { isLinux, PlatformNote, usePlatform } from "../platform";
 import type { AppConfig, MqttTransport, StatusView, TransportKind } from "../types";
 
 /** First run: the minimum fields needed to connect to the MQTT broker. */
@@ -16,6 +17,9 @@ export default function Wizard({
   hasLinkKey: boolean;
   onDone: () => Promise<void>;
 }) {
+  const platform = usePlatform();
+  // Where the secrets go, in the words of the platform.
+  const vault = isLinux(platform) ? "your keyring" : "Credential Manager";
   const [host, setHost] = useState(config.broker_host);
   // New installs land on Link; an existing configuration keeps whatever it uses.
   const [selectedTransport, setSelectedTransport] = useState<TransportKind>(
@@ -170,7 +174,7 @@ export default function Wizard({
                 value={password}
                 onChange={setPassword}
                 type="password"
-                placeholder="stored in Windows Credential Manager"
+                placeholder={`stored in ${isLinux(platform) ? vault : `Windows ${vault}`}`}
               />
             </>
           )}
@@ -182,17 +186,17 @@ export default function Wizard({
                 onChange={onPairingInput}
                 type="password"
                 placeholder={
-                  hasLinkKey
-                    ? "unchanged (stored in Credential Manager)"
-                    : "DMP1... from Home Assistant"
+                  hasLinkKey ? `unchanged (stored in ${vault})` : "DMP1... from Home Assistant"
                 }
                 hint="Home Assistant: Settings > Devices & services > Add integration > Deskmate. The code fills in the address too."
               />
+              {platform.keyring_problem && <PlatformNote>{platform.keyring_problem}</PlatformNote>}
               {pairedNode && (
                 <p className="text-[12px] text-muted leading-relaxed">
-                  This code is for a computer that is already paired. This Windows account will join
-                  it as <span className="mono text-ink">{pairedNode}</span> and share its device in
-                  Home Assistant.
+                  This code is for a computer that is already paired. This{" "}
+                  {isLinux(platform) ? "account" : "Windows account"} will join it as{" "}
+                  <span className="mono text-ink">{pairedNode}</span> and share its device in Home
+                  Assistant.
                 </p>
               )}
               <Field

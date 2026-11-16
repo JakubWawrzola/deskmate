@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api } from "../api";
 import { Button, EmptyState, Panel } from "../components";
+import { isLinux, PlatformNote, usePlatform } from "../platform";
 import type { AppConfig, Snapshot } from "../types";
 
 export default function NotificationsPage({
@@ -33,17 +34,30 @@ export default function NotificationsPage({
   ]
 }`;
 
+  const platform = usePlatform();
+  const linux = isLinux(platform);
+
   return (
     <>
       <Panel
-        title="Windows notifications from Home Assistant"
+        title={
+          linux ? "Notifications from Home Assistant" : "Windows notifications from Home Assistant"
+        }
         action={<Button onClick={() => void handleTest()}>Send test toast</Button>}
       >
         <p className="text-[13px] text-muted leading-relaxed">
           Publish a JSON payload to <span className="mono text-ink">{topic}</span> and it shows up
-          as a Windows toast, with an optional image and action buttons.
+          {linux
+            ? " as a desktop notification, with an optional image and action buttons."
+            : " as a Windows toast, with an optional image and action buttons."}
         </p>
-        {testResult === "ok" && (
+        {linux && !platform.notifications && (
+          <PlatformNote>No notification service answers in this desktop session.</PlatformNote>
+        )}
+        {linux && platform.notifications && !platform.notification_buttons && (
+          <PlatformNote>This desktop's notification service shows no buttons.</PlatformNote>
+        )}
+        {testResult === "ok" && !linux && (
           <p className="text-[12px] text-muted mt-2 leading-relaxed">
             Toast sent. If nothing appeared, Windows is suppressing it — check{" "}
             <span className="text-ink">Settings → System → Notifications</span> (turn them on, and

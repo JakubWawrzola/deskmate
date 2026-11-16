@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api } from "../api";
 import { Button, Field, Panel, Toggle } from "../components";
+import { isLinux, usePlatform } from "../platform";
 import type { AppConfig } from "../types";
 
 /**
@@ -17,6 +18,7 @@ export default function GeekyPage({
   hasCascadeKey: boolean;
   onSaved: () => Promise<void>;
 }) {
+  const platform = usePlatform();
   const [cascade, setCascade] = useState(config.link_cascade);
   const [cascadeKey, setCascadeKey] = useState("");
   const [busy, setBusy] = useState(false);
@@ -128,7 +130,10 @@ export default function GeekyPage({
           <dt className="text-muted">Replay protection</dt>
           <dd>Strictly increasing counter per direction, single-use handshake nonce</dd>
           <dt className="text-muted">Key storage</dt>
-          <dd>Windows Credential Manager, never in config.json</dd>
+          <dd>
+            {isLinux(platform) ? "Your keyring (Secret Service)" : "Windows Credential Manager"},
+            never in config.json
+          </dd>
         </dl>
         <p className="text-[12px] text-muted leading-relaxed mt-3">
           Application-layer encryption is independent of the transport, so this holds on a plain{" "}

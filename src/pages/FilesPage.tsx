@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { Button, EmptyState, Field, Panel } from "../components";
+import { isLinux, PlatformNote, usePlatform } from "../platform";
 import type { AppConfig, ClipboardMode, FileEvent } from "../types";
 
 const KIND_LABEL: Record<string, string> = {
@@ -65,6 +66,8 @@ export default function FilesPage({
     }
   };
 
+  const linux = isLinux(usePlatform());
+
   return (
     <>
       <Panel title="Receive files">
@@ -72,8 +75,9 @@ export default function FilesPage({
           Send files from your phone or laptop to this computer through the Deskmate page in the
           Home Assistant sidebar. Files only ever land in the folder below. Home Assistant cannot
           overwrite, rename, delete or read anything through it; a name that already exists gets a
-          number. Received files are marked as downloaded from another computer, so Windows treats
-          them like browser downloads.
+          number.
+          {!linux &&
+            " Received files are marked as downloaded from another computer, so Windows treats them like browser downloads."}
         </p>
         <div className="grid grid-cols-[1fr_120px] gap-3">
           <label className="block">
@@ -84,7 +88,9 @@ export default function FilesPage({
               className="mt-1 w-full h-9 px-2 bg-panel border border-hairline-strong rounded text-ink text-[13px] focus-visible:border-ink"
             >
               <option value="off">Off</option>
-              <option value="confirm">Ask on this computer for every file</option>
+              <option value="confirm" disabled={linux}>
+                Ask on this computer for every file
+              </option>
               <option value="automatic">Accept automatically</option>
             </select>
           </label>
@@ -100,11 +106,22 @@ export default function FilesPage({
             label="Save to folder"
             value={inboxDir}
             onChange={setInboxDir}
-            placeholder="Downloads\Deskmate (default)"
-            hint="Leave empty for Downloads\Deskmate. Local folder only; it is created if missing."
+            placeholder={linux ? "Downloads/Deskmate (default)" : "Downloads\\Deskmate (default)"}
+            hint={
+              linux
+                ? "Leave empty for Deskmate in your download folder. An absolute local path; it is created if missing."
+                : "Leave empty for Downloads\\Deskmate. Local folder only; it is created if missing."
+            }
           />
         </div>
-        {inboxMode === "confirm" && (
+        {linux && (
+          <div className="mt-2">
+            <PlatformNote>
+              The Linux preview cannot ask on this computer yet: choose Off or Accept automatically.
+            </PlatformNote>
+          </div>
+        )}
+        {inboxMode === "confirm" && !linux && (
           <p className="mt-2 text-[12px] text-muted">
             While Windows is locked nobody can accept, so transfers are refused.
           </p>

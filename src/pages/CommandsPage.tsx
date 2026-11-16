@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api } from "../api";
 import { Button, EmptyState, Field, Panel, Toggle } from "../components";
+import { isLinux, usePlatform } from "../platform";
 import type { AppConfig, CustomAction, CustomKind, Snapshot } from "../types";
 
 const ACTION_LABEL: Record<CustomAction, string> = {
@@ -85,6 +86,8 @@ export default function CommandsPage({
     }
   };
 
+  const linux = isLinux(usePlatform());
+
   return (
     <>
       <Panel title="Built-in commands">
@@ -105,7 +108,13 @@ export default function CommandsPage({
         ))}
       </Panel>
 
-      <Panel title="Custom controls">
+      <Panel
+        title="Custom controls"
+        unavailable={
+          linux &&
+          "Your own PowerShell commands, program controls and key combinations are not part of the Linux preview."
+        }
+      >
         <p className="text-[12px] text-muted mb-3 leading-relaxed">
           Buttons, switches and sliders in Home Assistant that act on this computer.
           <span className="text-ink"> Start a program</span> opens a program, file or URL,

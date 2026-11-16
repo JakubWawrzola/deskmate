@@ -2,8 +2,16 @@ import { useEffect, useState } from "react";
 import { api } from "../api";
 import { Button, Field, Panel, Toggle } from "../components";
 import { parsePairingCode } from "../pairing";
+import { isLinux, PlatformNote, systemName, UnavailablePanel, usePlatform } from "../platform";
 import { applyTheme } from "../theme";
-import type { AppConfig, MqttTransport, ThemeMode, TransportKind, UpdateMode } from "../types";
+import type {
+  AppConfig,
+  MqttTransport,
+  PlatformCapabilities,
+  ThemeMode,
+  TransportKind,
+  UpdateMode,
+} from "../types";
 import CpuTemperaturePanel from "./CpuTemperaturePanel";
 import ServicePanel from "./ServicePanel";
 import StreamDeckPanel from "./StreamDeckPanel";
@@ -26,6 +34,16 @@ const UPDATE_MODES: { value: UpdateMode; label: string; hint: string }[] = [
   },
 ];
 
+/** Where notifications go on Linux: Windows has its toast settings instead. */
+function linuxNotifications(platform: PlatformCapabilities): string {
+  if (!platform.notifications) {
+    return "No notification service answers in this session, so notifications from Home Assistant cannot be shown.";
+  }
+  return platform.notification_buttons
+    ? "Notifications from Home Assistant go to the desktop's notification service, with their buttons."
+    : "Notifications from Home Assistant go to the desktop's notification service. It shows no buttons, so they are left out.";
+}
+
 export default function SettingsPage({
   config,
   hasPassword,
@@ -37,6 +55,10 @@ export default function SettingsPage({
   hasLinkKey: boolean;
   onSaved: () => Promise<void>;
 }) {
+  const platform = usePlatform();
+  const linux = isLinux(platform);
+  // Where the secrets go, in the words of the platform.
+  const vault = linux ? "the keyring" : "Credential Manager";
   const [host, setHost] = useState(config.broker_host);
   const [transport, setTransport] = useState<TransportKind>(config.transport);
   const [hostRemote, setHostRemote] = useState(config.broker_host_remote);
@@ -267,7 +289,11 @@ export default function SettingsPage({
                 label="Custom CA certificate (PEM path)"
                 value={mqttCaPath}
                 onChange={setMqttCaPath}
-                placeholder="Leave empty to use Windows trusted certificates"
+                placeholder={
+                  linux
+                    ? "Leave empty to use the system's trusted certificates"
+                    : "Leave empty to use Windows trusted certificates"
+                }
                 hint="For a private/self-signed broker CA. Certificate verification cannot be disabled in TLS mode."
               />
             )}
@@ -277,7 +303,7 @@ export default function SettingsPage({
               value={password}
               onChange={setPassword}
               type="password"
-              placeholder={hasPassword ? "unchanged (stored in Credential Manager)" : "none"}
+              placeholder={hasPassword ? `unchanged (stored in ${vault})` : "none"}
             />
           </div>
         </Panel>
@@ -305,12 +331,11 @@ export default function SettingsPage({
               onChange={onPairingInput}
               type="password"
               placeholder={
-                hasLinkKey
-                  ? "unchanged (stored in Credential Manager)"
-                  : "DMP1... code from Home Assistant"
+                hasLinkKey ? `unchanged (stored in ${vault})` : "DMP1... code from Home Assistant"
               }
               hint="Pasting the pairing code fills in the addresses as well."
             />
+            {platform.keyring_problem && <PlatformNote>{platform.keyring_problem}</PlatformNote>}
             {pairedNode && pairedNode !== config.node_id && (
               <p className="text-[12px] text-muted leading-relaxed">
                 This code is for a computer that is already paired. After saving, this Windows
@@ -343,16 +368,30 @@ export default function SettingsPage({
           />
           <Field label="Publish interval (seconds)" value={interval} onChange={setIntervalS} />
           <div className="flex items-center justify-between h-9">
-            <span className="text-[13px]">Start with Windows</span>
-            <Toggle on={autostart} onChange={(v) => void toggleAutostart(v)} />
+            <span className="text-[13px]">
+              {linux ? "Start when I sign in" : "Start with Windows"}
+            </span>
+            <Toggle
+              on={autostart}
+              onChange={(v) => void toggleAutostart(v)}
+              label={linux ? "Start when I sign in" : "Start with Windows"}
+            />
           </div>
           <div className="flex items-center justify-between h-9">
             <span className="text-[13px]">Start minimized to tray</span>
             <Toggle
-              on={launchHidden}
+              on={launchHidden && platform.tray}
+              disabled={!platform.tray}
               onChange={(v) => void toggleFeature("launch_hidden", v, setLaunchHidden)}
+              label="Start minimized to tray"
             />
           </div>
+          {!platform.tray && (
+            <PlatformNote>
+              This desktop shows no tray icons, so the window stays open and closing it quits
+              Deskmate. On GNOME the AppIndicator extension adds a tray.
+            </PlatformNote>
+          )}
           <label className="block">
             <span className="microlabel">Appearance</span>
             <select
@@ -364,7 +403,7 @@ export default function SettingsPage({
               }}
               className="mt-1 w-full h-9 px-2 bg-panel border border-hairline-strong rounded text-ink text-[13px] focus-visible:border-ink"
             >
-              <option value="system">Follow Windows</option>
+              <option value="system">Follow {systemName(platform)}</option>
               <option value="light">Light</option>
               <option value="dark">Dark</option>
             </select>
@@ -375,10 +414,21 @@ export default function SettingsPage({
         </div>
       </Panel>
 
-      <CpuTemperaturePanel />
+      {linux ? (
+        <UnavailablePanel title="Windows only">
+          The CPU temperature helper and Stream Deck are not part of the Linux preview. The Deskmate
+          service has a Linux counterpart, the Deskmate daemon: installed as its own package, it
+          keeps the computer connected while nobody is signed in and hands over to this app when you
+          sign in.
+        </UnavailablePanel>
+      ) : (
+        <>
+          <CpuTemperaturePanel />
 
-      <ServicePanel />
-      <StreamDeckPanel />
+          <ServicePanel />
+          <StreamDeckPanel />
+        </>
+      )}
 
       <Panel title="Home Assistant dashboard">
         <p className="text-[12px] text-muted mb-2 leading-relaxed">
@@ -421,8 +471,8 @@ export default function SettingsPage({
         <p className="text-[12px] text-muted mb-2 leading-relaxed">
           Optional, and separate from the connection above: only hotkeys, the widget panel and tray
           quick actions use it. Create a long-lived access token in HA (your profile → Security →
-          Long-lived access tokens). The token is stored in Windows Credential Manager, never in a
-          file.
+          Long-lived access tokens). The token is stored in{" "}
+          {linux ? "your keyring" : "Windows Credential Manager"}, never in a file.
         </p>
         <div className="space-y-3">
           <Field
@@ -442,7 +492,7 @@ export default function SettingsPage({
             value={haToken}
             onChange={setHaToken}
             type="password"
-            placeholder="paste token (kept in Credential Manager)"
+            placeholder={`paste token (kept in ${vault})`}
             hint='Leave empty to keep the current token. Enter "-" to remove it.'
           />
           <div className="flex items-center gap-3">
@@ -463,10 +513,13 @@ export default function SettingsPage({
         </p>
         <div className="flex items-center justify-between h-9">
           <div>
-            <span className="text-[13px]">Type text &amp; presentation control</span>
+            <span className="text-[13px]">
+              {linux ? "Open web addresses" : "Type text & presentation control"}
+            </span>
             <p className="text-[12px] text-muted">
-              HA sends keystrokes to the active window (text, slide next/prev) and can wake the
-              screen.
+              {linux
+                ? "HA opens a web address from the list below in your browser."
+                : "HA sends keystrokes to the active window (text, slide next/prev) and can wake the screen."}
             </p>
           </div>
           <Toggle
@@ -474,16 +527,22 @@ export default function SettingsPage({
             onChange={(v) => void toggleFeature("allow_input", v, setAllowInput)}
           />
         </div>
-        <div className="flex items-center justify-between h-9 mt-2">
-          <div>
-            <span className="text-[13px]">Text-to-speech</span>
-            <p className="text-[12px] text-muted">HA sends text and this PC speaks it aloud.</p>
+        {linux ? (
+          <PlatformNote>
+            Typing text, presentation keys and text-to-speech are not part of the Linux preview.
+          </PlatformNote>
+        ) : (
+          <div className="flex items-center justify-between h-9 mt-2">
+            <div>
+              <span className="text-[13px]">Text-to-speech</span>
+              <p className="text-[12px] text-muted">HA sends text and this PC speaks it aloud.</p>
+            </div>
+            <Toggle
+              on={ttsEnabled}
+              onChange={(v) => void toggleFeature("tts_enabled", v, setTtsEnabled)}
+            />
           </div>
-          <Toggle
-            on={ttsEnabled}
-            onChange={(v) => void toggleFeature("tts_enabled", v, setTtsEnabled)}
-          />
-        </div>
+        )}
         <label className="block mt-3">
           <span className="microlabel">Allowed URL origins</span>
           <textarea
@@ -500,7 +559,7 @@ export default function SettingsPage({
         </label>
       </Panel>
 
-      <Panel title="Notifications">
+      <Panel title="Notifications" unavailable={linux && linuxNotifications(platform)}>
         <div className="flex items-center justify-between h-9">
           <div>
             <span className="text-[13px]">Branded toasts (show as “Deskmate”)</span>
@@ -529,7 +588,15 @@ export default function SettingsPage({
             onChange={(v) => void toggleFeature("update_check", v, setUpdateCheck)}
           />
         </div>
-        <fieldset className="mt-4">
+        {linux && (
+          <div className="mt-3">
+            <PlatformNote>
+              On Linux a new version comes as a new package: Deskmate tells you when one is out and
+              links to its page. It never installs anything itself.
+            </PlatformNote>
+          </div>
+        )}
+        <fieldset className={linux ? "hidden" : "mt-4"}>
           <legend className="microlabel">When a new version is out</legend>
           {UPDATE_MODES.map((mode) => (
             <label key={mode.value} className="mt-2 flex items-start gap-3">

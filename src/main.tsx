@@ -4,6 +4,7 @@ import App from "./App";
 import WidgetPanel from "./pages/WidgetPanel";
 import "./styles.css";
 import { api } from "./api";
+import { PlatformProvider } from "./platform";
 import { applyTheme } from "./theme";
 
 // okno "widget" (tauri.conf.json laduje index.html#widget) renderuje panel kafelkow
@@ -16,5 +17,7 @@ api
   .catch(() => applyTheme("system"));
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
-  <React.StrictMode>{isWidget ? <WidgetPanel /> : <App />}</React.StrictMode>,
+  <React.StrictMode>
+    <PlatformProvider>{isWidget ? <WidgetPanel /> : <App />}</PlatformProvider>
+  </React.StrictMode>,
 );

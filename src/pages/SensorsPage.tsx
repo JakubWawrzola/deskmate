@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api } from "../api";
 import { Button, EmptyState, Field, Panel, Toggle } from "../components";
+import { isLinux, UnavailablePanel, usePlatform } from "../platform";
 import type { AppConfig, CustomSensor, CustomSensorKind, SensorDef, Snapshot } from "../types";
 
 const KIND_LABEL: Record<CustomSensorKind, string> = {
@@ -202,6 +203,7 @@ export default function SensorsPage({
   config: AppConfig;
   onChanged: () => Promise<void>;
 }) {
+  const linux = isLinux(usePlatform());
   const toggle = async (id: string, v: boolean) => {
     await api.setSensorEnabled(id, v);
     await onChanged();
@@ -283,10 +285,9 @@ export default function SensorsPage({
 
       <Panel title="Sound">
         <p className="text-[12px] text-muted mb-2 leading-relaxed">
-          Controls for Home Assistant: speaker and microphone volume, and which sound devices
-          Windows uses. "Mute audio" and "Mute microphone" switches are always there. An automation
-          can mute the microphone when the radio starts, or switch to the headset when a call comes
-          in.
+          {linux
+            ? 'The volume of the default playback device, through PipeWire or PulseAudio. The "Mute audio" switch comes with it. The microphone and the choice of sound devices are not part of the Linux preview.'
+            : 'Controls for Home Assistant: speaker and microphone volume, and which sound devices Windows uses. "Mute audio" and "Mute microphone" switches are always there. An automation can mute the microphone when the radio starts, or switch to the headset when a call comes in.'}
         </p>
         {sound.map((d) => (
           <Row
@@ -315,7 +316,14 @@ export default function SensorsPage({
         ))}
       </Panel>
 
-      <YourSensors snapshot={snapshot} config={config} onChanged={onChanged} />
+      {linux ? (
+        <UnavailablePanel title="Your sensors">
+          Sensors of your own (programs, windows, services, PowerShell) are not part of the Linux
+          preview.
+        </UnavailablePanel>
+      ) : (
+        <YourSensors snapshot={snapshot} config={config} onChanged={onChanged} />
+      )}
     </>
   );
 }

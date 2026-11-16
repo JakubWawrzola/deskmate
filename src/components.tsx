@@ -4,18 +4,27 @@ export function Panel({
   title,
   children,
   action,
+  unavailable,
 }: {
   title: string;
   children: ReactNode;
   action?: ReactNode;
+  /** Set when this computer lacks the feature: the panel says why instead of showing controls. */
+  unavailable?: ReactNode;
 }) {
   return (
     <section className="bg-panel border border-hairline rounded-md">
       <header className="flex items-center justify-between px-4 h-10 border-b border-hairline">
         <h2 className="microlabel">{title}</h2>
-        {action}
+        {!unavailable && action}
       </header>
-      <div className="p-4">{children}</div>
+      <div className="p-4">
+        {unavailable ? (
+          <p className="text-[12px] text-muted leading-relaxed">{unavailable}</p>
+        ) : (
+          children
+        )}
+      </div>
     </section>
   );
 }

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api } from "../api";
 import { Button, EmptyState, Panel } from "../components";
+import { usePlatform } from "../platform";
 import type { AppConfig, Hotkey, Snapshot, TrayAction } from "../types";
 import { emptyAction } from "../types";
 import ActionEditor from "./ActionEditor";
@@ -58,6 +59,7 @@ export default function HotkeysPage({
     }
   };
 
+  const platform = usePlatform();
   const input =
     "w-full h-8 px-2 bg-panel border border-hairline-strong rounded text-ink mono text-[12px] placeholder:text-faint focus-visible:border-ink";
 
@@ -65,6 +67,10 @@ export default function HotkeysPage({
     <>
       <Panel
         title="Global hotkeys"
+        unavailable={
+          !platform.global_shortcuts &&
+          "Global hotkeys need an X11 session: Wayland does not let a program catch keys meant for other windows."
+        }
         action={
           <Button
             onClick={() =>
@@ -153,6 +159,10 @@ export default function HotkeysPage({
 
       <Panel
         title="Tray quick actions"
+        unavailable={
+          !platform.tray &&
+          "This desktop shows no tray icons. On GNOME the AppIndicator extension adds a tray."
+        }
         action={
           <Button
             onClick={() =>

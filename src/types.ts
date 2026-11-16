@@ -256,6 +256,26 @@ export interface NotifyRecord {
 
 export type NotifyPriority = "normal" | "high" | "urgent";
 
+/** What this computer's desktop offers. Mirrors `Capabilities` in src-tauri/src/platform.rs. */
+export interface PlatformCapabilities {
+  platform: "windows" | "linux";
+  session_type: "windows" | "x11" | "wayland" | "unknown";
+  /** a tray icon can be shown, so the window may hide to it */
+  tray: boolean;
+  global_shortcuts: boolean;
+  clipboard: boolean;
+  active_window: boolean;
+  notifications: boolean;
+  notification_buttons: boolean;
+  media: boolean;
+  volume: boolean;
+  lock: boolean;
+  idle: boolean;
+  open_url: boolean;
+  /** why secrets cannot be kept in the user's keyring; null when it is there */
+  keyring_problem: string | null;
+}
+
 export interface Snapshot {
   status: StatusView;
   sensor_values: Record<string, string>;

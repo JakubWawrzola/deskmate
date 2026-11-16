@@ -11,6 +11,7 @@ import type {
   FileEvent,
   Hotkey,
   NotifyRecord,
+  PlatformCapabilities,
   ServiceSetupAction,
   ServiceView,
   Snapshot,
@@ -33,6 +34,7 @@ export const api = {
       cascadeKey: cascadeKey ?? null,
     }),
   getSnapshot: () => invoke<Snapshot>("get_snapshot"),
+  platformCapabilities: () => invoke<PlatformCapabilities>("platform_capabilities"),
   setSensorEnabled: (id: string, enabled: boolean) =>
     invoke<void>("set_sensor_enabled", { id, enabled }),
   setSensorsEnabled: (ids: string[], enabled: boolean) =>
