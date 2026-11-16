@@ -71,7 +71,7 @@ pub fn open_url(url: &str) -> Result<(), String> {
     }
     #[cfg(not(windows))]
     {
-        Err("windows only".into())
+        crate::linux::open::web_url(u)
     }
 }
 
@@ -376,7 +376,7 @@ fn lock() -> Result<(), String> {
 }
 #[cfg(not(windows))]
 fn lock() -> Result<(), String> {
-    Err("windows only".into())
+    crate::linux::session::lock()
 }
 
 /// Signs the current Windows user out. Programs get the usual chance to close;
@@ -394,6 +394,7 @@ pub fn sign_out() -> Result<(), String> {
     Err("windows only".into())
 }
 
+#[cfg(windows)]
 pub fn lock_now() -> Result<(), String> {
     lock()
 }
@@ -457,7 +458,7 @@ pub fn get_volume() -> Option<u8> {
 }
 #[cfg(not(windows))]
 pub fn get_volume() -> Option<u8> {
-    None
+    crate::linux::volume::get()
 }
 
 #[cfg(windows)]
@@ -468,7 +469,7 @@ pub fn audio_muted() -> Option<bool> {
 }
 #[cfg(not(windows))]
 pub fn audio_muted() -> Option<bool> {
-    None
+    crate::linux::volume::muted()
 }
 
 #[cfg(windows)]
@@ -476,8 +477,8 @@ pub fn set_audio_muted(muted: bool) -> Result<(), String> {
     with_endpoint(|v| unsafe { v.SetMute(muted, std::ptr::null()) })
 }
 #[cfg(not(windows))]
-pub fn set_audio_muted(_muted: bool) -> Result<(), String> {
-    Err("windows only".into())
+pub fn set_audio_muted(muted: bool) -> Result<(), String> {
+    crate::linux::volume::set_muted(muted)
 }
 
 #[cfg(windows)]
@@ -490,6 +491,6 @@ fn set_volume(payload: &str) -> Result<(), String> {
     with_endpoint(|v| unsafe { v.SetMasterVolumeLevelScalar(scalar, std::ptr::null()) })
 }
 #[cfg(not(windows))]
-fn set_volume(_payload: &str) -> Result<(), String> {
-    Err("windows only".into())
+fn set_volume(payload: &str) -> Result<(), String> {
+    crate::linux::volume::set(payload)
 }

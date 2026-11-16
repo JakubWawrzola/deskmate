@@ -43,9 +43,10 @@ pub fn current() -> Option<MediaInfo> {
     })
 }
 
+/// MPRIS on Linux (linux/media.rs).
 #[cfg(not(windows))]
 pub fn current() -> Option<MediaInfo> {
-    None
+    crate::linux::media::current()
 }
 
 #[cfg(windows)]
@@ -66,6 +67,6 @@ pub fn control(action: &str) -> Result<(), String> {
 }
 
 #[cfg(not(windows))]
-pub fn control(_action: &str) -> Result<(), String> {
-    Err("windows only".into())
+pub fn control(action: &str) -> Result<(), String> {
+    crate::linux::media::control(action)
 }

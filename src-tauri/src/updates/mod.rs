@@ -135,7 +135,15 @@ fn emit(app: &AppHandle) {
 // ------------------------------------------------------------------ the check
 
 async fn mode(app: &AppHandle) -> UpdateMode {
-    UpdateMode::from_config(&app.state::<AppState>().config.lock().await.update_mode)
+    let configured =
+        UpdateMode::from_config(&app.state::<AppState>().config.lock().await.update_mode);
+    // On Linux a new version comes as a new package: the app only says that
+    // one is out and never runs an installer.
+    if cfg!(target_os = "linux") {
+        UpdateMode::Notify
+    } else {
+        configured
+    }
 }
 
 /// Looks for a newer release and remembers what it found. Ok(None): this is

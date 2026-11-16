@@ -10,6 +10,14 @@
 //!
 //! A `bye` goes only to an integration that announced the `bye` capability.
 
+#![cfg_attr(
+    not(windows),
+    allow(
+        dead_code,
+        reason = "sleep, wake-up and sign-out are reported by Windows (power_events.rs)"
+    )
+)]
+
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 use tauri::{AppHandle, Manager};

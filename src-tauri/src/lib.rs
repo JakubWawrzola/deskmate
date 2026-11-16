@@ -1,4 +1,4 @@
-//! Deskmate - Windows companion for Home Assistant.
+//! Deskmate - Windows companion for Home Assistant, with a Linux preview.
 //! Composition root: state, tauri commands, tray, window.
 
 mod actions;
@@ -8,6 +8,7 @@ mod clipboard;
 mod custom_sensors;
 mod dashboard;
 mod discovery;
+#[cfg(windows)]
 mod family;
 mod farewell;
 mod gamepad;
@@ -16,31 +17,41 @@ mod hotkeys;
 mod keys;
 mod link;
 mod link_files;
+#[cfg(target_os = "linux")]
+mod linux;
 mod media;
+#[cfg(windows)]
 mod media_activity;
 mod media_player;
 mod monitor;
 mod mqtt;
 mod notify;
 mod notify_tags;
+mod platform;
+#[cfg(windows)]
 mod power_events;
 mod processes;
 mod sensors;
 mod service;
 mod state;
+#[cfg(windows)]
 mod streamdeck;
 mod sys_commands;
 mod transport;
 mod tts;
+#[cfg(windows)]
 mod uninstall;
 mod updates;
+#[cfg(windows)]
 mod user_state;
 
 // These modules live in deskmate-core. The re-export keeps them reachable as
 // `crate::config`, `crate::consts` and so on for the rest of the app. The
 // app's own `sensors`, `sys_commands` and `discovery` hold what needs the
 // user's session and re-export the rest from deskmate-core.
-pub(crate) use deskmate_core::{config, consts, cpu_temperature, seat, security};
+#[cfg(windows)]
+pub(crate) use deskmate_core::cpu_temperature;
+pub(crate) use deskmate_core::{config, consts, seat, security};
 
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
@@ -198,6 +209,7 @@ async fn save_config(
     new_config.streamdeck_enabled = old.streamdeck_enabled;
     // The Home Assistant token is stored per node id, so a renamed node
     // counts as changed settings for the Stream Deck channel as well.
+    #[cfg(windows)]
     let ha_settings_changed = old.node_id != new_config.node_id
         || old.ha_url != new_config.ha_url
         || old.ha_url_remote != new_config.ha_url_remote;
@@ -256,6 +268,7 @@ async fn save_config(
     let branding = new_config.toast_branding;
     config::save(&new_config)?;
     *state.config.lock().await = new_config;
+    #[cfg(windows)]
     if ha_settings_changed {
         streamdeck::ha_settings_changed(&app);
     }
@@ -268,15 +281,21 @@ async fn save_config(
 #[tauri::command]
 async fn get_snapshot(state: State<'_, AppState>) -> Result<Snapshot, String> {
     let cfg = state.config.lock().await.clone();
+    let hardware_defs = state.hardware_sensor_defs.lock().await.clone();
     let mut sensor_defs = sensors::static_defs();
-    sensor_defs.extend(state.hardware_sensor_defs.lock().await.clone());
+    sensor_defs.extend(hardware_defs.iter().cloned());
+    let command_defs = sys_commands::COMMAND_DEFS.to_vec();
+    // The window lists only what works on Linux, as Home Assistant gets it.
+    #[cfg(target_os = "linux")]
+    let (sensor_defs, command_defs) =
+        linux::entities::for_window(sensor_defs, command_defs, &hardware_defs);
     Ok(Snapshot {
         status: state.status.lock().await.clone(),
         sensor_values: state.sensor_values.lock().await.clone(),
         published_count: state.published_count.load(Ordering::Relaxed),
         notifications: state.notif_history.lock().await.iter().cloned().collect(),
         sensor_defs,
-        command_defs: sys_commands::COMMAND_DEFS.to_vec(),
+        command_defs,
         hostname: config::hostname(),
         ha_configured: ha_api::is_configured(&cfg),
         update: updates::available(),
@@ -288,6 +307,13 @@ async fn get_snapshot(state: State<'_, AppState>) -> Result<Snapshot, String> {
 /// Saves the HA URLs + token (token -> Credential Manager, not config.json).
 /// Empty token = keep the existing one; token "-" = delete it.
 #[tauri::command]
+#[cfg_attr(
+    not(windows),
+    allow(
+        unused_variables,
+        reason = "the Stream Deck channel exists on Windows only"
+    )
+)]
 async fn set_ha_api(
     app: AppHandle,
     state: State<'_, AppState>,
@@ -314,6 +340,7 @@ async fn set_ha_api(
     }
     // Clients of the Stream Deck channel read "is Home Assistant set up"
     // once per connection; closing the connections makes them read it again.
+    #[cfg(windows)]
     streamdeck::ha_settings_changed(&app);
     Ok(())
 }
@@ -888,6 +915,7 @@ async fn remove_custom_sensor(
 
 // ---------- CPU temperature helper (PawnIO) ----------
 
+#[cfg(windows)]
 #[tauri::command]
 async fn cpu_temperature_status() -> Result<cpu_temperature::Status, String> {
     tauri::async_runtime::spawn_blocking(cpu_temperature::status)
@@ -895,6 +923,7 @@ async fn cpu_temperature_status() -> Result<cpu_temperature::Status, String> {
         .map_err(|e| e.to_string())
 }
 
+#[cfg(windows)]
 #[tauri::command]
 async fn install_cpu_temperature_helper() -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(cpu_temperature::request_install)
@@ -911,11 +940,13 @@ async fn recent_file_transfers() -> Result<Vec<security::FileEvent>, String> {
 }
 
 /// Fixed address, not taken from the page.
+#[cfg(windows)]
 #[tauri::command]
 fn open_pawnio_site() -> Result<(), String> {
     sys_commands::launch("https://pawnio.eu/", "")
 }
 
+#[cfg(windows)]
 #[tauri::command]
 async fn remove_cpu_temperature_helper() -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(cpu_temperature::request_remove)
@@ -965,20 +996,24 @@ fn run_command_local(state: State<'_, AppState>, id: String) -> Result<(), Strin
 pub fn run() {
     // Started by the uninstaller ("Delete the application data"): clean up and
     // exit before anything else, in particular before single-instance.
+    #[cfg(windows)]
     if std::env::args().any(|arg| arg == uninstall::FORGET_ARG) {
         uninstall::forget_this_computer();
         return;
     }
     // Started by the uninstaller too: removes the Deskmate service.
+    #[cfg(windows)]
     if std::env::args().any(|arg| arg == uninstall::REMOVE_SERVICE_ARG) {
         std::process::exit(uninstall::remove_service());
     }
     // CPU temperature helper (cpu_temperature.rs): the elevated loop, and the
     // elevated install/remove steps started through UAC from Settings.
+    #[cfg(windows)]
     if std::env::args().any(|arg| arg == cpu_temperature::HELPER_ARG) {
         cpu_temperature::run_helper();
         return;
     }
+    #[cfg(windows)]
     if std::env::args().any(|arg| arg == cpu_temperature::INSTALL_ARG) {
         std::process::exit(if cpu_temperature::install().is_ok() {
             0
@@ -986,6 +1021,7 @@ pub fn run() {
             1
         });
     }
+    #[cfg(windows)]
     if std::env::args().any(|arg| arg == cpu_temperature::REMOVE_ARG) {
         std::process::exit(if cpu_temperature::remove().is_ok() {
             0
@@ -995,9 +1031,11 @@ pub fn run() {
     }
     // Family protection (family.rs): the elevated steps from the Family page
     // and the scheduled task that starts Deskmate again.
+    #[cfg(windows)]
     if let Some(code) = family::handle_elevated_args() {
         std::process::exit(code);
     }
+    #[cfg(windows)]
     if std::env::args().any(|arg| arg == family::WATCHDOG_ARG) {
         family::run_watchdog();
         return;
@@ -1005,6 +1043,7 @@ pub fn run() {
     // Windows starts the registered toast activator as a COM local server when a
     // notification is activated. Deskmate handles button clicks over its URL
     // protocol instead, so such a launch must not turn into a second app window.
+    #[cfg(windows)]
     if std::env::args().any(|arg| {
         arg.eq_ignore_ascii_case(consts::TOAST_ACTIVATED_ARG)
             || arg.eq_ignore_ascii_case("-Embedding")
@@ -1015,9 +1054,14 @@ pub fn run() {
 
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
     let cfg = config::load();
+    #[cfg(windows)]
     let launch_hidden = cfg.launch_hidden
         || std::env::args().any(|arg| arg == family::HIDDEN_ARG)
         || updates::restarted_hidden(&cfg);
+    // Without a tray to come back from, a hidden window could not be opened.
+    #[cfg(target_os = "linux")]
+    let launch_hidden =
+        (cfg.launch_hidden || updates::restarted_hidden(&cfg)) && platform::capabilities().tray;
     let toast_branding = cfg.toast_branding;
 
     tauri::Builder::default()
@@ -1039,7 +1083,11 @@ pub fn run() {
             // Started again from Start or the desktop while already running in
             // the tray: show the window instead of doing nothing. The family
             // watchdog starts it hidden and must not pop the window up.
-            if !toast_click && !argv.iter().any(|arg| arg == family::HIDDEN_ARG) {
+            #[cfg(windows)]
+            let watchdog = argv.iter().any(|arg| arg == family::HIDDEN_ARG);
+            #[cfg(not(windows))]
+            let watchdog = false;
+            if !toast_click && !watchdog {
                 actions::show_main_window(app);
             }
         }))
@@ -1104,7 +1152,7 @@ pub fn run() {
             let open = MenuItem::with_id(app, "open", "Open Deskmate", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&open, &quit])?;
-            TrayIconBuilder::with_id("main-tray")
+            let tray = TrayIconBuilder::with_id("main-tray")
                 .icon(app.default_window_icon().unwrap().clone())
                 .tooltip("Deskmate")
                 .menu(&menu)
@@ -1161,8 +1209,16 @@ pub fn run() {
                             }
                         }
                     }
-                })
-                .build(app)?;
+                });
+            #[cfg(windows)]
+            tray.build(app)?;
+            // A desktop without an AppIndicator host shows no tray: the
+            // window then stays the way back in (platform.rs).
+            #[cfg(target_os = "linux")]
+            if let Err(error) = tray.build(app) {
+                log::warn!("no tray icon: {error}");
+                platform::tray_failed();
+            }
 
             // tray menu with quick actions from config + hotkey registration
             {
@@ -1184,10 +1240,16 @@ pub fn run() {
 
             updates::spawn(app.handle().clone());
             autostart::reconcile(app.handle());
+            #[cfg(windows)]
             family::spawn(app.handle().clone());
+            #[cfg(windows)]
             streamdeck::init(app.handle());
             // bye before sleep, sign-out and shutdown; reconnect on wake-up
+            #[cfg(windows)]
             power_events::spawn(app.handle().clone());
+            // the clicks on notification buttons (linux/notify.rs)
+            #[cfg(target_os = "linux")]
+            linux::start(app.handle());
 
             // start the selected transport if configured
             let handle = app.handle().clone();
@@ -1196,6 +1258,13 @@ pub fn run() {
         })
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                // Without a tray, closing the main window quits: hidden, it
+                // could not be opened again.
+                if window.label() == "main" && !platform::capabilities().tray {
+                    api.prevent_close();
+                    farewell::quit(window.app_handle());
+                    return;
+                }
                 // closing = minimize to the tray (app keeps running in the background)
                 let _ = window.hide();
                 api.prevent_close();
@@ -1234,19 +1303,32 @@ pub fn run() {
             set_custom_sensor_enabled,
             remove_custom_sensor,
             dashboard::open_dashboard,
+            #[cfg(windows)]
             cpu_temperature_status,
+            #[cfg(windows)]
             install_cpu_temperature_helper,
+            #[cfg(windows)]
             remove_cpu_temperature_helper,
+            #[cfg(windows)]
             open_pawnio_site,
+            #[cfg(windows)]
             family::get_family,
+            #[cfg(windows)]
             family::set_family,
+            #[cfg(windows)]
             family::protect_family_account,
+            #[cfg(windows)]
             family::unprotect_family_account,
             recent_file_transfers,
+            #[cfg(windows)]
             streamdeck::streamdeck_status,
+            #[cfg(windows)]
             streamdeck::set_streamdeck_enabled,
+            #[cfg(windows)]
             streamdeck::install_streamdeck_plugin,
+            #[cfg(windows)]
             streamdeck::remove_streamdeck_plugin,
+            platform::platform_capabilities,
             service::service_status,
             service::set_up_service,
             service::remove_service

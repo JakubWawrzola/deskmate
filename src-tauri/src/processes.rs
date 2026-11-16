@@ -2,6 +2,14 @@
 //! sensor and the "stop a program" control. Toolhelp snapshot: one cheap
 //! system call per publish interval, no PowerShell.
 
+#![cfg_attr(
+    not(windows),
+    allow(
+        dead_code,
+        reason = "the program controls work on Windows processes; elsewhere only the stubs compile"
+    )
+)]
+
 /// (process id, executable name in lower case) of every running process.
 #[cfg(windows)]
 pub fn snapshot() -> Vec<(u32, String)> {

@@ -16,6 +16,14 @@
 //! lasts. Empty slots are asked once a second only: Microsoft advises
 //! against asking them often, because each such call looks for a new device.
 
+#![cfg_attr(
+    not(windows),
+    allow(
+        dead_code,
+        reason = "controller input is read through XInput on Windows; elsewhere only the stubs compile"
+    )
+)]
+
 use std::time::{Duration, Instant};
 
 /// How often a connected controller is asked. A quick tap of a button lasts

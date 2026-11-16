@@ -1,6 +1,14 @@
 //! PC <-> HA clipboard bridge (arboard; uses clipboard-win on Windows, no C).
 //! Read = privacy sensor (opt-in). Write = text entity from HA.
 
+#![cfg_attr(
+    not(windows),
+    allow(
+        dead_code,
+        reason = "the clipboard sensor is part of the Windows app; the Linux preview leaves it off"
+    )
+)]
+
 use std::sync::{Mutex, OnceLock};
 
 static LAST_WRITE: OnceLock<Mutex<Option<std::time::Instant>>> = OnceLock::new();

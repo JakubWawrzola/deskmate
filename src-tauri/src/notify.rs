@@ -4,6 +4,14 @@
 //!  "actions":[{"title":"OK","action":"ok"},{"title":"Snooze","action":"snooze"}]}
 //! A clicked button publishes `{action}` to `deskmate/<node>/notify/action`.
 
+#![cfg_attr(
+    not(windows),
+    allow(
+        dead_code,
+        reason = "toast branding, the toast activator and the protocol handler are Windows parts"
+    )
+)]
+
 use deskmate_core::link::notify::NotifyPriority;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -158,7 +166,7 @@ fn fetch_image(url: &str) -> Option<std::path::PathBuf> {
         "png"
     };
     let sequence = TEMP_IMAGE_SEQUENCE.fetch_add(1, Ordering::Relaxed);
-    let path = std::env::temp_dir().join(format!(
+    let path = image_dir().join(format!(
         "{TEMP_IMAGE_PREFIX}{}_{}.{}",
         std::process::id(),
         sequence,
@@ -166,6 +174,17 @@ fn fetch_image(url: &str) -> Option<std::path::PathBuf> {
     ));
     std::fs::write(&path, &buf).ok()?;
     Some(path)
+}
+
+/// Where downloaded toast images go: %TEMP% on Windows, a folder only the
+/// user can enter on Linux (the shared /tmp would show them to everyone).
+#[cfg(windows)]
+fn image_dir() -> std::path::PathBuf {
+    std::env::temp_dir()
+}
+#[cfg(not(windows))]
+fn image_dir() -> std::path::PathBuf {
+    crate::linux::notify::image_dir()
 }
 
 /// Deletes a downloaded toast image once the toast no longer needs it.
@@ -179,7 +198,7 @@ fn schedule_image_removal(path: std::path::PathBuf) {
 /// Removes toast images left behind by an earlier run (crash, shutdown before
 /// the timer fired). They used to accumulate in %TEMP% indefinitely.
 pub fn cleanup_temp_images() {
-    let Ok(entries) = std::fs::read_dir(std::env::temp_dir()) else {
+    let Ok(entries) = std::fs::read_dir(image_dir()) else {
         return;
     };
     for entry in entries.flatten() {
@@ -671,12 +690,17 @@ pub fn show_toast_with(p: &NotifyPayload, own_buttons: &[OwnButton]) -> Result<(
     Ok(())
 }
 
+/// The desktop's notification service on Linux (linux/notify.rs).
 #[cfg(not(windows))]
-pub fn show_toast(_p: &NotifyPayload) -> Result<(), String> {
-    Err("windows only".into())
+pub fn show_toast(p: &NotifyPayload) -> Result<(), String> {
+    show_toast_with(p, &[])
 }
 
 #[cfg(not(windows))]
-pub fn show_toast_with(_p: &NotifyPayload, _own_buttons: &[OwnButton]) -> Result<(), String> {
-    Err("windows only".into())
+pub fn show_toast_with(p: &NotifyPayload, own_buttons: &[OwnButton]) -> Result<(), String> {
+    let img = p.image.as_deref().and_then(fetch_image);
+    if let Some(path) = &img {
+        schedule_image_removal(path.clone());
+    }
+    crate::linux::notify::show(p, img.as_deref(), own_buttons)
 }

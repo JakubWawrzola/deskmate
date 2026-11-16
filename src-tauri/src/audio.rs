@@ -6,6 +6,14 @@
 //! is not documented, but has been stable since Windows 7 and is what
 //! SoundSwitch, EarTrumpet and HASS.Agent use.
 
+#![cfg_attr(
+    not(windows),
+    allow(
+        dead_code,
+        reason = "the sound devices are switched through Windows' IPolicyConfig; elsewhere only the stubs compile"
+    )
+)]
+
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;

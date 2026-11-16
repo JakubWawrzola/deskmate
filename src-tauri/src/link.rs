@@ -15,9 +15,8 @@ use zeroize::Zeroizing;
 use deskmate_core::link::media::declares_media_player;
 use deskmate_core::link::notify::{parse_notify_clear, parse_notify_extras};
 use deskmate_core::link::{
-    auth_retry_delay, classify_connect_error, client_handshake, feature, info_frame, parse_info,
-    state_frame, ClientPlatform, ClientRole, HubInfo, LinkError, LinkFailure, SessionCodecs,
-    PING_INTERVAL,
+    auth_retry_delay, classify_connect_error, client_handshake, info_frame, parse_info,
+    state_frame, ClientRole, HubInfo, LinkError, LinkFailure, SessionCodecs, PING_INTERVAL,
 };
 pub use deskmate_core::link::{normalize_url, validate_pairing_key};
 
@@ -31,7 +30,15 @@ const FAREWELL_SEND: Duration = Duration::from_secs(1);
 
 /// The optional protocol features that this app implements, for its `info`
 /// frame. Home Assistant uses a feature only with a session that lists it.
-const APP_FEATURES: &[&str] = &[feature::MEDIA_PLAYER, feature::NOTIFY_TAG];
+#[cfg(windows)]
+const APP_FEATURES: &[&str] = &[
+    deskmate_core::link::feature::MEDIA_PLAYER,
+    deskmate_core::link::feature::NOTIFY_TAG,
+];
+/// The Linux preview has the media player (MPRIS). Its notifications are
+/// neither replaced by tag nor cleared (linux/notify.rs).
+#[cfg(not(windows))]
+const APP_FEATURES: &[&str] = &[deskmate_core::link::feature::MEDIA_PLAYER];
 
 /// How long a session waits for Home Assistant's `info` answer before its
 /// first `declare`. Home Assistant treats a full declaration as the complete
@@ -299,7 +306,7 @@ async fn run_session(
     out_tx
         .send(info_frame(
             ClientRole::App,
-            ClientPlatform::Windows,
+            crate::platform::CLIENT_PLATFORM,
             APP_FEATURES,
         ))
         .map_err(|e| e.to_string())?;
@@ -617,8 +624,15 @@ mod tests {
 
     #[test]
     fn the_app_announces_exactly_what_it_implements() {
-        let frame = info_frame(ClientRole::App, ClientPlatform::Windows, APP_FEATURES);
+        let frame = info_frame(
+            ClientRole::App,
+            crate::platform::CLIENT_PLATFORM,
+            APP_FEATURES,
+        );
+        #[cfg(windows)]
         assert_eq!(frame["features"], json!(["media_player", "notify_tag"]));
+        #[cfg(not(windows))]
+        assert_eq!(frame["features"], json!(["media_player"]));
     }
 
     /// Home Assistant removes every entity that a full declaration leaves

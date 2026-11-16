@@ -21,16 +21,31 @@ fn session_entities(cfg: &AppConfig, hub: Option<&HubInfo>) -> SessionEntities {
             .into_iter()
             .map(|key| (key.to_string(), crate::audio::options_for(key)))
             .collect(),
+        #[cfg(windows)]
         family: crate::family::link_entities(cfg),
+        #[cfg(windows)]
         family_keys: crate::family::ENTITIES,
+        #[cfg(not(windows))]
+        family: Vec::new(),
+        #[cfg(not(windows))]
+        family_keys: &[],
         media_player: declares_media_player(cfg, hub),
+        #[cfg(windows)]
         brightness: crate::monitor::brightness::is_supported(),
+        // No brightness control in the Linux preview (linux/entities.rs).
+        #[cfg(not(windows))]
+        brightness: false,
     }
 }
 
 /// Full set of MQTT discovery messages derived from the config.
 pub fn build_all(cfg: &AppConfig, hardware_defs: &[OwnedSensorDef]) -> Vec<DiscoveryMsg> {
-    deskmate_core::discovery::build_all(cfg, hardware_defs, &session_entities(cfg, None))
+    let messages =
+        deskmate_core::discovery::build_all(cfg, hardware_defs, &session_entities(cfg, None));
+    // Linux declares only what works there (linux/entities.rs).
+    #[cfg(target_os = "linux")]
+    let messages = crate::linux::entities::filter_discovery(messages, hardware_defs);
+    messages
 }
 
 /// Dynamic entity declaration for the Deskmate Link integration. The media
@@ -40,7 +55,14 @@ pub fn build_link_declare(
     hardware_defs: &[OwnedSensorDef],
     hub: Option<&HubInfo>,
 ) -> Value {
-    deskmate_core::discovery::build_link_declare(cfg, hardware_defs, &session_entities(cfg, hub))
+    let declare = deskmate_core::discovery::build_link_declare(
+        cfg,
+        hardware_defs,
+        &session_entities(cfg, hub),
+    );
+    #[cfg(target_os = "linux")]
+    let declare = crate::linux::entities::filter_declare(declare, hardware_defs);
+    declare
 }
 
 #[cfg(test)]

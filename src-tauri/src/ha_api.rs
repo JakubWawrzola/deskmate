@@ -1,9 +1,16 @@
 //! Home Assistant REST client (the optional PC -> HA channel).
 //! Used by hotkeys (toggle/service actions), widgets (entity states), and the tray.
-//! The long-lived token lives EXCLUSIVELY in Windows Credential Manager (keyring),
-//! never in config.json. Local URL + fallback URL (failover, same as the MQTT broker).
+//! The long-lived token lives EXCLUSIVELY in the user's keyring (Windows Credential
+//! Manager, the Secret Service on Linux), never in config.json. Local URL + fallback URL (failover, same as the MQTT broker).
 //! ureq + native-tls (schannel) - zero ring/clang, works on ARM64.
 
+#![cfg_attr(
+    not(windows),
+    allow(
+        dead_code,
+        reason = "the state listings serve the Stream Deck channel, a Windows named pipe"
+    )
+)]
 #![allow(
     clippy::result_large_err,
     reason = "ureq::Error is large by design, and every call here is a single HTTP request"
@@ -27,19 +34,22 @@ pub struct EntityState {
 }
 
 pub fn set_token(cfg: &AppConfig, token: &str) -> Result<(), String> {
-    let entry = keyring::Entry::new(KEYRING_SERVICE_HA, &cfg.node_id).map_err(|e| e.to_string())?;
+    let store = deskmate_core::secrets::selected();
     if token.is_empty() {
-        let _ = entry.delete_credential();
+        if let Err(e) = store.delete(KEYRING_SERVICE_HA, &cfg.node_id) {
+            log::warn!("cannot remove the Home Assistant token: {e}");
+        }
         return Ok(());
     }
-    entry.set_password(token).map_err(|e| e.to_string())
+    store.set(KEYRING_SERVICE_HA, &cfg.node_id, token)
 }
 
 pub fn get_token(cfg: &AppConfig) -> Option<String> {
-    keyring::Entry::new(KEYRING_SERVICE_HA, &cfg.node_id)
-        .ok()?
-        .get_password()
+    deskmate_core::secrets::selected()
+        .get(KEYRING_SERVICE_HA, &cfg.node_id)
         .ok()
+        .flatten()
+        .map(|token| token.as_str().to_owned())
 }
 
 pub fn has_token(cfg: &AppConfig) -> bool {

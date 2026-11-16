@@ -47,6 +47,11 @@ pub fn parse(accel: &str) -> Result<Shortcut, String> {
 /// (Re)registers all hotkeys from the config. Returns a list of errors
 /// (e.g. shortcut already taken by another application) - the rest keep working.
 pub async fn register_all(app: &AppHandle) -> Vec<String> {
+    // Under Wayland the X server would report keys only while an X program
+    // has the focus: no shortcut is registered rather than a half-working one.
+    if !crate::platform::capabilities().global_shortcuts {
+        return vec!["Global shortcuts are not available in this desktop session".into()];
+    }
     let gs = app.global_shortcut();
     let _ = gs.unregister_all();
     let cfg = app

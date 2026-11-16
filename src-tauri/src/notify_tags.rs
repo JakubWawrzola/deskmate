@@ -4,6 +4,14 @@
 //! notification centre, and the urgent priority uses the toast scenario that
 //! Windows documents for important notifications.
 
+#![cfg_attr(
+    not(windows),
+    allow(
+        dead_code,
+        reason = "tags and the urgent scenario belong to Windows toasts; the Linux notifications have neither"
+    )
+)]
+
 use deskmate_core::link::notify::NotifyPriority;
 
 /// Group of every tagged toast from Home Assistant. Windows identifies a

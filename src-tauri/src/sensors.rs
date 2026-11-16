@@ -8,6 +8,10 @@ use std::collections::HashMap;
 pub use deskmate_core::sensors::{is_enabled, static_defs, OwnedSensorDef};
 
 /// Collector state kept between ticks.
+#[cfg_attr(
+    not(windows),
+    allow(dead_code, reason = "the clipboard sensor is part of the Windows app")
+)]
 pub struct Collector {
     machine: deskmate_core::sensors::MachineCollector,
     last_clipboard_fingerprint: Option<u64>,
@@ -171,6 +175,13 @@ impl Collector {
                 }
             }
         }
+        // The session sensors of the Linux preview (linux/sensors.rs). The
+        // clipboard stays off there, so the connection state is not needed.
+        #[cfg(not(windows))]
+        {
+            let _ = mqtt_connected;
+            crate::linux::sensors::collect(cfg, &mut out);
+        }
 
         (out, hardware_defs)
     }
@@ -234,14 +245,15 @@ pub fn session_locked() -> bool {
     win::is_locked()
 }
 
+/// logind's lock hint on Linux; unknown counts as unlocked, as before.
 #[cfg(not(windows))]
 pub fn session_locked() -> bool {
-    false
+    crate::linux::session::locked().unwrap_or(false)
 }
 
 /// Time of the last keyboard or mouse input as UTC ISO 8601, to the minute so
 /// an active user does not produce a new state every publish interval.
-fn last_active(idle_seconds: u64) -> String {
+pub(crate) fn last_active(idle_seconds: u64) -> String {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
@@ -271,6 +283,7 @@ fn iso8601_utc(unix: u64) -> String {
     )
 }
 
+#[cfg(windows)]
 fn truncate(s: &str, n: usize) -> String {
     if s.chars().count() <= n {
         s.into()

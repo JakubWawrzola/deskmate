@@ -2,6 +2,14 @@
 //! pressed in the window in front when Home Assistant presses the button.
 //! Home Assistant only triggers the control; it cannot choose the keys.
 
+#![cfg_attr(
+    not(windows),
+    allow(
+        dead_code,
+        reason = "key combinations are sent with SendInput on Windows; elsewhere only the parser compiles"
+    )
+)]
+
 /// One key press: modifiers held while the key goes down and up.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Combo {

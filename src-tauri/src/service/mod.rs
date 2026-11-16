@@ -10,6 +10,14 @@
 //! environment. Every path and argument is fixed here: nothing received
 //! from the network chooses one.
 
+#![cfg_attr(
+    not(windows),
+    allow(
+        dead_code,
+        reason = "the Deskmate service is a Windows service; on Linux only its seat rule applies"
+    )
+)]
+
 mod provision;
 mod view;
 #[cfg(windows)]
@@ -46,6 +54,7 @@ pub enum SetupAction {
 
 /// The bundled `deskmate-service.exe`, if this build has one. Found next to
 /// the running program, never through a path from elsewhere.
+#[cfg(windows)]
 fn bundled_program() -> Option<PathBuf> {
     let exe = std::env::current_exe().ok()?;
     let program = exe
@@ -53,6 +62,12 @@ fn bundled_program() -> Option<PathBuf> {
         .join(BUNDLED_FOLDER)
         .join(deskmate_service::win::EXECUTABLE);
     program.is_file().then_some(program)
+}
+
+/// The Linux desktop app ships no service: the daemon is a package of its own.
+#[cfg(not(windows))]
+fn bundled_program() -> Option<PathBuf> {
+    None
 }
 
 /// One elevated step at a time.
@@ -155,11 +170,17 @@ pub fn is_installed() -> bool {
     {
         win::is_registered()
     }
+    // On Linux the daemon takes this part: it runs while its status file
+    // exists (docs/LINUX.md).
     #[cfg(not(windows))]
     {
-        false
+        std::path::Path::new(LINUX_DAEMON_STATUS).exists()
     }
 }
+
+/// The status file of the running Linux daemon (packaging/linux).
+#[cfg(not(windows))]
+const LINUX_DAEMON_STATUS: &str = "/run/deskmate/status.json";
 
 /// While the user has pressed Disconnect and the service is installed, the
 /// app keeps the seat without connecting, so the service waits instead of

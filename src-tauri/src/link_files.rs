@@ -31,19 +31,22 @@ pub fn normalize_roots(roots: &[String]) -> Result<Vec<String>, String> {
         if raw.is_empty() {
             continue;
         }
-        let path = validate_windows_path(raw)
+        let path = validate_local_path(raw)
             .map_err(|error| format!("invalid Link Files root '{raw}': {error}"))?;
         reject_reparse_components(&path)
             .map_err(|error| format!("invalid Link Files root '{raw}': {error}"))?;
         let canonical = fs::canonicalize(&path)
             .map_err(|_| format!("Link Files root does not exist: {raw}"))?;
+        #[cfg(target_os = "linux")]
+        crate::linux::files::reject_special(&canonical)
+            .map_err(|error| format!("invalid Link Files root '{raw}': {error}"))?;
         if !canonical.is_dir() {
             return Err(format!("Link Files root is not a directory: {raw}"));
         }
         let display = friendly_canonical_path(&canonical);
         if !normalized
             .iter()
-            .any(|existing: &String| existing.eq_ignore_ascii_case(&display))
+            .any(|existing: &String| same_path_text(existing, &display))
         {
             normalized.push(display);
         }
@@ -60,7 +63,7 @@ pub fn normalize_inbox_dir(raw: &str) -> Result<String, String> {
         return Ok(String::new());
     }
     let path =
-        validate_windows_path(raw).map_err(|error| format!("invalid inbox folder: {error}"))?;
+        validate_local_path(raw).map_err(|error| format!("invalid inbox folder: {error}"))?;
     fs::create_dir_all(&path).map_err(|_| format!("cannot create inbox folder: {raw}"))?;
     reject_reparse_components(&path).map_err(|error| format!("invalid inbox folder: {error}"))?;
     let canonical =
@@ -296,15 +299,25 @@ pub fn abort_all() {
 fn inbox_dir(cfg: &crate::config::AppConfig) -> Result<PathBuf, String> {
     let configured = cfg.link_inbox_dir.trim();
     let path = if configured.is_empty() {
-        let profile =
-            std::env::var("USERPROFILE").map_err(|_| "cannot resolve the Downloads folder")?;
-        Path::new(&profile).join("Downloads").join("Deskmate")
+        default_inbox()?
     } else {
-        validate_windows_path(configured)?
+        validate_local_path(configured)?
     };
     fs::create_dir_all(&path).map_err(|_| "cannot create the inbox folder")?;
     reject_reparse_components(&path)?;
     fs::canonicalize(&path).map_err(|_| "inbox folder is unavailable".into())
+}
+
+#[cfg(windows)]
+fn default_inbox() -> Result<PathBuf, String> {
+    let profile =
+        std::env::var("USERPROFILE").map_err(|_| "cannot resolve the Downloads folder")?;
+    Ok(Path::new(&profile).join("Downloads").join("Deskmate"))
+}
+
+#[cfg(target_os = "linux")]
+fn default_inbox() -> Result<PathBuf, String> {
+    crate::linux::files::default_inbox()
 }
 
 fn human_size(bytes: u64) -> String {
@@ -494,7 +507,7 @@ fn put_end(request: &Value) -> Result<Map<String, Value>, String> {
             return Err(error);
         }
     };
-    if fs::rename(&part, &target).is_err() {
+    if place_new_file(&part, &target).is_err() {
         let _ = fs::remove_file(&part);
         return Err("cannot move the file into place".into());
     }
@@ -589,13 +602,29 @@ fn unique_path(dir: &Path, name: &str) -> Result<PathBuf, String> {
     Err("too many files with this name in the inbox folder".into())
 }
 
+#[cfg(windows)]
+fn place_new_file(part: &Path, target: &Path) -> std::io::Result<()> {
+    fs::rename(part, target)
+}
+
+#[cfg(target_os = "linux")]
+fn place_new_file(part: &Path, target: &Path) -> std::io::Result<()> {
+    crate::linux::files::place_new_file(part, target)
+}
+
 /// Marks the file as coming from another computer, the same way a browser
 /// marks downloads, so SmartScreen and Office Protected View treat it as such.
+#[cfg(windows)]
 fn mark_of_the_web(path: &Path) {
     let mut stream = path.as_os_str().to_owned();
     stream.push(":Zone.Identifier");
     let _ = fs::write(PathBuf::from(stream), "[ZoneTransfer]\r\nZoneId=3\r\n");
 }
+
+/// Linux has no zone marker. A `:` in a name is an ordinary character there,
+/// so the Windows way would only create a second file.
+#[cfg(not(windows))]
+fn mark_of_the_web(_path: &Path) {}
 
 // ---------- shared path checks ----------
 
@@ -615,15 +644,18 @@ fn metadata_json(name: &str, metadata: &fs::Metadata) -> Value {
 }
 
 fn authorized_path(raw: &str, roots: &[String]) -> Result<PathBuf, String> {
-    let requested = validate_windows_path(raw)?;
+    let requested = validate_local_path(raw)?;
     reject_reparse_components(&requested)?;
     let canonical = fs::canonicalize(&requested).map_err(|_| "path does not exist")?;
+    #[cfg(target_os = "linux")]
+    crate::linux::files::reject_special(&canonical)?;
     for raw_root in roots {
-        let root_path =
-            validate_windows_path(raw_root).map_err(|_| "configured root is invalid")?;
+        let root_path = validate_local_path(raw_root).map_err(|_| "configured root is invalid")?;
         reject_reparse_components(&root_path)
             .map_err(|_| "configured root contains a reparse point")?;
         let root = fs::canonicalize(root_path).map_err(|_| "configured root is unavailable")?;
+        #[cfg(target_os = "linux")]
+        crate::linux::files::reject_special(&root).map_err(|_| "configured root is invalid")?;
         if root.is_dir() && path_is_within(&root, &canonical) {
             return Ok(canonical);
         }
@@ -631,6 +663,18 @@ fn authorized_path(raw: &str, roots: &[String]) -> Result<PathBuf, String> {
     Err("path is outside allowed roots".into())
 }
 
+#[cfg(windows)]
+fn validate_local_path(raw: &str) -> Result<PathBuf, String> {
+    validate_windows_path(raw)
+}
+
+/// The Linux rules: linux/files.rs.
+#[cfg(target_os = "linux")]
+fn validate_local_path(raw: &str) -> Result<PathBuf, String> {
+    crate::linux::files::validate_path(raw)
+}
+
+#[cfg(windows)]
 fn validate_windows_path(raw: &str) -> Result<PathBuf, String> {
     if raw.is_empty() || raw.len() > 32_767 || raw.chars().any(|ch| ch == '\0' || ch.is_control()) {
         return Err("path is empty or malformed".into());
@@ -665,10 +709,27 @@ fn path_is_within(root: &Path, target: &Path) -> bool {
     })
 }
 
+#[cfg(windows)]
 fn component_eq(left: Component<'_>, right: Component<'_>) -> bool {
     left.as_os_str()
         .to_string_lossy()
         .eq_ignore_ascii_case(&right.as_os_str().to_string_lossy())
+}
+
+#[cfg(target_os = "linux")]
+fn component_eq(left: Component<'_>, right: Component<'_>) -> bool {
+    crate::linux::files::component_eq(left, right)
+}
+
+/// Whether two configured folders are the same: Windows paths ignore case.
+#[cfg(windows)]
+fn same_path_text(left: &str, right: &str) -> bool {
+    left.eq_ignore_ascii_case(right)
+}
+
+#[cfg(not(windows))]
+fn same_path_text(left: &str, right: &str) -> bool {
+    left == right
 }
 
 fn reject_reparse_components(path: &Path) -> Result<(), String> {
@@ -704,6 +765,11 @@ fn is_reparse(metadata: &fs::Metadata) -> bool {
 
 fn friendly_canonical_path(path: &Path) -> String {
     let display = path.to_string_lossy();
+    // The root folder of Linux is all slash.
+    #[cfg(not(windows))]
+    if display == "/" {
+        return display.to_string();
+    }
     let display = display.strip_prefix(r"\\?\").unwrap_or(&display);
     if display.len() == 3
         && display.as_bytes()[1] == b':'
@@ -742,18 +808,21 @@ fn throttle(bytes: usize) {
 mod tests {
     use super::*;
 
+    #[cfg(windows)]
     #[test]
     fn accepts_absolute_local_drive_path() {
         assert!(validate_windows_path(r"C:\Users\Kuba\file.txt").is_ok());
         assert!(validate_windows_path(r"d:/Data/report.pdf").is_ok());
     }
 
+    #[cfg(windows)]
     #[test]
     fn rejects_parent_and_current_components() {
         assert!(validate_windows_path(r"C:\allowed\..\secret.txt").is_err());
         assert!(validate_windows_path(r"C:\allowed\.\file.txt").is_err());
     }
 
+    #[cfg(windows)]
     #[test]
     fn rejects_unc_and_device_paths() {
         assert!(validate_windows_path(r"\\server\share\file.txt").is_err());
@@ -761,12 +830,14 @@ mod tests {
         assert!(validate_windows_path(r"\\.\PhysicalDrive0").is_err());
     }
 
+    #[cfg(windows)]
     #[test]
     fn rejects_alternate_data_streams_and_drive_relative_paths() {
         assert!(validate_windows_path(r"C:\allowed\file.txt:secret").is_err());
         assert!(validate_windows_path(r"C:allowed\file.txt").is_err());
     }
 
+    #[cfg(windows)]
     #[test]
     fn containment_is_case_insensitive_and_component_aware() {
         assert!(path_is_within(
@@ -779,6 +850,7 @@ mod tests {
         ));
     }
 
+    #[cfg(windows)]
     #[test]
     fn preserves_drive_root_when_formatting_canonical_path() {
         assert_eq!(friendly_canonical_path(Path::new(r"\\?\C:\")), r"C:\");
@@ -926,6 +998,49 @@ mod tests {
         assert!(!dir.join("b.txt").exists());
         assert_eq!(fs::read_dir(&dir).unwrap().count(), 0);
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    /// Linux: a shared folder gives what is inside it and nothing else, not
+    /// through a symbolic link, not under another case, not in /proc.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn linux_reads_stay_inside_the_shared_folder() {
+        let base = scratch_dir("linux-roots");
+        let shared = base.join("Shared");
+        let outside = base.join("outside");
+        fs::create_dir_all(&shared).unwrap();
+        fs::create_dir_all(&outside).unwrap();
+        fs::write(shared.join("ok.txt"), b"ok").unwrap();
+        fs::write(outside.join("secret.txt"), b"secret").unwrap();
+        std::os::unix::fs::symlink(&outside, shared.join("escape")).unwrap();
+        std::os::unix::fs::symlink(outside.join("secret.txt"), shared.join("link.txt")).unwrap();
+        let roots = normalize_roots(&[shared.to_string_lossy().to_string()]).unwrap();
+        let cfg = crate::config::AppConfig {
+            link_file_roots: roots,
+            ..Default::default()
+        };
+        let read = |path: PathBuf| {
+            handle_request(&cfg, &json!({"op": "read", "path": path.to_string_lossy()}))
+        };
+        assert_eq!(read(shared.join("ok.txt"))["ok"], true);
+        assert_eq!(read(shared.join("link.txt"))["ok"], false);
+        assert_eq!(read(shared.join("escape").join("secret.txt"))["ok"], false);
+        assert_eq!(read(outside.join("secret.txt"))["ok"], false);
+        assert_eq!(read(base.join("shared").join("ok.txt"))["ok"], false);
+        let listed = handle_request(
+            &cfg,
+            &json!({"op": "list", "path": shared.to_string_lossy()}),
+        );
+        let names: Vec<&str> = listed["entries"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|entry| entry["name"].as_str())
+            .collect();
+        assert_eq!(names, ["ok.txt"], "links are left out of a listing");
+        assert!(normalize_roots(&["/proc".to_string()]).is_err());
+        assert!(normalize_roots(&[format!("{}/../outside", shared.display())]).is_err());
+        let _ = fs::remove_dir_all(&base);
     }
 
     #[test]

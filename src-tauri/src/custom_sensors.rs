@@ -10,6 +10,14 @@
 //! How they are described to Home Assistant (key, component, icon) is in
 //! deskmate-core, next to the entity declarations.
 
+#![cfg_attr(
+    not(windows),
+    allow(
+        dead_code,
+        reason = "the sensors a user adds read Windows processes, windows and services"
+    )
+)]
+
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};

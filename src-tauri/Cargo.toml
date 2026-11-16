@@ -47,8 +47,6 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync"
 # native-tls uses Windows Schannel, so MQTT TLS works on x64/ARM64 without ring/clang
 rumqttc = { version = "0.25", default-features = false, features = ["use-native-tls"] }
 sysinfo = "0.33"
-keyring = { version = "3", features = ["windows-native"] }
-winreg = "0.55"
 # arboard bez default (image-data ciagnie ciezki crate image); na Windows = clipboard-win (pure rust)
 arboard = { version = "3", default-features = false }
 # native-tls = schannel na Windows (zero zaleznosci C - ring/clang niepotrzebne na ARM64)
@@ -71,6 +69,18 @@ zeroize = "1"
 # into the real security log of the machine they run on.
 [dev-dependencies]
 deskmate-core = { path = "crates/core", features = ["audit-log-off"] }
+
+[target.'cfg(windows)'.dependencies]
+winreg = "0.55"
+
+# The Linux desktop keeps its secrets in the user's keyring through the
+# Secret Service (GNOME Keyring, KWallet), which this core feature builds in.
+[target.'cfg(target_os = "linux")'.dependencies]
+deskmate-core = { path = "crates/core", features = ["secret-service"] }
+# The session's services over D-Bus (src/linux): logind, notifications, MPRIS,
+# the tray host. Tauri's runtime (tao) and the keyring already link this
+# crate and the system's libdbus on Linux, so it adds no new code.
+dbus = "0.9"
 
 # #[implement] (COM callback for the camera monitor) expands to windows_core paths.
 [target.'cfg(windows)'.dependencies.windows-core]

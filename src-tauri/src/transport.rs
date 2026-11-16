@@ -292,6 +292,12 @@ pub async fn handle_command(
     let state = app.state::<AppState>();
     let cfg = state.config.lock().await.clone();
 
+    // Linux runs a command only for an entity it declares (linux/entities.rs).
+    #[cfg(target_os = "linux")]
+    if !crate::linux::entities::accepts_command(key) {
+        return Err(format!("'{key}' is not available on Linux"));
+    }
+
     if deskmate_core::sys_commands::is_input_command(key) && !cfg.allow_input {
         return Err(format!("input command '{key}' disabled"));
     }
@@ -348,6 +354,7 @@ pub async fn handle_command(
         return Ok(());
     }
 
+    #[cfg(windows)]
     if crate::family::is_command(key) {
         return crate::family::handle_command(app, key, &payload).await;
     }
