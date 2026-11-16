@@ -30,6 +30,12 @@ NO_ANSWER_TO_CLEAR_ERROR = (
 )
 # The client's own error text is not shown: nothing checks what it contains.
 REFUSED_TO_CLEAR_ERROR = "Deskmate: the computer could not clear the notification"
+# Why one computer did not get a notification, in the error of a call for
+# several. A refusing `ack` arrives as RuntimeError and its text is not shown.
+NOTIFY_FAILURES = (HomeAssistantError, ConnectionError, TimeoutError, RuntimeError)
+NOT_CONNECTED_TO_NOTIFY_REASON = "the computer is not connected"
+NO_ANSWER_TO_NOTIFY_REASON = "the computer did not confirm the notification"
+REFUSED_TO_NOTIFY_REASON = "the computer could not show the notification"
 _ERROR_PREFIX = "Deskmate: "
 _TAG_RE = re.compile(NOTIFY_TAG_PATTERN, re.ASCII)
 
@@ -104,5 +110,36 @@ def clear_failures_error(
     )
     return HomeAssistantError(
         f"Deskmate: the notification was not cleared on {len(failures)} of "
+        f"{target_count} computers. {reasons}"
+    )
+
+
+def _notify_failure_reason(error: Exception) -> str:
+    if isinstance(error, HomeAssistantError):
+        return str(error).removeprefix(_ERROR_PREFIX)
+    if isinstance(error, ConnectionError):
+        return NOT_CONNECTED_TO_NOTIFY_REASON
+    if isinstance(error, TimeoutError):
+        return NO_ANSWER_TO_NOTIFY_REASON
+    return REFUSED_TO_NOTIFY_REASON
+
+
+def notify_failures_error(
+    target_count: int, failures: list[tuple[str, Exception]]
+) -> Exception | None:
+    """One error for the computers that did not get the notification, or None.
+
+    A call for one computer keeps that computer's own error. A call for
+    several names each computer that failed, after every computer was tried.
+    """
+    if not failures:
+        return None
+    if target_count == 1:
+        return failures[0][1]
+    reasons = "; ".join(
+        f"{name}: {_notify_failure_reason(error)}" for name, error in failures
+    )
+    return HomeAssistantError(
+        f"Deskmate: the notification was not shown on {len(failures)} of "
         f"{target_count} computers. {reasons}"
     )

@@ -23,7 +23,13 @@ from .const import (
 )
 from .files import async_setup_files, async_unload_files
 from .hub import DeskmateHub
-from .notify_tag import NOTIFY_PRIORITIES, clear_failures_error, validate_tag
+from .notify_tag import (
+    NOTIFY_FAILURES,
+    NOTIFY_PRIORITIES,
+    clear_failures_error,
+    notify_failures_error,
+    validate_tag,
+)
 from .service_role import refuse_service_only
 from .tv import (
     async_camera_data_uri,
@@ -103,20 +109,30 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if not hass.services.has_service(DOMAIN, SERVICE_NOTIFY):
 
         async def _notify(call: ServiceCall) -> None:
-            for h in _notify_targets(hass, call.data.get("node_id")):
-                refuse_service_only(h)
-                image = call.data.get("image")
-                if h.is_tv and image and image.startswith("camera."):
-                    # TV nie ma tokenu do HA - klatka z kamery idzie w wiadomosci
-                    image = await async_camera_data_uri(hass, image)
-                await h.async_notify(
-                    call.data["title"],
-                    call.data["message"],
-                    image,
-                    call.data.get("actions"),
-                    call.data.get("tag"),
-                    call.data.get("priority"),
-                )
+            # Every computer is tried: one that is off or has only the service
+            # connected must not keep the notification from the ones after it.
+            targets = _notify_targets(hass, call.data.get("node_id"))
+            failures: list[tuple[str, Exception]] = []
+            for h in targets:
+                try:
+                    refuse_service_only(h)
+                    image = call.data.get("image")
+                    if h.is_tv and image and image.startswith("camera."):
+                        # TV nie ma tokenu do HA - klatka z kamery idzie w wiadomosci
+                        image = await async_camera_data_uri(hass, image)
+                    await h.async_notify(
+                        call.data["title"],
+                        call.data["message"],
+                        image,
+                        call.data.get("actions"),
+                        call.data.get("tag"),
+                        call.data.get("priority"),
+                    )
+                except NOTIFY_FAILURES as err:
+                    failures.append((h.node_id, err))
+            error = notify_failures_error(len(targets), failures)
+            if error is not None:
+                raise error
 
         hass.services.async_register(
             DOMAIN, SERVICE_NOTIFY, _notify, schema=NOTIFY_SCHEMA

@@ -25,10 +25,14 @@ from custom_components.deskmate_link.const import (
 from custom_components.deskmate_link.crypto import gen_psk
 from custom_components.deskmate_link.notify_tag import (
     NO_ANSWER_TO_CLEAR_ERROR,
+    NO_ANSWER_TO_NOTIFY_REASON,
     NOT_CONNECTED_TO_CLEAR_ERROR,
+    NOT_CONNECTED_TO_NOTIFY_REASON,
     REFUSED_TO_CLEAR_ERROR,
+    REFUSED_TO_NOTIFY_REASON,
     TOO_OLD_TO_CLEAR_ERROR,
     notify_clear_frame,
+    notify_failures_error,
     notify_frame,
     validate_tag,
 )
@@ -393,6 +397,75 @@ async def test_clear_notification_reaches_every_computer_when_one_cannot(
     )
     assert f"{NODE_ID}: {reason.removeprefix('Deskmate: ')}" in message
     assert SECOND_NODE_ID not in message
+
+
+@pytest.mark.parametrize(
+    ("first_computer", "reason"),
+    [
+        (first_computer_offline, NOT_CONNECTED_TO_NOTIFY_REASON),
+        (first_computer_service_only, SERVICE_ONLY_ERROR.removeprefix("Deskmate: ")),
+    ],
+    ids=["offline", "service_only"],
+)
+async def test_notify_reaches_every_computer_when_one_cannot(
+    hass: HomeAssistant,
+    connect: Connect,
+    wait_until_session_ended: Callable[[], Awaitable[None]],
+    second_computer: LinkClient,
+    first_computer: Callable[..., Awaitable[None]],
+    reason: str,
+) -> None:
+    # The computer that fails comes first, so a loop that stops at it would
+    # never reach the second one.
+    await first_computer(connect, wait_until_session_ended)
+    call = hass.async_create_task(
+        hass.services.async_call(DOMAIN, "notify", NOTIFICATION, blocking=True)
+    )
+
+    frame = await second_computer.receive()
+    await second_computer.send({"t": "ack", "id": frame["id"], "ok": True})
+
+    assert frame == {"t": "notify", "id": frame["id"], **NOTIFICATION}
+    with pytest.raises(HomeAssistantError) as refused:
+        await call
+    message = str(refused.value)
+    assert message.startswith(
+        "Deskmate: the notification was not shown on 1 of 2 computers."
+    )
+    assert f"{NODE_ID}: {reason}" in message
+    assert SECOND_NODE_ID not in message
+
+
+@pytest.mark.parametrize(
+    ("error", "reason"),
+    [
+        (ConnectionError("deskmate not connected"), NOT_CONNECTED_TO_NOTIFY_REASON),
+        (TimeoutError(), NO_ANSWER_TO_NOTIFY_REASON),
+        (RuntimeError("<b>text from the client</b>"), REFUSED_TO_NOTIFY_REASON),
+        (
+            HomeAssistantError(SERVICE_ONLY_ERROR),
+            SERVICE_ONLY_ERROR.removeprefix("Deskmate: "),
+        ),
+    ],
+    ids=["offline", "no_answer", "refused", "service_only"],
+)
+def test_notify_failures_name_each_computer_without_the_client_text(
+    error: Exception, reason: str
+) -> None:
+    combined = notify_failures_error(3, [("my_pc", error), ("desk_pc", error)])
+
+    assert isinstance(combined, HomeAssistantError)
+    assert str(combined) == (
+        "Deskmate: the notification was not shown on 2 of 3 computers. "
+        f"my_pc: {reason}; desk_pc: {reason}"
+    )
+
+
+def test_notify_failure_of_the_only_computer_keeps_its_own_error() -> None:
+    error = ConnectionError("deskmate not connected")
+
+    assert notify_failures_error(1, [("my_pc", error)]) is error
+    assert notify_failures_error(2, []) is None
 
 
 async def test_clear_notification_reaches_every_connected_computer(

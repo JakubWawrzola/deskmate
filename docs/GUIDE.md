@@ -214,7 +214,10 @@ data:
 ```
 
 Leave out `node_id` to notify every paired PC, or set it to one PC's node id
-(shown in Deskmate under Settings). A clicked button fires the event
+(shown in Deskmate under Settings). A PC that is off, or that nobody is
+signed in to, does not stop the others: every PC is tried, and the action
+then fails with an error that names each PC that did not get the
+notification and why. A clicked button fires the event
 `deskmate_link_notify_action` with `node_id` and `action`:
 
 ```yaml
