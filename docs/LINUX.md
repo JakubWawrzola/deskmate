@@ -6,6 +6,11 @@ from boot on, whether or not anybody is signed in. It talks to the same
 Deskmate integration as the Windows app, over the same encrypted connection,
 and pairs with the same pairing code.
 
+A desktop app for Linux is in preview as well: the Deskmate window with
+the session's sensors and controls, for the user who is signed in. It is
+described in [Desktop app (preview)](#desktop-app-preview); the rest of
+this page is about the daemon.
+
 - [What it does](#what-it-does)
 - [What you need](#what-you-need)
 - [Install](#install)
@@ -16,6 +21,7 @@ and pairs with the same pairing code.
 - [Remove](#remove)
 - [Linux and Windows compared](#linux-and-windows-compared)
 - [Files](#files)
+- [Desktop app (preview)](#desktop-app-preview)
 
 ## What it does
 
@@ -35,9 +41,9 @@ computer off as soon as it connects would otherwise do so on every start.
 while the daemon is connected, and *Sleeping* or *Off* when the computer went
 to sleep or shut down.
 
-Notifications and Link Files need a desktop app. Home Assistant gets an answer
-at once that the daemon does not support them, so an automation that tries
-fails straight away instead of waiting.
+Notifications and Link Files need the desktop app. Home Assistant gets an
+answer at once that the daemon does not support them, so an automation that
+tries fails straight away instead of waiting.
 
 ## What you need
 
@@ -189,27 +195,28 @@ Assistant until you delete it there.
 
 ## Linux and Windows compared
 
-| | Windows app | Linux daemon |
-|---|---|---|
-| CPU, memory, disks, network, uptime, battery | Yes | Yes |
-| GPU sensors | Yes | AMD and Intel |
-| CPU temperature | Yes, best with the helper | Yes, from the kernel's sensors |
-| Idle time, locked, who is signed in | Yes | No |
-| Privacy-sensitive sensors (window, Wi-Fi, media, camera, microphone) | Yes, when switched on | No |
-| Sleep, Hibernate, Shutdown, Restart | Yes | Yes |
-| Lock, sign out, screens off, volume, media keys | Yes | No |
-| Notifications | Yes | No |
-| Link Files | Yes | No |
-| Your own sensors and commands | Yes | No |
-| Hotkeys, widgets, Stream Deck | Yes | No |
-| Screen time and family rules | Yes | No |
-| Connected while nobody is signed in | With the Deskmate service | Yes |
-| Where the keys are | Windows Credential Manager | A file only the daemon can read |
-| Updates | Inside the app | A new package |
-
-A Deskmate desktop app for Linux is coming; while you are signed in it will
-take the connection over from the daemon, as the Windows app does with the
-Deskmate service.
+| | Windows app | Linux daemon | Linux desktop app (preview) |
+|---|---|---|---|
+| CPU, memory, disks, network, uptime, battery | Yes | Yes | Yes |
+| GPU sensors | Yes | AMD and Intel | AMD and Intel |
+| CPU temperature | Yes, best with the helper | Yes, from the kernel's sensors | Yes, from the kernel's sensors |
+| Idle time, locked, who is signed in | Yes | No | Yes, through logind |
+| Media title, artist, player, status | Yes, when switched on | No | Yes, through MPRIS, when switched on |
+| Window, Wi-Fi, camera, microphone | Yes, when switched on | No | No |
+| Sleep, Hibernate, Shutdown, Restart | Yes | Yes | Yes |
+| Lock, volume, mute, media keys | Yes | No | Yes |
+| Sign out, screens off, microphone, sound devices | Yes | No | No |
+| Notifications | Yes | No | Yes |
+| Link Files | Yes | No | Yes, without asking on the computer |
+| Open URL | Yes | No | Yes |
+| Clipboard, typing text, speech | Yes | No | No |
+| Your own sensors and commands | Yes | No | No |
+| Hotkeys | Yes | No | X11 only |
+| Widgets, dashboard window, tray quick actions | Yes | No | Yes (quick actions need a tray) |
+| Stream Deck, screen time and family rules | Yes | No | No |
+| Connected while nobody is signed in | With the Deskmate service | Yes | With the daemon |
+| Where the keys are | Windows Credential Manager | A file only the daemon can read | The user's keyring (Secret Service) |
+| Updates | Inside the app | A new package | A new package; the app says when one is out |
 
 ## Files
 
@@ -227,3 +234,80 @@ Deskmate service.
 | `/run/deskmate/status.json` | The status, while the daemon runs |
 
 How the daemon is locked down is in [SECURITY.md](SECURITY.md#the-linux-daemon).
+
+## Desktop app (preview)
+
+The desktop app is the Deskmate window for Linux: the setup wizard and
+pairing, Deskmate Link or MQTT, and the sensors and controls of the session
+you are signed in to. It talks to the same integration as the Windows app and
+pairs with the same code.
+
+### Install the desktop app
+
+Download the package for your processor from
+[Releases](https://github.com/JakubWawrzola/deskmate/releases) and check it
+against `SHA256SUMS.txt` as above.
+
+```sh
+sudo apt install ./deskmate_<version>_amd64.deb   # or _arm64.deb
+```
+
+On other distributions use the AppImage: make it executable and start it.
+
+```sh
+chmod +x Deskmate_<version>_amd64.AppImage
+./Deskmate_<version>_amd64.AppImage
+```
+
+It needs WebKitGTK 4.1, a D-Bus session and, for the pairing key, a keyring
+that offers the Secret Service: GNOME Keyring, KWallet or KeePassXC. Without
+one, saving the pairing fails and the window says that no keyring service is
+running. *Start when I sign in* in Settings writes
+`~/.config/autostart/Deskmate.desktop`.
+
+### What works on X11 and on Wayland
+
+| | X11 | Wayland |
+|---|---|---|
+| Window, setup wizard, pairing, Link and MQTT | Yes | Yes |
+| Machine sensors, Sleep, Hibernate, Shutdown, Restart | Yes | Yes |
+| Idle time, locked, Lock (logind) | Yes | Yes |
+| Media sensors and keys (MPRIS) | Yes | Yes |
+| Volume and mute (`wpctl` or `pactl`) | Yes | Yes |
+| Notifications, with buttons where the notification service has them | Yes | Yes |
+| Open URL (`xdg-open`), Link Files | Yes | Yes |
+| Tray icon and quick actions | Where an AppIndicator host runs | Where an AppIndicator host runs |
+| Global hotkeys | Yes | No |
+| Clipboard, active window, typing text | No | No |
+
+Home Assistant gets only the entities that work on the computer: no Hibernate
+button where the computer cannot hibernate, no volume without `wpctl` or
+`pactl`, no Lock without a logind session. Where a feature is missing, the
+window says so in one line in its place.
+
+Idle time comes from logind's idle hint, which the desktop sets after its own
+idle delay; until then the computer counts as in use. The power buttons go
+through `systemctl`, which polkit allows for the user of the active local
+session.
+
+Receiving files works with *Off* and *Accept automatically*. The app cannot
+ask on the computer for each file yet, so *Ask on this computer* is not
+offered. Files land in `Deskmate` inside your download folder (`xdg-user-dirs`
+decides its name) unless you set another folder.
+
+### The tray on GNOME
+
+GNOME shows no tray icons by itself. With the extension *AppIndicator and
+KStatusNotifierItem Support* (package `gnome-shell-extension-appindicator` on
+Debian; Ubuntu ships it switched on) Deskmate gets its icon. Without a tray
+the window does not hide: closing it quits Deskmate, and *Start minimized to
+tray* is off. KDE Plasma, Xfce, Cinnamon and MATE have a tray.
+
+### With the daemon on the same computer
+
+The app and the daemon pair as the same computer: paste the code from *Show
+the pairing code* into both. Only one of them holds the connection. While you
+are signed in and the app runs, the daemon hands the connection over to it;
+when you quit the app or sign out, the daemon takes it back, and Home
+Assistant keeps the device. With the daemon running, *Disconnect* in the app
+keeps the connection closed instead of handing it to the daemon.

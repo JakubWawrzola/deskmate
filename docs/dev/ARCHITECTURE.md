@@ -108,7 +108,7 @@ plugin.
 
 | Crate | Path | What it holds |
 |---|---|---|
-| `deskmate` | `src-tauri/` | The app: window, tray, Tauri commands, the connection loops (`mqtt.rs`, `link.rs`, `transport.rs`) and everything that reads or acts on the signed-in user's session (`sensors.rs`, `sys_commands.rs`, `audio.rs`, `media.rs`, `clipboard.rs`, `keys.rs`, `family.rs`, `notify.rs`, `link_files.rs`) |
+| `deskmate` | `src-tauri/` | The app: window, tray, Tauri commands, the connection loops (`mqtt.rs`, `link.rs`, `transport.rs`) and everything that reads or acts on the signed-in user's session (`sensors.rs`, `sys_commands.rs`, `audio.rs`, `media.rs`, `clipboard.rs`, `keys.rs`, `family.rs`, `notify.rs`, `link_files.rs`). `platform.rs` says what the desktop offers; `linux/` holds the Linux desktop's side, described under [The Linux desktop app](#the-linux-desktop-app) |
 | `deskmate-core` | `src-tauri/crates/core/` | Code that does not depend on Tauri and works without a signed-in user. A program without a window, such as a service or a daemon, is built on it. It builds for Windows and for Linux |
 | `deskmate-service` | `src-tauri/crates/service/` | The Windows service and the Linux daemon: the computer's sensors and power buttons while nobody is signed in. Described under [The Windows service](#the-windows-service) and [The Linux daemon](#the-linux-daemon) |
 
@@ -363,15 +363,14 @@ in the `service` job of CI, which installs the service for real.
 
 The same crate builds `deskmate-service` for Linux, with the `linux` module
 in place of `win`. systemd starts it as the system user `deskmate`
-(`packaging/linux/deskmate.service`). It is the computer's only Deskmate
-client for now: it sends `info` with `role: "daemon"` and
+(`packaging/linux/deskmate.service`). It sends `info` with `role: "daemon"` and
 `platform: "linux"` and declares the machine scope, with everything the
 runner does on Windows (the `scoped_declare` gate, states, pings, the four
 power commands behind the five-minute valve, `bye`, reconnecting). `notify`
-and `fs` get `ok: false` with "not supported by the Deskmate daemon". A Linux
-desktop app will take the connection over through the seat
-(`seat::machine_turn`, `seat::release`), as the Windows app does with the
-service.
+and `fs` get `ok: false` with "not supported by the Deskmate daemon". The
+[Linux desktop app](#the-linux-desktop-app) takes the connection over through
+the seat (`seat::machine_turn`, `seat::release`), as the Windows app does with
+the service.
 
 | Path | What |
 |---|---|
@@ -420,12 +419,48 @@ the crate's lints and tests on Linux with and without `test-hooks`,
 `security` on the units; `daemon-package` builds both packages on Ubuntu
 22.04, x86_64 and aarch64, and keeps them as workflow artifacts.
 
+## The Linux desktop app
+
+The `deskmate` crate builds for Linux as a preview. The Windows-only modules
+(`family`, `streamdeck`, `power_events`, `uninstall`, `media_activity`, and
+the CPU temperature helper of the core) are left out with `cfg(windows)`;
+modules that keep Windows stubs say so in an `allow(dead_code)` with a
+reason. The stubs that work on Linux call the `linux` module:
+
+| Module | What |
+|---|---|
+| `linux::bus` | D-Bus connections (session and system bus) with a call timeout, and the name checks |
+| `linux::session` | logind's `auto` session: `LockedHint`, `IdleHint` and `IdleSinceHint`, `Lock` |
+| `linux::notify` | `org.freedesktop.Notifications` on one thread that also hears `ActionInvoked`; buttons carry random single-use keys; images in `$XDG_RUNTIME_DIR/deskmate` |
+| `linux::media` | MPRIS: the playing, else paused, else first player; metadata and play/pause/next/previous |
+| `linux::volume` | `wpctl`, else `pactl`, with fixed arguments and the C locale |
+| `linux::open` | `xdg-open` for a checked web address |
+| `linux::files` | The Link Files path rules (see SECURITY.md), the default inbox from `xdg-user-dirs`, placing a received file without replacing one |
+| `linux::sensors` | The session sensors added to the machine sensors |
+| `linux::capabilities` | What the desktop offers, looked up at start: session type, tray host (`org.kde.StatusNotifierWatcher`), notification service and its buttons, logind, the tools; the Secret Service on every request |
+| `linux::entities` | Which entities are declared and which commands are accepted; filters the Link `declare` and the MQTT discovery |
+| `platform` | `platform_capabilities` for the window (`PlatformCapabilities` in `src/types.ts`) and the platform of the `info` frame |
+
+The app's secrets go through `deskmate_core::secrets` with the core feature
+`secret-service`. The window reads the capabilities once (`src/platform.tsx`)
+and shows one line in place of a missing feature. Without a tray host the
+main window does not hide. The seat role is `App` (the default);
+`linux::seat_tests` starts the test binary a second time as the daemon and
+checks the hand-over both ways.
+
+`tauri.linux.conf.json` sets the Linux bundles (`.deb`, AppImage) and leaves
+the Windows resources out; `build.rs` asks for the Stream Deck plugin only for
+a Windows target. The `desktop-linux` job of CI runs clippy and the tests on
+Ubuntu 22.04 for x86_64 and aarch64, builds both bundles and keeps them as
+workflow artifacts.
+
 ## Dependencies
 
 Rust: tauri 2, tauri-plugin-autostart, tauri-plugin-single-instance,
 tauri-plugin-global-shortcut, rumqttc, sysinfo, keyring,
 tauri-winrt-notification, ureq(+native-tls), windows (Media_Control, Win32_*),
-tokio, serde. Frontend: React 19, Tailwind 4, @tauri-apps/api.
+tokio, serde; on Linux dbus (libdbus, already linked by Tauri's runtime).
+Frontend: React 19, Tailwind 4, @tauri-apps/api.
 
 ## Adding a sensor (checklist)
 

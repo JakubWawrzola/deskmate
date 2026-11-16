@@ -16,7 +16,7 @@ by anyone, and so is the history.
 
 | Path | What | Stack |
 |---|---|---|
-| `src-tauri/` | Windows app, x64 and ARM64, and the root of the Cargo workspace | Rust, Tauri 2 |
+| `src-tauri/` | Windows app, x64 and ARM64, the Linux desktop app (preview, `src-tauri/src/linux/`), and the root of the Cargo workspace | Rust, Tauri 2 |
 | `src-tauri/crates/core/` | `deskmate-core`, the library for code that must not depend on Tauri: configuration, the Link protocol, the entity descriptors, and the sensors and commands that work without a signed-in user | Rust |
 | `src-tauri/crates/service/` | `deskmate-service`, the Windows service that keeps the computer connected while nobody is signed in, and the Linux daemon (preview). Everything outside its `win` and `linux` modules is platform-neutral | Rust |
 | `packaging/linux/` | The Linux daemon's systemd units, polkit rule, install script and package build | systemd, POSIX sh |
@@ -202,7 +202,9 @@ keep. Weakening one is Jakub's decision, and the change updates
   never enters the repository.
 - Whatever reveals what the user is doing, or lets Home Assistant act beyond
   the built-in controls, is off until the user turns it on in the app.
-- Secrets live in Windows Credential Manager. They are not written to
+- Secrets live in Windows Credential Manager, and on Linux in the user's
+  keyring through the Secret Service; a program without a user keeps key
+  files only it can read. They are not written to
   `config.json`, logs, diagnostics or error messages, and key material is
   zeroized when it is dropped.
 - The protocol does not downgrade. A version or cipher mismatch is rejected,
@@ -307,6 +309,7 @@ most mistakes.
 | You changed | Run | Expect |
 |---|---|---|
 | `src-tauri/`, `crates/core` included | `cargo fmt --all --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` | formatted, no warnings, all tests pass |
+| The app's Rust code (`src-tauri/src/`), its Linux side | on Linux or in WSL, with the packages of the `desktop-linux` job of CI and `../dist/index.html` present: `cargo clippy -p deskmate --all-targets -- -D warnings` and `cargo test -p deskmate` | no warnings, all tests pass |
 | `src-tauri/crates/service/` | the row above, then `cargo clippy -p deskmate-service --all-targets --features test-hooks -- -D warnings`, `cargo build -p deskmate-service --features test-hooks` and `python tests/service_e2e.py --console` | no warnings; the script ends with "end-to-end test passed" |
 | `src-tauri/crates/service/`, its Linux side | on Linux or in WSL: `cargo clippy -p deskmate-service --all-targets -- -D warnings` and `cargo test -p deskmate-service`, each also with `--features test-hooks`, then `cargo build -p deskmate-service --features test-hooks` and `python3 tests/daemon_e2e.py --binary <that build> --hub-python <a Python with aiohttp and cryptography>` | no warnings, all tests pass; the script ends with "end-to-end test passed" |
 | `packaging/linux/` | `systemd-analyze verify` on both units (with the program at `/usr/bin/deskmate-service`, as in the `daemon` job of CI) and `systemd-analyze security --offline=yes --threshold=15 packaging/linux/deskmate.service` | no errors; exposure 1.5 or lower |
@@ -441,6 +444,7 @@ it. This is the standard for this repository:
 | Code CI | `.github/workflows/ci.yml`: the checks from section 8 on every push and pull request, including the ARM64 target and the dependency-tree rule |
 | The service, end to end | the `service` job of `ci.yml`: installs `deskmate-service` as LocalSystem on the runner, drives it with the fake hub and checks that uninstalling leaves nothing |
 | The Linux daemon | the `daemon` job of `ci.yml`: lints and tests the crate on Linux, runs `tests/daemon_e2e.py` against the fake hub, and checks the units with `systemd-analyze verify` and `security`; `daemon-package` builds the `.deb` and the tarball for x86_64 and aarch64 as workflow artifacts |
+| The Linux desktop app | the `desktop-linux` job of `ci.yml`: clippy and the app's tests on Ubuntu 22.04, then Tauri's `.deb` and AppImage for x86_64 and aarch64 as workflow artifacts |
 | Dependency audit | `.github/workflows/audit.yml` (`cargo audit`, `npm audit`) and `.github/dependabot.yml` |
 | Formatters and linters | rustfmt and clippy (`src-tauri/`), Biome (`src/`, `streamdeck-plugin/`), ruff (the integration and `scripts/`) |
 | Stream Deck plugin | the `streamdeck` job of `ci.yml`: type check, Biome, unit tests, and a build that checks the built folder and runs the bundle against stand-ins |

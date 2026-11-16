@@ -1,7 +1,8 @@
 # Security
 
-Last reviewed: 2026-11-15. Scope: Deskmate 0.8.5: the Windows app, the
-[Linux daemon](#the-linux-daemon), the Home
+Last reviewed: 2026-11-16. Scope: Deskmate 0.8.5: the Windows app, the
+[Linux daemon](#the-linux-daemon) and the
+[Linux desktop app](#the-linux-desktop-app), the Home
 Assistant integration (`deskmate_link`), the Deskmate Link connection between
 them, the optional MQTT and REST channels, what Home Assistant can do on
 the PC through them, and the local channel for the Stream Deck plugin, which
@@ -261,6 +262,51 @@ daemon only.
 sends the daemon SIGUSR1 before a sleep and SIGUSR2 after the wake-up, through
 `systemctl kill`. The daemon does not listen on D-Bus for logind's signals:
 monitoring the system bus needs root.
+
+## The Linux desktop app
+
+The Linux desktop app (preview, [LINUX.md](LINUX.md#desktop-app-preview)) is
+the Windows app's code with the Windows parts left out. The rules on this page
+hold for it; what differs is this.
+
+**Secrets.** The pairing key, the cascade key, the MQTT password and the Home
+Assistant token go to the user's keyring through the Secret Service (GNOME
+Keyring, KWallet, KeePassXC), encrypted on their way over D-Bus. Without a
+Secret Service the app stores nothing and says so; it never falls back to a
+file. Any program of the same user can ask an unlocked keyring for them, as on
+Windows any program of the user can read Credential Manager.
+
+**Only what works is declared.** The app declares an entity only when it works
+on that computer, and refuses a command for any other key, so a copied
+`config.json` with clipboard, typing or custom commands switched on does
+nothing on Linux. Custom commands, the clipboard, typing text, speech and the
+family rules are not in the preview.
+
+**Programs it runs.** `systemctl` for the power buttons, `wpctl` or `pactl` for
+the volume and `xdg-open` for a web address, each found on `PATH` and started
+without a shell, with fixed arguments. The only values from Home Assistant are
+the volume, parsed and clamped to 0 to 100, and the address, which has passed
+the checks under [URLs and notification images](#urls-and-notification-images)
+and is always an `http` or `https` URL.
+
+**Link Files.** Shared folders and the inbox are absolute paths without `.`,
+`..`, control characters or NUL. A symbolic link anywhere in a requested path
+is refused, so a link inside a shared folder cannot lead out of it, and a
+listing leaves links out. Paths inside `/proc`, `/sys` and `/dev`, device
+files, pipes and sockets are refused wherever they are, and paths compare case
+by case, as Linux names them. A received file is put in place with a hard
+link, which fails when the name exists, so it never replaces a file. Without
+a way to ask the user yet, *Ask on this computer* is not offered.
+
+**Notifications.** The body is escaped before it reaches a notification
+service that reads markup, so text from Home Assistant cannot become a link
+or an image. A button carries a random key, and a click counts once, only for
+a notification the app showed and only from the notification service's bus
+name. Downloaded images go to the user's runtime folder (mode 0700), not to
+the shared `/tmp`.
+
+**Updates.** The app only says that a new version is out; it never downloads
+or starts an installer on Linux.
 
 ## What Home Assistant can do on the PC
 
