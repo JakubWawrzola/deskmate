@@ -9,21 +9,22 @@ pub const PIPE_NAME_PREFIX: &str = "deskmate-streamdeck-";
 const WINDOWS_PIPE_ROOT: &str = r"\\.\pipe\";
 
 /// The user name as it appears in the pipe name: lowercased, then every
-/// character outside a-z and 0-9 replaced by an underscore. A character is a
-/// Unicode code point. Lowercasing comes first and is the full Unicode one,
-/// so a letter whose lowercase form is two code points gives two characters.
+/// character outside a-z and 0-9 written as its code point in lowercase hex
+/// between two underscores (`é` is `_e9_`). A character is a Unicode code
+/// point. Lowercasing comes first and is the full Unicode one, so a letter
+/// whose lowercase form is two code points gives two. Every underscore opens
+/// or closes such an escape, so two names that differ after lowercasing never
+/// share a pipe.
 pub fn sanitize_user_name(user_name: &str) -> String {
-    user_name
-        .to_lowercase()
-        .chars()
-        .map(|character| {
-            if character.is_ascii_lowercase() || character.is_ascii_digit() {
-                character
-            } else {
-                '_'
-            }
-        })
-        .collect()
+    let mut sanitized = String::new();
+    for character in user_name.to_lowercase().chars() {
+        if character.is_ascii_lowercase() || character.is_ascii_digit() {
+            sanitized.push(character);
+        } else {
+            sanitized.push_str(&format!("_{:x}_", u32::from(character)));
+        }
+    }
+    sanitized
 }
 
 /// Full path of the channel's pipe for a Windows user.
@@ -82,20 +83,39 @@ mod tests {
     }
 
     #[test]
+    fn names_that_differ_get_different_pipes() {
+        let table = shared_table();
+        let mut names = std::collections::HashSet::new();
+        for case in &table {
+            assert!(names.insert(case.name.as_str()), "{:?}", case.user);
+        }
+        for (one, other) in [
+            ("Иван", "Петр"),
+            ("张伟", "李娜"),
+            ("Zoë", "Zoé"),
+            ("jan.kowalski", "jan kowalski"),
+            ("a_b", "a b"),
+            ("_5f_", "_"),
+        ] {
+            assert_ne!(sanitize_user_name(one), sanitize_user_name(other), "{one}");
+        }
+    }
+
+    #[test]
     fn lowercasing_happens_before_the_replacement() {
         // The Kelvin sign lowercases to an ASCII k.
         assert_eq!(sanitize_user_name("\u{212a}"), "k");
         // A capital I with a dot lowercases to "i" plus a combining dot.
-        assert_eq!(sanitize_user_name("\u{130}"), "i_");
-        // One emoji is one code point, so one underscore.
-        assert_eq!(sanitize_user_name("pc\u{1f600}"), "pc_");
+        assert_eq!(sanitize_user_name("\u{130}"), "i_307_");
+        // One emoji is one code point, so one escape.
+        assert_eq!(sanitize_user_name("pc\u{1f600}"), "pc_1f600_");
     }
 
     #[test]
     fn the_pipe_path_is_the_fixed_prefix_plus_the_sanitized_name() {
         assert_eq!(
             pipe_path_for_user("My-PC User"),
-            r"\\.\pipe\deskmate-streamdeck-my_pc_user"
+            r"\\.\pipe\deskmate-streamdeck-my_2d_pc_20_user"
         );
         assert_eq!(pipe_path_for_user(""), r"\\.\pipe\deskmate-streamdeck-");
     }

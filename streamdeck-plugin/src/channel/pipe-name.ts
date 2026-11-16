@@ -11,12 +11,22 @@ const WINDOWS_PIPE_ROOT = "\\\\.\\pipe\\";
 
 /**
  * The user name as it appears in the pipe name: lowercased, then every
- * character outside a-z and 0-9 replaced by an underscore. A character is a
- * Unicode code point, so one emoji gives one underscore; lowercasing happens
- * first, so a letter whose lowercase form is two code points can give two.
+ * character outside a-z and 0-9 written as its code point in lowercase hex
+ * between two underscores (`é` is `_e9_`). A character is a Unicode code
+ * point, so one emoji gives one escape; lowercasing happens first, so a
+ * letter whose lowercase form is two code points gives two. Every underscore
+ * opens or closes such an escape, so two names that differ after lowercasing
+ * never share a pipe.
  */
 export function sanitizeUserName(userName: string): string {
-  return userName.toLowerCase().replace(/[^a-z0-9]/gu, "_");
+  return userName
+    .toLowerCase()
+    .replace(/[^a-z0-9]/gu, (character) => `_${codePointOf(character).toString(16)}_`);
+}
+
+function codePointOf(character: string): number {
+  // With the `u` flag a match is one whole code point, never empty.
+  return character.codePointAt(0) ?? 0;
 }
 
 /** Full path of the Deskmate app's pipe for a Windows user. */

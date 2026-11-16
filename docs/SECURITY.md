@@ -885,6 +885,12 @@ audit log records `streamdeck_channel name_taken`, and Deskmate tries again
 every 5 seconds. Once Deskmate holds the name, another account cannot add
 instances to its pipe.
 
+The name comes from the account name alone, written so that two different
+names never give the same pipe. The domain is not part of it: a local account
+and a domain account of the same name that are signed in at the same time
+share the name, and the one that turns the channel on second finds it taken
+until the first turns it off or signs out.
+
 What remains is on the plugin's side. The plugin does not check who serves
 the pipe it opens. A program that holds the name can refuse the plugin, or
 answer it: it would then see which entities, services and actions your keys

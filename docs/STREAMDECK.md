@@ -226,20 +226,27 @@ The channel is a Windows named pipe:
 ```
 
 `<user>` is the Windows user name, lowercased, with every character outside
-`a` to `z` and `0` to `9` replaced by `_`. A character is a Unicode code point.
+`a` to `z` and `0` to `9` written as its code point in lowercase hexadecimal,
+without leading zeros, between two `_`. A character is a Unicode code point.
 Lowercasing comes first and is the full Unicode one, so a letter whose
-lowercase form is two code points gives two characters.
+lowercase form is two code points gives two escapes. Since every `_` belongs
+to an escape, two names that differ after lowercasing never give the same
+pipe.
 
 | User name | `<user>` |
 |---|---|
 | `Admin` | `admin` |
-| `Jan Kowalski` | `jan_kowalski` |
-| `anna.nowak-2` | `anna_nowak_2` |
-| `Zoë` | `zo_` |
-| `İ` (U+0130) | `i_` |
+| `Jan Kowalski` | `jan_20_kowalski` |
+| `anna.nowak-2` | `anna_2e_nowak_2d_2` |
+| `Zoë` | `zo_eb_` |
+| `Иван` | `_438__432__430__43d_` |
+| `İ` (U+0130) | `i_307_` |
 
 The plugin takes the name from `os.userInfo().username`, which on Windows is
-what `GetUserNameW` returns.
+what `GetUserNameW` returns. That is the account name without its domain or
+computer, so a local account and a domain account of the same name, both
+signed in on one computer, still get the same pipe: the one that turns the
+channel on second finds the name taken.
 
 The app takes the name from `GetUserNameW` itself. Both sides are tested
 against one table of names, `streamdeck-plugin/test/pipe-names.json`.
