@@ -490,6 +490,10 @@ from the notification centre:
 The client answers with an `ack`. `ok` is true also when no notification had
 that tag.
 
+The client handles `notify` and `notify_clear` in the order it receives them,
+each one before the next frame. A `notify` sent right after a `notify_clear`
+with the same tag therefore stays on the screen.
+
 A session that did not list `notify_tag` gets neither field and no
 `notify_clear`. The `deskmate_link.notify` action leaves `tag` and `priority`
 out of the notification for it, and `deskmate_link.clear_notification` fails

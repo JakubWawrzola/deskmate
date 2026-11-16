@@ -464,25 +464,25 @@ async fn handle_incoming(app: &AppHandle, tx: &mpsc::UnboundedSender<Value>, pay
             crate::transport::show_notification(app, parsed).await;
             let _ = tx.send(json!({"t": "ack", "id": id, "ok": true}));
         }
+        // Inline like `notify`, so that a clear and a notification with the
+        // same tag take effect in the order Home Assistant sent them. As a
+        // task of its own, a clear could finish after a newer notification
+        // and remove it.
         Some("notify_clear") => {
-            let app = app.clone();
-            let tx = tx.clone();
-            tauri::async_runtime::spawn(async move {
-                let id = payload.get("id").cloned().unwrap_or(Value::Null);
-                let result = match parse_notify_clear(&payload) {
-                    Ok(tag) => crate::transport::clear_notification(&app, tag).await,
-                    Err(error) => {
-                        crate::security::audit("notification_clear", "blocked_invalid_field");
-                        log::warn!("refusing to clear a notification: {}", error.message());
-                        Err(error.message().to_string())
-                    }
-                };
-                let mut ack = json!({"t": "ack", "id": id, "ok": result.is_ok()});
-                if let Err(error) = result {
-                    ack["error"] = json!(error);
+            let id = payload.get("id").cloned().unwrap_or(Value::Null);
+            let result = match parse_notify_clear(&payload) {
+                Ok(tag) => crate::transport::clear_notification(app, tag).await,
+                Err(error) => {
+                    crate::security::audit("notification_clear", "blocked_invalid_field");
+                    log::warn!("refusing to clear a notification: {}", error.message());
+                    Err(error.message().to_string())
                 }
-                let _ = tx.send(ack);
-            });
+            };
+            let mut ack = json!({"t": "ack", "id": id, "ok": result.is_ok()});
+            if let Err(error) = result {
+                ack["error"] = json!(error);
+            }
+            let _ = tx.send(ack);
         }
         Some("ping") => {
             let _ = tx.send(json!({"t": "pong"}));
