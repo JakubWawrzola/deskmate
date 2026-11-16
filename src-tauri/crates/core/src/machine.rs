@@ -64,6 +64,13 @@ impl Offered {
         hibernate: true,
     };
 
+    /// None of them, for a computer that could not be asked.
+    pub const NONE: Self = Self {
+        battery: false,
+        ac_power: false,
+        hibernate: false,
+    };
+
     /// What this computer offers right now.
     #[cfg(windows)]
     pub fn detect() -> Self {

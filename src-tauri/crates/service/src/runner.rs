@@ -173,6 +173,10 @@ pub struct Sample {
 /// Reads the sensors of the machine scope. Called on a blocking thread.
 pub trait Telemetry: Send + 'static {
     fn collect(&mut self, cfg: &AppConfig) -> Sample;
+
+    /// What this computer offers of the entities not every computer has.
+    /// On Linux this asks logind, which can take seconds.
+    fn offered(&mut self) -> machine::Offered;
 }
 
 /// The collector of `deskmate_core::machine`.
@@ -188,6 +192,10 @@ impl Telemetry for MachineTelemetry {
     fn collect(&mut self, cfg: &AppConfig) -> Sample {
         let (values, hardware) = self.0.collect(cfg);
         Sample { values, hardware }
+    }
+
+    fn offered(&mut self) -> machine::Offered {
+        machine::Offered::detect()
     }
 }
 
@@ -229,6 +237,8 @@ pub struct Runner<C: Connector> {
     telemetry: Option<Box<dyn Telemetry>>,
     /// The last reading of the sensors.
     reading: Option<Sample>,
+    /// What this computer offered when the session started.
+    offered: machine::Offered,
     role: ClientRole,
     platform: ClientPlatform,
     valve: SafetyValve,
@@ -318,6 +328,7 @@ impl<C: Connector> Runner<C> {
             new_telemetry: parts.telemetry,
             telemetry: None,
             reading: None,
+            offered: machine::Offered::NONE,
             role: parts.role,
             platform: parts.platform,
             valve: SafetyValve::new(parts.clock),
@@ -597,6 +608,13 @@ impl<C: Connector> Runner<C> {
         if let Some(sample) = self.sample(cfg).await {
             self.reading = Some(sample);
         }
+        // Looked up off the runtime: asking logind can take seconds, in which
+        // nothing else here would move. A collector that failed offers
+        // nothing optional rather than a button that does nothing.
+        self.offered = self
+            .on_collector(|telemetry| telemetry.offered())
+            .await
+            .unwrap_or(machine::Offered::NONE);
         let connector = Arc::clone(&self.connector);
         let attempt =
             tokio::time::timeout(CONNECT_TIMEOUT, connector.connect(url, node, &setup.keys));
@@ -755,19 +773,29 @@ impl<C: Connector> Runner<C> {
     /// Reads the sensors on a blocking thread. None when the collector
     /// failed; a new one starts with the next reading.
     async fn sample(&mut self, cfg: &AppConfig) -> Option<Sample> {
+        let cfg = cfg.clone();
+        self.on_collector(move |telemetry| telemetry.collect(&cfg))
+            .await
+    }
+
+    /// Runs `work` with the collector on a blocking thread. None when the
+    /// collector failed; a new one starts the next time.
+    async fn on_collector<T: Send + 'static>(
+        &mut self,
+        work: impl FnOnce(&mut dyn Telemetry) -> T + Send + 'static,
+    ) -> Option<T> {
         let existing = self.telemetry.take();
         let factory = Arc::clone(&self.new_telemetry);
-        let cfg = cfg.clone();
         let reading = tokio::task::spawn_blocking(move || {
             let mut telemetry = existing.unwrap_or_else(|| factory());
-            let sample = telemetry.collect(&cfg);
-            (telemetry, sample)
+            let result = work(telemetry.as_mut());
+            (telemetry, result)
         })
         .await;
         match reading {
-            Ok((telemetry, sample)) => {
+            Ok((telemetry, result)) => {
                 self.telemetry = Some(telemetry);
-                Some(sample)
+                Some(result)
             }
             Err(_) => {
                 log::error!("the sensor collector failed; a new one starts with the next reading");
@@ -799,7 +827,8 @@ impl<C: Connector> Runner<C> {
             if let Some(hardware) = hardware {
                 declared.clone_from(hardware);
             }
-            link.send(&machine::declare_frame(cfg, declared)).await?;
+            link.send(&machine::declare_frame_for(cfg, declared, self.offered))
+                .await?;
         }
         match &self.reading {
             Some(reading) if !reading.values.is_empty() => {

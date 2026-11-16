@@ -209,10 +209,12 @@ impl SetupSource for FakeSource {
     }
 }
 
-#[derive(Default)]
 struct Readings {
     values: HashMap<String, String>,
     hardware: Vec<OwnedSensorDef>,
+    offered: machine::Offered,
+    /// The threads `offered` was asked on.
+    offered_on: Vec<std::thread::ThreadId>,
 }
 
 struct FakeTelemetry(Arc<Mutex<Readings>>);
@@ -224,6 +226,12 @@ impl Telemetry for FakeTelemetry {
             values: readings.values.clone(),
             hardware: readings.hardware.clone(),
         }
+    }
+
+    fn offered(&mut self) -> machine::Offered {
+        let mut readings = self.0.lock().unwrap();
+        readings.offered_on.push(std::thread::current().id());
+        readings.offered
     }
 }
 
@@ -324,6 +332,8 @@ impl Rig {
         let readings = Arc::new(Mutex::new(Readings {
             values: HashMap::from([("cpu".to_string(), "12.5".to_string())]),
             hardware: Vec::new(),
+            offered: machine::Offered::ALL,
+            offered_on: Vec::new(),
         }));
         let for_factory = Arc::clone(&readings);
         let (events, events_rx) = event_channel();
@@ -526,15 +536,9 @@ async fn says_info_first_and_declares_only_after_the_hub_announced_scoped_declar
         .iter()
         .map(|entity| entity["key"].as_str().unwrap())
         .collect();
-    for key in ["cpu", "uptime", "sleep", "shutdown", "restart"] {
+    for key in ["cpu", "uptime", "sleep", "shutdown", "restart", "hibernate"] {
         assert!(keys.contains(&key), "{key}");
     }
-    // Declared where the computer can hibernate, which on Linux depends on
-    // the machine the tests run on.
-    assert_eq!(
-        keys.contains(&"hibernate"),
-        machine::Offered::detect().hibernate
-    );
     assert!(!keys.contains(&"lock"), "nothing of a user's session");
     assert_eq!(
         rig.frame("state").await,
@@ -646,6 +650,54 @@ async fn declares_again_when_the_detected_hardware_changes() {
 
     // Unchanged hardware is not declared again.
     assert_eq!(rig.frame_after_routine("state").await["t"], "state");
+}
+
+#[tokio::test(start_paused = true)]
+async fn what_the_computer_offers_is_asked_off_the_runtime_once_per_session() {
+    let mut rig = Rig::start_with(
+        Stored::Config(config("test_pc", false)),
+        Some(hub_info(&ALL_CAPS)),
+        |rig| {
+            rig.readings.lock().unwrap().offered = machine::Offered {
+                hibernate: false,
+                ..machine::Offered::ALL
+            };
+        },
+    );
+    rig.session_opens().await;
+    rig.frame("info").await;
+    let keys = |declare: &Value| -> Vec<String> {
+        declare["entities"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|entity| entity["key"].as_str().unwrap().to_string())
+            .collect()
+    };
+    let first = keys(&rig.frame("declare").await);
+    assert!(first.contains(&"sleep".to_string()));
+    assert!(!first.contains(&"hibernate".to_string()));
+    rig.frame("state").await;
+
+    rig.readings.lock().unwrap().hardware.push(gpu_sensor());
+    let again = loop {
+        match rig.next().await {
+            Seen::Frame { frame, .. } if frame["t"] == "declare" => break frame,
+            Seen::Frame { .. } => {}
+            other => panic!("expected a frame, got {other:?}"),
+        }
+    };
+    assert!(keys(&again).contains(&"gpu_usage".to_string()));
+    assert!(!keys(&again).contains(&"hibernate".to_string()));
+
+    let asked = rig.readings.lock().unwrap().offered_on.clone();
+    assert_eq!(asked.len(), 1, "once per session, not per declare");
+    // On Linux the answer comes from busctl, which may take seconds.
+    assert_ne!(
+        asked[0],
+        std::thread::current().id(),
+        "asked on a blocking thread, not on the runtime's"
+    );
 }
 
 #[tokio::test(start_paused = true)]
