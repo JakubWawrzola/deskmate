@@ -9,24 +9,45 @@
 use deskmate_core::secrets::SecretStore;
 use std::path::{Path, PathBuf};
 
+use super::files::{self, Account};
 use crate::secrets::{KeyStore, StoredKeys, CASCADE_KEY_SERVICE, KEY_ACCOUNT, PAIRING_KEY_SERVICE};
 
 /// The file of the pairing key, as `deskmate_core::secrets` names it.
 pub const PAIRING_KEY_FILE: &str = "machine.deskmate-service-link.key";
 /// The file of the cascade key.
 pub const CASCADE_KEY_FILE: &str = "machine.deskmate-service-link-cascade.key";
+/// Read and write for the owner only, as `deskmate_core::secrets` writes them.
+const KEY_FILE_MODE: u32 = 0o600;
 
 /// The key files in one folder.
 pub struct KeyFiles {
     store: SecretStore,
     dir: PathBuf,
+    /// Who gets the files that are written. None: whoever writes them.
+    owner: Option<Account>,
 }
 
 impl KeyFiles {
     pub fn new(dir: PathBuf) -> Self {
+        Self::owned_by(dir, None)
+    }
+
+    /// Key files that root writes for `owner`, the daemon's user.
+    pub fn owned_by(dir: PathBuf, owner: Option<Account>) -> Self {
         Self {
             store: SecretStore::Files(dir.clone()),
             dir,
+            owner,
+        }
+    }
+
+    fn write(&self, path: &Path, service: &str, key: &str) -> Result<(), String> {
+        match self.owner {
+            // The daemon's user owns this folder and can swap a file for a
+            // link at any moment, so the file gets its owner while root
+            // still holds it open, never by its name.
+            Some(owner) => files::write_whole(path, key.as_bytes(), KEY_FILE_MODE, Some(owner)),
+            None => self.store.set(service, KEY_ACCOUNT, key),
         }
     }
 
@@ -53,9 +74,10 @@ impl KeyStore for KeyFiles {
     }
 
     fn store(&self, pairing: &str, cascade: Option<&str>) -> Result<(), String> {
-        self.store.set(PAIRING_KEY_SERVICE, KEY_ACCOUNT, pairing)?;
+        let [pairing_file, cascade_file] = self.paths();
+        self.write(&pairing_file, PAIRING_KEY_SERVICE, pairing)?;
         match cascade {
-            Some(key) => self.store.set(CASCADE_KEY_SERVICE, KEY_ACCOUNT, key),
+            Some(key) => self.write(&cascade_file, CASCADE_KEY_SERVICE, key),
             None => self.store.delete(CASCADE_KEY_SERVICE, KEY_ACCOUNT),
         }
     }
@@ -117,5 +139,48 @@ mod tests {
         let error = keys.load().err().unwrap();
         assert!(error.contains("other users"), "{error}");
         assert!(!error.contains(KEY_A));
+    }
+
+    #[test]
+    fn keys_written_for_the_daemon_never_hand_over_a_linked_file() {
+        use std::os::unix::fs::{symlink, MetadataExt};
+
+        let scratch = Scratch::new("owned");
+        let state = scratch.0.join("state");
+        fs::create_dir(&state).unwrap();
+        // Root gives the files away; anyone else can only give them to itself.
+        let owner = if files::effective_uid().unwrap() == 0 {
+            Account {
+                uid: 65534,
+                gid: 65534,
+            }
+        } else {
+            let own = fs::metadata(&state).unwrap();
+            Account {
+                uid: own.uid(),
+                gid: own.gid(),
+            }
+        };
+        let keys = KeyFiles::owned_by(state.clone(), Some(owner));
+        // What the daemon's user could have put at the names meanwhile.
+        let victim = scratch.0.join("shadow");
+        fs::write(&victim, b"untouched").unwrap();
+        let before = fs::metadata(&victim).unwrap();
+        for path in keys.paths() {
+            symlink(&victim, &path).unwrap();
+        }
+
+        keys.store(KEY_A, Some(KEY_B)).unwrap();
+        for path in keys.paths() {
+            let file = fs::symlink_metadata(&path).unwrap();
+            assert!(file.is_file(), "{} is a file, not a link", path.display());
+            assert_eq!((file.uid(), file.gid()), (owner.uid, owner.gid));
+            assert_eq!(file.permissions().mode() & 0o777, 0o600);
+        }
+        let after = fs::metadata(&victim).unwrap();
+        assert_eq!((after.uid(), after.gid()), (before.uid(), before.gid()));
+        assert_eq!(fs::read(&victim).unwrap(), b"untouched");
+        let stored = keys.load().unwrap().unwrap();
+        assert_eq!(stored.pairing.as_str(), KEY_A);
     }
 }

@@ -112,6 +112,11 @@ pub fn chown(path: &Path, owner: Account) -> Result<(), String> {
 /// temporary file next to it first, then a rename, so a reader sees the old
 /// file or the new one and never half of one. `create_new` refuses a file or
 /// a link that somebody put at the temporary name.
+///
+/// The owner is set on the open file, before it gets its name. A chown by
+/// path, of the temporary file or after the rename, would follow a link that
+/// whoever can write the folder put there in the meantime, and give root's
+/// choice of file to the daemon's user.
 pub fn write_whole(
     path: &Path,
     contents: &[u8],
@@ -131,14 +136,13 @@ pub fn write_whole(
             file.write_all(contents)?;
             // The umask may have taken bits away; this mode is the one meant.
             file.set_permissions(fs::Permissions::from_mode(mode))?;
+            if let Some(owner) = owner {
+                std::os::unix::fs::fchown(&file, Some(owner.uid), Some(owner.gid))?;
+            }
             file.sync_all()
         })
-        .map_err(|e| e.to_string())
-        .and_then(|()| match owner {
-            Some(owner) => chown(temporary, owner),
-            None => Ok(()),
-        })
-        .and_then(|()| fs::rename(temporary, path).map_err(|e| e.to_string()));
+        .and_then(|()| fs::rename(temporary, path))
+        .map_err(|e| e.to_string());
     written.map_err(|error| {
         let _ = fs::remove_file(temporary);
         format!("cannot write {}: {error}", path.display())

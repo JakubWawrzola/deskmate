@@ -34,7 +34,7 @@ pub struct Target {
 
 impl Target {
     fn keys(&self) -> KeyFiles {
-        KeyFiles::new(self.paths.state_dir.clone())
+        KeyFiles::owned_by(self.paths.state_dir.clone(), self.owner)
     }
 }
 
@@ -58,11 +58,6 @@ pub fn pair(code: &str, target: &Target) -> Result<ServiceConfig, String> {
     let keys = target.keys();
     keys.store(&code.key, code.cascade_key.as_deref().map(String::as_str))
         .map_err(|e| format!("cannot store the keys: {e}"))?;
-    if let Some(owner) = target.owner {
-        for path in keys.paths().iter().filter(|path| path.exists()) {
-            files::chown(path, owner)?;
-        }
-    }
     let raw = Zeroizing::new(serde_json::to_vec_pretty(&config).map_err(|e| e.to_string())?);
     files::write_whole(
         &target.paths.config_dir.join(FILE_NAME),
