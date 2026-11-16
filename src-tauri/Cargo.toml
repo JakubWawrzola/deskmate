@@ -71,7 +71,7 @@ zeroize = "1"
 deskmate-core = { path = "crates/core", features = ["audit-log-off"] }
 
 [target.'cfg(windows)'.dependencies]
-winreg = "0.55"
+winreg = "0.56"
 
 # The Linux desktop keeps its secrets in the user's keyring through the
 # Secret Service (GNOME Keyring, KWallet), which this core feature builds in.
