@@ -953,11 +953,12 @@ The Stream Deck channel is recorded as `streamdeck_channel` with `on`, `off`,
 it is recorded with its result: `streamdeck_run action=<id> result=<result>`,
 `streamdeck_toggle entity=<id> result=<result>` and
 `streamdeck_call service=<domain.service> entity=<id> result=<result>`, where
-the result is `ok`, `unknown_action`, `ha_error` or `ha_not_configured`. The
-data of a service call is not recorded, and neither is anything from a
-request that was refused as malformed. Installing and removing the plugin is
-recorded as `streamdeck_plugin` with `installed`, `updated`, `removed`,
-`install_failed` or `remove_failed`.
+the result is `ok`, `unknown_action`, `ha_error` or `ha_not_configured`. A
+record is written when the work ends, also when the program that asked for it
+has disconnected by then. The data of a service call is not recorded, and
+neither is anything from a request that was refused as malformed. Installing
+and removing the plugin is recorded as `streamdeck_plugin` with `installed`,
+`updated`, `removed`, `install_failed` or `remove_failed`.
 
 ## The app itself
 

@@ -36,6 +36,9 @@ pub struct FakeHomeAssistantState {
     pub state_reads: AtomicUsize,
     /// While set, `entities` does not answer until it is notified.
     entities_gate: Mutex<Option<Arc<Notify>>>,
+    /// While set, `toggle` reaches Home Assistant but does not return until
+    /// it is notified.
+    toggle_gate: Mutex<Option<Arc<Notify>>>,
 }
 
 impl FakeHomeAssistant {
@@ -91,6 +94,14 @@ impl FakeHomeAssistant {
         gate
     }
 
+    /// Makes `toggle` wait once it has reached Home Assistant. The returned
+    /// handle lets it return.
+    pub fn hold_toggles(&self) -> Arc<Notify> {
+        let gate = Arc::new(Notify::new());
+        *self.0.toggle_gate.lock().unwrap() = Some(Arc::clone(&gate));
+        gate
+    }
+
     pub fn requests(&self) -> Vec<String> {
         self.0.requests.lock().unwrap().clone()
     }
@@ -138,9 +149,15 @@ impl HomeAssistant for FakeHomeAssistant {
 
     async fn toggle(&self, entity_id: &str) -> Result<(), HaFailure> {
         self.reach(format!("toggle {entity_id}"))?;
-        let mut entities = self.0.entities.lock().unwrap();
-        if let Some(entity) = entities.iter_mut().find(|e| e.entity_id == entity_id) {
-            entity.state = if entity.state == "on" { "off" } else { "on" }.to_string();
+        {
+            let mut entities = self.0.entities.lock().unwrap();
+            if let Some(entity) = entities.iter_mut().find(|e| e.entity_id == entity_id) {
+                entity.state = if entity.state == "on" { "off" } else { "on" }.to_string();
+            }
+        }
+        let gate = self.0.toggle_gate.lock().unwrap().clone();
+        if let Some(gate) = gate {
+            gate.notified().await;
         }
         Ok(())
     }
@@ -167,6 +184,9 @@ pub struct FakeActionsState {
     actions: Mutex<Vec<ActionEntry>>,
     ran: Mutex<Vec<String>>,
     on_run: Mutex<Option<RunHook>>,
+    /// While set, `run` records the action but does not return until it is
+    /// notified.
+    run_gate: Mutex<Option<Arc<Notify>>>,
 }
 
 impl FakeActions {
@@ -193,6 +213,14 @@ impl FakeActions {
         *self.0.on_run.lock().unwrap() = Some(Box::new(hook));
     }
 
+    /// Makes `run` wait once it has recorded the action. The returned handle
+    /// lets it return.
+    pub fn hold_runs(&self) -> Arc<Notify> {
+        let gate = Arc::new(Notify::new());
+        *self.0.run_gate.lock().unwrap() = Some(Arc::clone(&gate));
+        gate
+    }
+
     pub fn ran(&self) -> Vec<String> {
         self.0.ran.lock().unwrap().clone()
     }
@@ -216,6 +244,10 @@ impl ActionRunner for FakeActions {
             if let Some(hook) = self.0.on_run.lock().unwrap().as_ref() {
                 hook(action_id);
             }
+        }
+        let gate = self.0.run_gate.lock().unwrap().clone();
+        if let Some(gate) = gate {
+            gate.notified().await;
         }
         known
     }

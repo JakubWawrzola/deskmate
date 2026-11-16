@@ -711,3 +711,48 @@ async fn the_session_ends_when_the_client_closes() {
     tokio::time::sleep(Duration::from_millis(120)).await;
     assert_eq!(home_assistant.state_reads(), reads);
 }
+
+#[tokio::test]
+async fn work_under_way_is_recorded_after_the_client_has_gone() {
+    let home_assistant = home();
+    let actions = FakeActions::with_actions(&[("hotkey:lights", "Lights")]);
+    let run_gate = actions.hold_runs();
+    let toggle_gate = home_assistant.hold_toggles();
+    let (backend, audit) = backend(&home_assistant, &actions, quick_timing());
+    let (near, far) = tokio::io::duplex(MAX_LINE_BYTES);
+    let session = tokio::spawn(run_session(far, backend));
+    let mut client = Client::new(near);
+    client.hello().await;
+    client
+        .send(json!({"id": 2, "op": "run", "action": "hotkey:lights"}))
+        .await;
+    client
+        .send(json!({"id": 3, "op": "toggle", "entity_id": "light.desk"}))
+        .await;
+    eventually("the action to start", || actions.ran() == ["hotkey:lights"]).await;
+    eventually("the toggle to reach Home Assistant", || {
+        home_assistant.requests() == ["toggle light.desk"]
+    })
+    .await;
+
+    drop(client);
+    tokio::time::timeout(super::stand_ins::PATIENCE, session)
+        .await
+        .expect("the session did not end")
+        .unwrap();
+    assert!(audit.lines().is_empty(), "{:?}", audit.lines());
+
+    // Both finish after the session has ended, and both are recorded.
+    run_gate.notify_one();
+    toggle_gate.notify_one();
+    eventually("both records", || audit.lines().len() == 2).await;
+    let mut lines = audit.lines();
+    lines.sort();
+    assert_eq!(
+        lines,
+        [
+            "streamdeck_run action=hotkey:lights result=ok",
+            "streamdeck_toggle entity=light.desk result=ok",
+        ]
+    );
+}

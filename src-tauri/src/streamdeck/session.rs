@@ -231,7 +231,7 @@ impl<H: HomeAssistant, A: ActionRunner> Session<H, A> {
 
     fn run_action(&mut self, id: RequestId, action: String) {
         let backend = Arc::clone(&self.backend);
-        self.start(async move {
+        self.start(detached(id.clone(), async move {
             let found = backend.actions.run(&action).await;
             let (reply, result) = if found {
                 (success(&id, Message::new()), "ok")
@@ -243,7 +243,7 @@ impl<H: HomeAssistant, A: ActionRunner> Session<H, A> {
                 .audit
                 .record(AUDIT_RUN, &format!("action={action} result={result}"));
             Finished::Reply(reply)
-        });
+        }));
     }
 
     fn list_entities(&mut self, id: RequestId, domains: Option<Vec<String>>) {
@@ -304,7 +304,7 @@ impl<H: HomeAssistant, A: ActionRunner> Session<H, A> {
             return;
         }
         let backend = Arc::clone(&self.backend);
-        self.start(async move {
+        self.start(detached(id.clone(), async move {
             let outcome = backend.home_assistant.toggle(&entity_id).await;
             let (reply, result) = acted(&id, outcome);
             backend
@@ -314,7 +314,7 @@ impl<H: HomeAssistant, A: ActionRunner> Session<H, A> {
                 reply,
                 succeeded: outcome.is_ok(),
             }
-        });
+        }));
     }
 
     fn call(&mut self, id: RequestId, call: ServiceCall) {
@@ -332,7 +332,7 @@ impl<H: HomeAssistant, A: ActionRunner> Session<H, A> {
             return;
         }
         let backend = Arc::clone(&self.backend);
-        self.start(async move {
+        self.start(detached(id.clone(), async move {
             let outcome = backend.home_assistant.call_service(call).await;
             let (reply, result) = acted(&id, outcome);
             backend
@@ -342,7 +342,7 @@ impl<H: HomeAssistant, A: ActionRunner> Session<H, A> {
                 reply,
                 succeeded: outcome.is_ok(),
             }
-        });
+        }));
     }
 
     /// When the next regular read of the watched entities is due. None while
@@ -431,6 +431,22 @@ impl<H: HomeAssistant, A: ActionRunner> Session<H, A> {
                     .collect()
             }
         }
+    }
+}
+
+/// Carries out a `run`, a `toggle` or a `call` as a task of its own. What it
+/// sets off goes on when the connection ends, so the work, and the audit
+/// record it writes at its end, must not end with the connection.
+async fn detached(
+    id: RequestId,
+    work: impl Future<Output = Finished> + Send + 'static,
+) -> Finished {
+    match tokio::spawn(work).await {
+        Ok(finished) => finished,
+        // Only a panic in the work or the end of the runtime gets here. The
+        // client learns that the request failed, as it does when a blocking
+        // call of the app does not finish.
+        Err(_) => Finished::Reply(failure(Some(&id), ErrorCode::HaError)),
     }
 }
 
