@@ -505,6 +505,10 @@ impl<C: Connector> Runner<C> {
                     Wake::Elapsed
                 };
             }
+            // A false while holding the seat keeps it (`machine_turn`). After
+            // a failed attempt or a suspend nothing is open here, and nothing
+            // else would give the seat back to the app that waits for it.
+            self.seat.release(&setup.config.node_id);
             self.report(setup, State::Waiting, WAITING_FOR_APP);
             match self.pause(setup, Pause::SeatPoll).await {
                 Wake::Exit(exit) => return Wake::Exit(exit),

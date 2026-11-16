@@ -123,14 +123,23 @@ impl LinkSession for FakeSession {
 
 struct FakeSeat {
     seen: mpsc::UnboundedSender<Seen>,
-    /// An app waits for the seat or holds it.
+    /// An app waits for the seat, and holds it once the service has let go.
     app_wants_it: AtomicBool,
     held: AtomicBool,
+}
+
+impl FakeSeat {
+    /// Like the real seat: an app that waits gets it only after the service
+    /// released it.
+    fn app_has_it(&self) -> bool {
+        self.app_wants_it.load(Ordering::SeqCst) && !self.held.load(Ordering::SeqCst)
+    }
 }
 
 impl Seat for FakeSeat {
     fn may_hold(&self, _node: &str) -> bool {
         if self.app_wants_it.load(Ordering::SeqCst) {
+            // While held, the seat stays held until `release`.
             return false;
         }
         self.held.store(true, Ordering::SeqCst);
@@ -874,6 +883,44 @@ async fn says_no_bye_to_an_integration_that_does_not_know_it() {
     rig.event(Event::SessionChange);
     rig.session_closes(session).await;
     assert_eq!(rig.next().await, Seen::SeatReleased);
+}
+
+#[tokio::test(start_paused = true)]
+async fn gives_the_seat_to_an_app_that_starts_waiting_after_a_failed_attempt() {
+    let mut rig = Rig::start_with(
+        Stored::Config(config("test_pc", false)),
+        Some(hub_info(&ALL_CAPS)),
+        |rig| rig.hub.refusals.lock().unwrap().push_back(transport()),
+    );
+    assert_eq!(rig.next().await, Seen::Refused { url: LOCAL.into() });
+    // The attempt took the seat, and nothing is open during the retry pause.
+    assert!(rig.seat.held.load(Ordering::SeqCst));
+    rig.seat.app_wants_it.store(true, Ordering::SeqCst);
+
+    let asked = Instant::now();
+    assert_eq!(rig.next().await, Seen::SeatReleased);
+    assert!(asked.elapsed() <= Duration::from_secs(5));
+    assert!(rig.seat.app_has_it());
+    let status = rig.state_becomes(State::Waiting).await;
+    assert_eq!(status.detail, WAITING_FOR_APP);
+    rig.nothing_for(Duration::from_secs(600)).await;
+
+    rig.seat.app_wants_it.store(false, Ordering::SeqCst);
+    rig.session_opens().await;
+}
+
+#[tokio::test(start_paused = true)]
+async fn gives_the_seat_to_an_app_that_starts_waiting_while_the_computer_sleeps() {
+    let (mut rig, session) = Rig::connected().await;
+    rig.event(Event::Suspend(Ack::none()));
+    rig.frame("bye").await;
+    rig.session_closes(session).await;
+    rig.seat.app_wants_it.store(true, Ordering::SeqCst);
+
+    rig.event(Event::Resume);
+    assert_eq!(rig.next().await, Seen::SeatReleased);
+    assert!(rig.seat.app_has_it());
+    rig.nothing_for(Duration::from_secs(600)).await;
 }
 
 // ---- stop, shutdown, suspend, resume ----
