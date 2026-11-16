@@ -18,10 +18,11 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::windows::named_pipe::{NamedPipeServer, PipeMode, ServerOptions};
 use tokio::sync::watch;
 use windows::core::PWSTR;
-use windows::Win32::Foundation::{CloseHandle, HANDLE};
+use windows::Win32::Foundation::{CloseHandle, HANDLE, WAIT_OBJECT_0, WAIT_TIMEOUT};
 use windows::Win32::System::Pipes::GetNamedPipeServerProcessId;
 use windows::Win32::System::Threading::{
-    OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_FORMAT, PROCESS_QUERY_LIMITED_INFORMATION,
+    OpenProcess, QueryFullProcessImageNameW, WaitForSingleObject, PROCESS_NAME_FORMAT,
+    PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SYNCHRONIZE,
 };
 use zeroize::Zeroizing;
 
@@ -361,6 +362,34 @@ pub fn process_image(process_id: u32) -> Result<PathBuf, String> {
     )))
 }
 
+/// A process whose end can be waited for. The handle keeps the process id
+/// from being reused for another process while it is open.
+pub struct ProcessExit(Process);
+
+impl ProcessExit {
+    pub fn open(process_id: u32) -> Result<Self, String> {
+        // SAFETY: no pointers are passed; a failure comes back as an error.
+        let handle = unsafe { OpenProcess(PROCESS_SYNCHRONIZE, false, process_id) }
+            .map_err(|e| format!("cannot open the process {process_id}: {e}"))?;
+        Ok(Self(Process(handle)))
+    }
+
+    /// Waits until the process has ended, at most `limit`.
+    pub fn wait(&self, limit: Duration) -> Result<(), String> {
+        // Below u32::MAX, which would mean waiting forever.
+        let milliseconds = u32::try_from(limit.as_millis()).unwrap_or(u32::MAX - 1);
+        // SAFETY: the handle is open while `self` lives.
+        match unsafe { WaitForSingleObject((self.0).0, milliseconds) } {
+            WAIT_OBJECT_0 => Ok(()),
+            WAIT_TIMEOUT => Err("the process did not end in time".into()),
+            _ => Err(format!(
+                "cannot wait for the process: {}",
+                windows::core::Error::from_win32()
+            )),
+        }
+    }
+}
+
 /// An open connection to the admin pipe.
 pub struct AdminClient(File);
 
@@ -499,6 +528,24 @@ mod tests {
             std::env::current_exe().unwrap().file_name()
         );
         assert!(process_image(0).is_err());
+    }
+
+    #[test]
+    fn waits_until_a_process_has_ended() {
+        let mut child = std::process::Command::new("ping")
+            .args(["-n", "30", "127.0.0.1"])
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap();
+        let exit = ProcessExit::open(child.id()).unwrap();
+        assert!(exit.wait(Duration::from_millis(100)).is_err());
+        child.kill().unwrap();
+        exit.wait(Duration::from_secs(10)).unwrap();
+        assert!(child.try_wait().unwrap().is_some());
+        // The handle still names the process that ended, so a second wait
+        // returns at once.
+        exit.wait(Duration::ZERO).unwrap();
+        assert!(ProcessExit::open(0).is_err());
     }
 
     #[test]

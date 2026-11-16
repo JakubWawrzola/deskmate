@@ -25,7 +25,7 @@ use windows_service::service::{
 };
 use windows_service::service_manager::{ServiceManager, ServiceManagerAccess};
 
-use super::pipes::{read_provisioning_frame, AdminClient, PipeNames};
+use super::pipes::{read_provisioning_frame, AdminClient, PipeNames, ProcessExit};
 use super::security::{check_private_folder, create_private_folder, is_elevated};
 use super::service::{DESCRIPTION, DISPLAY_NAME, SERVICE_NAME};
 use super::{data_dir, data_parent, program_dir, StartError, EXECUTABLE};
@@ -125,12 +125,25 @@ fn stop(service: &Service) -> Result<(), String> {
     if status.current_state == ServiceState::Stopped {
         return Ok(());
     }
+    // The service reports Stopped before its process has ended, and until
+    // then its executable can be neither replaced nor deleted. A process
+    // that cannot be opened has usually ended already; the wait is then for
+    // the state alone, as it was before.
+    let process = status
+        .process_id
+        .and_then(|process_id| ProcessExit::open(process_id).ok());
     match service.stop() {
         Ok(_) => {}
         Err(error) if os_error_code(&error) == Some(ERROR_SERVICE_NOT_ACTIVE) => {}
         Err(error) => return Err(service_error("stop the service", error)),
     }
-    wait_for(service, ServiceState::Stopped)
+    wait_for(service, ServiceState::Stopped)?;
+    match process {
+        Some(process) => process
+            .wait(STATE_WAIT)
+            .map_err(|error| format!("the service stopped, but {error}")),
+        None => Ok(()),
+    }
 }
 
 fn start(service: &Service) -> Result<(), String> {
