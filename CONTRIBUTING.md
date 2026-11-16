@@ -29,7 +29,7 @@ What lives where:
 
 | Folder | What |
 |---|---|
-| `src-tauri/` | The Windows app: Rust (Tauri 2) |
+| `src-tauri/` | The desktop app for Windows and Linux, the shared `deskmate-core` and the `deskmate-service` crate (Windows service, Linux daemon): Rust (Tauri 2) |
 | `src-tauri/crates/core/` | `deskmate-core`: the part of the app that needs neither Tauri nor a signed-in user, the Link protocol included |
 | `src/` | The app's window: React and TypeScript |
 | `custom_components/deskmate_link/` | The Home Assistant integration (Python) |

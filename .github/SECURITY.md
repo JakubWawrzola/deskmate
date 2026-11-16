@@ -2,12 +2,13 @@
 
 ## Supported versions
 
-Fixes go into the latest release of the Windows app and of the Home Assistant
-integration. Please update before reporting.
+Fixes go into the latest release of Deskmate (the app, the Windows service and
+the Linux packages) and of the Home Assistant integration. Please update
+before reporting.
 
 | Version | Supported |
 |---|---|
-| 0.8.x | Yes |
+| 0.9.x | Yes |
 | Older | No |
 
 ## Reporting a vulnerability

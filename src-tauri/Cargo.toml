@@ -11,7 +11,7 @@ authors = ["Jakub Wawrzola"]
 [package]
 name = "deskmate"
 version.workspace = true
-description = "Deskmate - a modern Windows companion for Home Assistant"
+description = "Deskmate - your computers in Home Assistant, on Windows and Linux"
 authors.workspace = true
 license.workspace = true
 repository = ""

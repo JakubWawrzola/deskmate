@@ -1,13 +1,20 @@
 # Deskmate
 
-Deskmate is a Windows app and a Home Assistant integration. Together they add
-your PC to Home Assistant as a device. You get sensors, power and media
-buttons, notifications with action buttons, files sent from your phone and
-screen time rules for children. The integration replaces MQTT, so you do not
-need a broker. MQTT still works if you already run one.
+Deskmate adds your computers to Home Assistant as devices. It has its own
+Home Assistant integration and runs on the computer as a desktop app, as a
+background service while nobody is signed in, and on Linux as a daemon. You
+get sensors, power and media buttons, a media player, notifications with
+action buttons, files sent from your phone, screen time rules for children
+and a Stream Deck plugin. The integration replaces MQTT, so you do not need a
+broker. MQTT still works if you already run one.
 
-Deskmate is open source and runs on Windows 10 and 11, x64 and ARM64
-(Snapdragon laptops included). Linux is available as a preview.
+Deskmate is open source. It runs on:
+
+| Platform | What you install |
+|---|---|
+| Windows 10 and 11, x64 and ARM64 (Snapdragon laptops included) | The desktop app, and if you want the optional Deskmate service |
+| Linux, x86_64 and ARM64 (preview) | The daemon without a window, the desktop app, or both |
+| Stream Deck | The plugin, from the app's Settings |
 
 To try it, follow the three steps below. The [guide](docs/GUIDE.md) covers
 everything from installing to automations.
@@ -22,7 +29,7 @@ Deskmate is in the default HACS catalog, so no custom repository is needed.
    and restart Home Assistant.
 2. In Home Assistant, go to *Settings → Devices & services → Add integration
    → Deskmate*. Copy the pairing code it shows (`DMP1.…`).
-3. On the PC, download the installer from
+3. On a Windows PC, download the installer from
    [Releases](https://github.com/JakubWawrzola/deskmate/releases):
    `Deskmate_<version>_x64-setup.exe` for most PCs,
    `Deskmate_<version>_arm64-setup.exe` for ARM64 PCs such as Snapdragon
@@ -48,7 +55,10 @@ Deskmate up with an AI assistant, point it at
 
 ## What it does
 
-**Your PC in Home Assistant**
+The list describes the Windows app. On Linux the preview covers part of it;
+[docs/LINUX.md](docs/LINUX.md) has the table.
+
+**Your computer in Home Assistant**
 
 - CPU, memory, disks, network, battery, uptime, and GPU and temperatures where
   the hardware allows (CPU temperature too, with a small optional helper).
@@ -64,7 +74,8 @@ Deskmate up with an AI assistant, point it at
 - Install the optional Deskmate service from Settings and the PC stays in
   Home Assistant at the sign-in screen and after a restart, with processor,
   memory, system drive, network, uptime and battery sensors and the power
-  buttons.
+  buttons. A *Connection* sensor shows whether the app, the service or nobody
+  is connected, and whether the PC is asleep or off.
 
 **Control the PC from Home Assistant**
 
@@ -107,14 +118,17 @@ Deskmate up with an AI assistant, point it at
   Deskmate* (off by default). Its keys then use the Home Assistant address
   and token set in Deskmate, so Stream Deck needs no token of its own.
 
-**Linux**
+**Linux (preview)**
 
-- A daemon with the sensors and power buttons, and the desktop app with
-  notifications, media controls and files. See [docs/LINUX.md](docs/LINUX.md).
+- A daemon with the sensors and power buttons that runs without anyone signed
+  in, packaged as `.deb` and a tarball, under a locked-down systemd unit.
+- The desktop app as `.deb` and AppImage: pairing, sensors, power buttons,
+  lock, notifications, media player and media controls, volume and files.
+  See [docs/LINUX.md](docs/LINUX.md).
 
 **Everyday**
 
-- Light and dark theme, and it starts with Windows.
+- Light and dark theme, and it starts when you sign in.
 - On Windows, Deskmate installs updates after you say yes. Settings →
   *Updates* can make it install them on its own, or only tell you.
 - Several computers, and several Windows users on one computer; see the
@@ -124,7 +138,8 @@ Deskmate up with an AI assistant, point it at
 
 - One encrypted connection from the PC to Home Assistant: an X25519 exchange
   with fresh keys every session, AES-256-GCM frames, replay protection, optional
-  second cipher layer. Keys live in Windows Credential Manager.
+  second cipher layer. Keys live in Windows Credential Manager; on Linux in
+  the desktop keyring, or in a key file only root and the daemon can read.
 - Anything that reveals what you do or lets Home Assistant act beyond the
   built-in buttons is off until you turn it on, and much of it can ask on the PC
   first.
@@ -167,7 +182,10 @@ npm run tauri build -- --target x86_64-pc-windows-msvc   # cross to x64
 ```
 
 Toolchain: Node 24, Rust stable (`aarch64-pc-windows-msvc` and/or
-`x86_64-pc-windows-msvc`). No C compiler needed on either architecture. A
+`x86_64-pc-windows-msvc`). No C compiler needed on either Windows
+architecture. On Linux the app needs the WebKitGTK and AppIndicator
+development packages; [docs/LINUX.md](docs/LINUX.md) lists them, and the CI
+jobs in `.github/workflows/ci.yml` build both Linux packages. A
 release build also packs the Stream Deck plugin and the Deskmate service, and
 stops after writing the installer when no update signing key is set.
 

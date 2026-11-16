@@ -1,11 +1,12 @@
 # Deskmate Link
 
-Deskmate Link is the connection between the Windows app and the Home
+Deskmate Link is the connection between Deskmate on a computer (the app on
+Windows or Linux, the Windows service, the Linux daemon) and the Home
 Assistant integration (named **Deskmate** in Home Assistant and HACS). For
 everyday setup and use, read [GUIDE.md](GUIDE.md); this document covers the
 connection itself.
 
-Deskmate Link is the recommended transport between the Windows app and the
+Deskmate Link is the recommended transport between Deskmate and the
 `deskmate_link` Home Assistant integration: one encrypted WebSocket, no broker.
 MQTT stays available and can be selected again without losing its settings.
 

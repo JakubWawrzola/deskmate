@@ -6,7 +6,7 @@ release history live in separate documents linked at the end.
 
 - [1. What you are installing](#1-what-you-are-installing)
 - [2. Install the Home Assistant integration](#2-install-the-home-assistant-integration)
-- [3. Install the Windows app and pair it](#3-install-the-windows-app-and-pair-it)
+- [3. Install the app and pair it](#3-install-the-app-and-pair-it)
 - [4. What shows up in Home Assistant](#4-what-shows-up-in-home-assistant)
 - [5. Notifications on the PC](#5-notifications-on-the-pc)
 - [6. Controlling the PC](#6-controlling-the-pc)
@@ -28,15 +28,19 @@ Two parts that talk to each other:
 - **The Deskmate integration** in Home Assistant. It receives the PC's sensors,
   sends it commands, and adds a **Deskmate** page to the sidebar.
 - **The Deskmate app** on Windows 10 or 11 (x64 or ARM64). A small tray app: no
-  window needs to stay open and no background service is installed. It runs
-  while a Windows user is signed in.
+  window needs to stay open. It runs while a Windows user is signed in.
+- **The Deskmate service**, optional, on the same Windows PC. Installed from
+  the app's Settings, it keeps the PC's sensors and power buttons in Home
+  Assistant while nobody is signed in ([section 10](#10-several-computers-several-windows-users)).
+- **On Linux**, as a preview, a daemon without a window, the desktop app, or
+  both ([LINUX.md](LINUX.md)).
 
 They connect over one encrypted connection that the app opens to Home
 Assistant, so nothing on the PC is exposed to the network and no MQTT broker is
 needed. In the code and in [LINK.md](LINK.md) this connection is called
 *Deskmate Link*.
 
-On Linux, a daemon brings the sensors and power buttons: see [LINUX.md](LINUX.md).
+The Linux packages and their pairing steps are in [LINUX.md](LINUX.md).
 
 ## 2. Install the Home Assistant integration
 
@@ -62,7 +66,9 @@ back; no second entry is created.
 Home Assistant 2024.11 or newer. The integration icon appears from Home
 Assistant 2026.3 on.
 
-## 3. Install the Windows app and pair it
+## 3. Install the app and pair it
+
+On Windows:
 
 1. Download `Deskmate_<version>_x64-setup.exe` (most PCs) or `_arm64-setup.exe`
    (Snapdragon laptops) from
@@ -78,6 +84,11 @@ Assistant 2026.3 on.
 The Status page should say **Connected to Home Assistant** within a few
 seconds, and the PC appears as a device under *Settings → Devices & services →
 Deskmate*.
+
+On Linux, install the daemon and pair it with `sudo deskmate-service pair`,
+or install the desktop app and paste the code into its window, as
+[LINUX.md](LINUX.md) describes. The rest of this guide describes the Windows
+app; LINUX.md lists what the Linux preview covers.
 
 If Home Assistant does not know its own address (*Settings → System →
 Network*), the code has none and you type it into Deskmate yourself:
