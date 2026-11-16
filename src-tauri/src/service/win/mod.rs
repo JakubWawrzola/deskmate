@@ -20,6 +20,8 @@ fn exit_meaning(code: u32) -> String {
         1 => "the step failed".into(),
         2 => "the service did not understand what it was asked to do".into(),
         5 => "it did not get administrator rights".into(),
+        7 => "the installed service is newer than the copy in this Deskmate. Update Deskmate first"
+            .into(),
         other => format!("it ended with code {other}"),
     }
 }

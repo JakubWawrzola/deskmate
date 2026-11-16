@@ -33,7 +33,8 @@ Usage:
 
 Exit codes: 0 done, 1 failed, 2 wrong usage, 5 an elevated terminal is needed,
 6 installed, but the settings were not taken: the program offering them could
-not be checked.";
+not be checked, 7 nothing replaced: the installed service is newer than this
+copy.";
 
 /// Options of `run` and `console`. All of them are test hooks.
 #[derive(Debug, Default, PartialEq, Eq)]

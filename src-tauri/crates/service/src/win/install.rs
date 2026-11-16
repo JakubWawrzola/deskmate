@@ -10,7 +10,9 @@
 use std::ffi::{c_void, OsStr, OsString};
 use std::fs;
 use std::os::windows::ffi::OsStrExt;
+use std::os::windows::process::CommandExt;
 use std::path::Path;
+use std::process::Command;
 use std::time::{Duration, Instant};
 use windows::core::{PCWSTR, PWSTR};
 use windows::Win32::Storage::FileSystem::{MoveFileExW, MOVEFILE_DELAY_UNTIL_REBOOT};
@@ -42,6 +44,11 @@ const ERROR_SERVICE_DOES_NOT_EXIST: i32 = 1060;
 const ERROR_SERVICE_NOT_ACTIVE: i32 = 1062;
 const STATE_WAIT: Duration = Duration::from_secs(30);
 const DEPROVISION_FRAME: &[u8] = b"{\"v\":1,\"op\":\"deprovision\"}\n";
+/// Starts a console program without a window of its own.
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+/// Part of the error of an `install` that would replace a newer service
+/// with this older copy.
+pub const NEWER_INSTALLED: &str = "the installed service is newer than this copy";
 
 /// What `install` was asked to do beyond installing.
 pub struct InstallOptions {
@@ -214,6 +221,70 @@ fn copy_executable(target_dir: &Path) -> Result<std::path::PathBuf, String> {
     Ok(target)
 }
 
+/// A version as numbers, and whether it is a release: a pre-release comes
+/// before its release. None when the text is not a version.
+fn version_key(text: &str) -> Option<([u64; 3], bool)> {
+    let (numbers, release) = match text.find(['-', '+']) {
+        Some(at) => (&text[..at], &text[at..at + 1] == "+"),
+        None => (text, true),
+    };
+    let mut parts = numbers.split('.');
+    let mut triple = [0u64; 3];
+    for slot in &mut triple {
+        let part = parts.next()?;
+        if part.is_empty() || !part.bytes().all(|b| b.is_ascii_digit()) {
+            return None;
+        }
+        *slot = part.parse().ok()?;
+    }
+    match parts.next() {
+        Some(_) => None,
+        None => Some((triple, release)),
+    }
+}
+
+/// Whether what `deskmate-service version` printed names a later version
+/// than `own`. Anything unreadable is never newer.
+fn reports_newer_version(printed: &str, own: &str) -> bool {
+    let installed = printed
+        .trim()
+        .strip_prefix("deskmate-service ")
+        .and_then(version_key);
+    match (installed, version_key(own)) {
+        (Some(installed), Some(own)) => installed > own,
+        _ => false,
+    }
+}
+
+/// Refuses to replace an installed service that is newer than this copy,
+/// which an older Deskmate, another user's for example, would otherwise do.
+/// The service's status line is not enough: a stopped service has none. So
+/// the installed copy, in Program Files where only administrators can write,
+/// is asked for its version. A copy that does not answer is replaced, so
+/// that a damaged one can be repaired.
+fn refuse_downgrade(installed: &Path) -> Result<(), String> {
+    let own = env!("CARGO_PKG_VERSION");
+    let current = std::env::current_exe().ok();
+    if !installed.exists() || current.is_some_and(|current| same_file(&current, installed)) {
+        return Ok(());
+    }
+    let Ok(output) = Command::new(installed)
+        .arg("version")
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()
+    else {
+        return Ok(());
+    };
+    let printed = String::from_utf8_lossy(&output.stdout);
+    if output.status.success() && reports_newer_version(&printed, own) {
+        return Err(format!(
+            "{NEWER_INSTALLED} ({}, this one is {own}). Update Deskmate first",
+            printed.trim().trim_start_matches("deskmate-service ")
+        ));
+    }
+    Ok(())
+}
+
 /// The process the running service lives in.
 fn service_process(service: &Service) -> Result<u32, String> {
     service
@@ -260,6 +331,8 @@ pub fn install(options: &InstallOptions, say: &mut dyn FnMut(&str)) -> Result<()
         | ServiceAccess::CHANGE_CONFIG;
     let existing = open_service(&manager, access)?;
     if let Some(service) = &existing {
+        // Before the stop, so that a refusal leaves the service running.
+        refuse_downgrade(&program_dir()?.join(EXECUTABLE))?;
         // A running executable cannot be replaced.
         stop(service)?;
     }
@@ -427,4 +500,60 @@ pub fn uninstall(say: &mut dyn FnMut(&str)) -> Result<(), String> {
     }
     say("The Deskmate service is uninstalled.");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_newer_installed_service_is_recognised() {
+        assert!(reports_newer_version("deskmate-service 0.9.1\r\n", "0.9.0"));
+        assert!(reports_newer_version("deskmate-service 0.10.0", "0.9.9"));
+        assert!(reports_newer_version("deskmate-service 1.0.0", "0.9.0"));
+        assert!(reports_newer_version(
+            "deskmate-service 0.9.0",
+            "0.9.0-beta.1"
+        ));
+        assert!(reports_newer_version(
+            "deskmate-service 0.9.0+rebuilt",
+            "0.9.0-beta.1"
+        ));
+    }
+
+    #[test]
+    fn the_same_or_an_older_installed_service_is_replaced() {
+        assert!(!reports_newer_version("deskmate-service 0.9.0", "0.9.0"));
+        assert!(!reports_newer_version("deskmate-service 0.8.5", "0.9.0"));
+        assert!(!reports_newer_version(
+            "deskmate-service 0.9.0-beta.1",
+            "0.9.0"
+        ));
+        // Versions that differ only in what follows them count as the same.
+        assert!(!reports_newer_version(
+            "deskmate-service 0.9.0-beta.2",
+            "0.9.0-beta.1"
+        ));
+        assert!(!reports_newer_version(
+            "deskmate-service 0.9.0+rebuilt",
+            "0.9.0"
+        ));
+    }
+
+    #[test]
+    fn an_unreadable_answer_is_never_newer() {
+        for printed in [
+            "",
+            "9.9.9",
+            "deskmate-service",
+            "deskmate-service 9.9",
+            "deskmate-service 9.9.9.9",
+            "deskmate-service v9.9.9",
+            "deskmate-service 9..9",
+            "Usage: deskmate-service install",
+        ] {
+            assert!(!reports_newer_version(printed, "0.9.0"), "{printed}");
+        }
+        assert!(!reports_newer_version("deskmate-service 9.9.9", "unknown"));
+    }
 }

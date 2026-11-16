@@ -13,7 +13,9 @@ const EXIT_USAGE: u8 = 2;
 mod windows_main {
     use deskmate_service::cli::{Command, RunOptions, USAGE};
     use deskmate_service::secrets::{CredentialVault, KeyStore};
-    use deskmate_service::win::install::{install, uninstall, InstallOptions, APP_PROGRAM};
+    use deskmate_service::win::install::{
+        install, uninstall, InstallOptions, APP_PROGRAM, NEWER_INSTALLED,
+    };
     use deskmate_service::win::pipes::{read_status, PipeNames, SERVER_UNCHECKED};
     use deskmate_service::win::security::is_elevated;
     use deskmate_service::win::{data_dir, service, Launch};
@@ -27,6 +29,9 @@ mod windows_main {
     /// behind the provisioning pipe could not be checked, so the settings
     /// were not taken (`pipes::SERVER_UNCHECKED`).
     const EXIT_SERVER_UNCHECKED: u8 = 6;
+    /// Exit code of `install` when the installed service is newer than this
+    /// copy, which therefore replaced nothing (`install::NEWER_INSTALLED`).
+    const EXIT_NEWER_INSTALLED: u8 = 7;
 
     /// What a run works with: the real folder, vault, pipes and power
     /// commands.
@@ -140,6 +145,10 @@ mod windows_main {
             Err(error) if error.contains(SERVER_UNCHECKED) => {
                 eprintln!("deskmate-service: the service is installed, but {error}");
                 ExitCode::from(EXIT_SERVER_UNCHECKED)
+            }
+            Err(error) if error.contains(NEWER_INSTALLED) => {
+                eprintln!("deskmate-service: {error}");
+                ExitCode::from(EXIT_NEWER_INSTALLED)
             }
             other => finish(other),
         }

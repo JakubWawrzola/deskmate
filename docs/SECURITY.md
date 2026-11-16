@@ -535,7 +535,11 @@ starting.
 
 Updating the service is a step of its own: an app update brings a newer copy
 of the service but does not install it. Settings and the Status page offer
-*Update* until someone presses it.
+*Update* until someone presses it. The elevated `install` never replaces a
+newer service with an older copy, for example from another user's older
+Deskmate: it first asks the installed copy in Program Files for its version,
+which works while the service is stopped, and ends with exit code 7 without
+stopping or replacing anything.
 
 ### Where its settings and keys live
 
