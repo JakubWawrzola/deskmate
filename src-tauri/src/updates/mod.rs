@@ -401,9 +401,10 @@ fn set_failed(app: &AppHandle, message: &str) {
 
 // ------------------------------------------------------- commands and the tray
 
-/// Handles a click on "Install now" or "Later". Returns whether `arg` was an
-/// update link at all, accepted or not, so that the caller does not treat it
-/// as an ordinary start of the app.
+/// Handles a click on "Install now" or "Later". A link without a valid token
+/// only opens the Status page. Returns whether `arg` was an update link at
+/// all, accepted or not, so that the caller does not treat it as an ordinary
+/// start of the app.
 pub fn handle_link(app: &AppHandle, arg: &str) -> bool {
     if !prompt::is_link(arg) {
         return false;
@@ -425,6 +426,11 @@ pub fn handle_link(app: &AppHandle, arg: &str) -> bool {
         None => {
             crate::security::audit("update_prompt", "blocked_unknown_token");
             log::warn!("update link without a valid token ignored");
+            // Usually a button of a notification from before a restart, or
+            // older than a day. Nothing is done for it, but the Status page
+            // offers the same choices, so the click does not go unanswered.
+            crate::actions::show_main_window(app);
+            let _ = app.emit(SHOW_EVENT, ());
         }
     }
     true

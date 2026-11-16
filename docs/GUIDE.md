@@ -661,7 +661,9 @@ Settings → **Updates** decides what happens next:
 - **Ask first** (the default). The notification and the Status page offer
   *Install now* and *Later*. *Install now* downloads the installer, checks its
   signature and installs it; Deskmate restarts by itself. *Later* asks again
-  the next day, and the tray entry brings the choice back sooner.
+  the next day, and the tray entry brings the choice back sooner. The buttons
+  work for a day and until Deskmate restarts; after that a click opens the
+  Status page, which offers the same choices.
 - **Install automatically.** Deskmate does the same without asking, once the
   computer has not been used for five minutes and nothing runs full screen. A
   notification tells you afterwards.

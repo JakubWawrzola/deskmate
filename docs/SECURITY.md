@@ -715,7 +715,10 @@ install or a postponement, cannot change the mode, and cannot supply a
 manifest, an address or a file. The buttons on the update notification use
 their own `deskmate:update` link with single-use tokens; a notification sent
 by Home Assistant cannot carry that link, and a click on it is not reported to
-Home Assistant. The idle time that *Install automatically* waits for is
+Home Assistant. A token lives for a day and only in the running app. A click
+without a valid one, from an older notification or from any other program,
+does nothing but open the window on the Status page, as starting Deskmate
+again would. The idle time that *Install automatically* waits for is
 measured on the PC. Input that Home Assistant sends while *Allow input* is on
 counts there as activity (see
 [Input that counts as yours](#input-that-counts-as-yours)), so it can delay
