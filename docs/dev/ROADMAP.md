@@ -33,18 +33,11 @@ Ordered by user value. Done items stay for context; release details are in
   unauthenticated connections are validated for every protocol version.
 - **0.8.5** — *Start minimized to tray* is stored as soon as it is switched
   (#11).
-- **0.9.0** — the Deskmate service (#8): sensors and power buttons while
-  nobody is signed in, installed from Settings with one administrator
-  approval, handing the connection to the app and back, power commands
-  refused for five minutes after start and wake-up; Deskmate for Linux
-  (preview): a systemd daemon as .deb and tarball, the desktop app as .deb
-  and AppImage; signed automatic updates with three modes; the Stream Deck
-  plugin installed from the app and connected to it through a local channel
-  (off by default); a media player entity, notification tags, priority and
-  clearing, *Screen on*, *Wake screen* behind *Remote input*, screen
-  brightness, *User state*, game controllers in the idle time; the
-  *Connection* sensor; machine-scoped declarations, `bye` and the
-  availability rules in the integration.
+- **0.9.0** — the Deskmate service (#8), Deskmate for Linux (preview), signed
+  automatic updates, the Stream Deck plugin through the app, a media player
+  entity, notification tags, screen and user state sensors, and the
+  *Connection* sensor. Details in
+  [RELEASE-0.9.0](../releases/RELEASE-0.9.0.md).
 
 ## Open after 0.9.0
 
