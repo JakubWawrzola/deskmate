@@ -213,17 +213,20 @@ pub async fn hold_seat_while_paused(app: &AppHandle) {
 }
 
 /// Whether the integration of the current Link session can take a service.
-fn scoped_declare(app: &AppHandle) -> Option<bool> {
-    app.state::<AppState>()
+async fn scoped_declare(app: &AppHandle) -> Option<bool> {
+    let state = app.state::<AppState>();
+    let connected = state.status.lock().await.connected;
+    let answered = state
         .link_info()
-        .map(|info| info.has_cap(CAP_SCOPED_DECLARE))
+        .map(|info| info.has_cap(CAP_SCOPED_DECLARE));
+    view::integration_supports_service(connected, answered)
 }
 
 /// Settings > Deskmate service, and the banner on the Status page.
 #[tauri::command]
 pub async fn service_status(app: AppHandle) -> Result<ServiceView, String> {
     let cfg = app.state::<AppState>().config.lock().await.clone();
-    let scoped = scoped_declare(&app);
+    let scoped = scoped_declare(&app).await;
     tauri::async_runtime::spawn_blocking(move || observe(&cfg, scoped))
         .await
         .map_err(|e| e.to_string())
@@ -235,7 +238,7 @@ pub async fn service_status(app: AppHandle) -> Result<ServiceView, String> {
 pub async fn set_up_service(app: AppHandle, action: SetupAction) -> Result<String, String> {
     let busy = Busy::claim()?;
     let cfg = app.state::<AppState>().config.lock().await.clone();
-    let scoped = scoped_declare(&app);
+    let scoped = scoped_declare(&app).await;
     let paused = cfg.connection_paused;
     let done = tauri::async_runtime::spawn_blocking(move || set_up(action, &cfg, scoped))
         .await

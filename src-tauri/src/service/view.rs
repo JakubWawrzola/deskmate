@@ -170,6 +170,20 @@ pub struct Conditions {
     pub paused: bool,
 }
 
+/// Whether the integration of the current Link session can take a service:
+/// what its `info` answer says, or None while nothing tells. An integration
+/// older than 0.9.0 never answers `info`, so a session that is connected but
+/// has no answer counts as one that cannot. That also holds for the first few
+/// seconds of a session before the answer arrives, which the panel refreshes
+/// past.
+pub fn integration_supports_service(connected: bool, answered: Option<bool>) -> Option<bool> {
+    match answered {
+        Some(supports) => Some(supports),
+        None if connected => Some(false),
+        None => None,
+    }
+}
+
 /// Why the service cannot be installed from here, or None when it can.
 pub fn install_blocked(conditions: &Conditions) -> Option<String> {
     if let Some(reason) = setup_blocked(conditions) {
@@ -178,7 +192,7 @@ pub fn install_blocked(conditions: &Conditions) -> Option<String> {
     match conditions.scoped_declare {
         Some(true) => None,
         Some(false) => Some(
-            "The Deskmate integration in Home Assistant is too old for the service. Update it in HACS, then connect again."
+            "The Deskmate integration in Home Assistant does not support the service yet. Update it to 0.9.0 or newer in HACS, restart Home Assistant, then connect again."
                 .into(),
         ),
         None => Some(
@@ -597,6 +611,7 @@ mod tests {
         ];
         for (conditions, expected) in cases {
             let reason = install_blocked(&conditions).unwrap_or_default();
+            assert!(!reason.is_empty(), "{expected}");
             assert!(reason.contains(expected), "{reason}");
         }
         // Apply does not wait for the integration's answer: the service
@@ -622,5 +637,20 @@ mod tests {
         assert!(view("waiting", "0.9.0", FINGERPRINT, &paused).paused_by_user);
         assert!(!view("connected", "0.9.0", FINGERPRINT, &paused).paused_by_user);
         assert!(!view("waiting", "0.9.0", FINGERPRINT, &ready()).paused_by_user);
+    }
+
+    #[test]
+    fn a_connected_integration_that_never_answers_info_cannot_take_the_service() {
+        // An integration up to 0.8.5 is connected but never answers `info`.
+        assert_eq!(integration_supports_service(true, None), Some(false));
+        assert_eq!(integration_supports_service(false, None), None);
+        assert_eq!(integration_supports_service(true, Some(true)), Some(true));
+        assert_eq!(integration_supports_service(true, Some(false)), Some(false));
+        let reason = install_blocked(&Conditions {
+            scoped_declare: integration_supports_service(true, None),
+            ..ready()
+        })
+        .unwrap_or_default();
+        assert!(reason.contains("0.9.0"), "{reason}");
     }
 }
