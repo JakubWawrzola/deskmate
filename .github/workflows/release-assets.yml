@@ -58,7 +58,8 @@ jobs:
         working-directory: files
         run: |
           for f in *; do
-            expected=$(awk -v n="$f" '$2 == n { print $1 }' ../SHA256SUMS.txt)
+            # sha256sum may write the name with a leading "*" (binary mode).
+            expected=$(awk -v n="$f" '{ name = $2; sub(/^\*/, "", name) } name == n { print $1 }' ../SHA256SUMS.txt)
             [ -n "$expected" ] || { echo "::error::$f is not in SHA256SUMS.txt"; exit 1; }
             actual=$(sha256sum "$f" | cut -d' ' -f1)
             [ "$expected" = "$actual" ] || { echo "::error::$f does not match its checksum"; exit 1; }
