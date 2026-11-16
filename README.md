@@ -1,15 +1,13 @@
 # Deskmate
 
-A modern, open-source Windows companion for Home Assistant, in the spirit of
-HASS.Agent. Your PC shows up in Home Assistant as a device with sensors,
-buttons, switches and notifications, your keyboard becomes a remote for your
-home, your phone can drop files straight onto the PC, and the kids' screen time
-rules run on the PC itself, without a Microsoft account.
-
-It talks to its own Home Assistant integration over one encrypted connection,
-so there is no MQTT broker to set up (MQTT still works if you already run one).
-Native on Windows 10 and 11, **x64 and ARM64** (Snapdragon laptops included),
-with a ~3 MB installer.
+Deskmate puts your computer into Home Assistant as a device, with sensors,
+power and media buttons, notifications with buttons, files from your phone
+and screen time rules for the kids. It brings its own integration and talks
+to it over one encrypted connection that the PC opens, so there is no MQTT
+broker to set up (MQTT still works if you already run one). Open source, for
+Windows 10 and 11 on **x64 and ARM64** (Snapdragon laptops included). An
+optional Windows service keeps the PC in Home Assistant while nobody is
+signed in, and Linux is available as a preview.
 
 **New here? Read the [guide](docs/GUIDE.md).** It goes from installing to
 automations in one place.
@@ -28,8 +26,9 @@ Deskmate is in the default HACS catalog, so no custom repository is needed.
    from [Releases](https://github.com/JakubWawrzola/deskmate/releases), paste
    the code, *Connect*. The PC appears as a device in Home Assistant.
 
-Setting this up with an AI assistant? Point it at
-[docs/AI-DEPLOY.md](docs/AI-DEPLOY.md).
+On Linux, step 3 is a package and one command: see
+[docs/LINUX.md](docs/LINUX.md). Setting this up with an AI assistant? Point it
+at [docs/AI-DEPLOY.md](docs/AI-DEPLOY.md).
 
 ## Screenshots
 
@@ -47,61 +46,66 @@ Setting this up with an AI assistant? Point it at
 
 - CPU, memory, disks, network, battery, uptime, and GPU and temperatures where
   the hardware allows (CPU temperature too, with a small optional helper).
-- Whether someone is at the PC: idle time, last activity, locked or not, who is
-  signed in, a presentation or full-screen video running.
-- If you want them: the window you are in, the Wi-Fi name, what is playing,
-  whether the camera or the microphone is in use. Off until you turn them on.
+- Whether someone is at the PC: idle time (game controllers count too), last
+  activity, locked or not, who is signed in, whether the screen is on.
+- If you want them: the window you are in, the Wi-Fi name, what is playing
+  (with a media player entity for any media card), camera and microphone in
+  use, gaming or presenting. Off until you turn them on.
 - Your own sensors: is a program running, is a window open, is a Windows
   service up, or anything a script can tell.
+- With the optional Deskmate service, the sensors and power buttons stay
+  while nobody is signed in, at the sign-in screen and after a restart.
 
 **Control the PC from Home Assistant**
 
-- Lock, sleep, hibernate, shut down, restart, sign out, turn the screens off.
-- Volume, mute, play/pause, next track, keep the PC awake.
-- Mute the microphone and set its level, for example as soon as the radio
-  starts.
-- Choose the speakers, headset or microphone Windows uses.
+- Lock, sleep, hibernate, shut down, restart, sign out, screens off, screen
+  brightness, volume, mute, media keys, keep awake.
+- Mute the microphone and choose the speakers, headset or microphone Windows
+  uses.
 - Start or close programs, press key combinations (Ctrl+F5 to reload a page),
   or run your own scripts as buttons, switches and sliders.
-- Type text, move through a presentation, open a web page, read text out loud.
-  Off until you turn them on.
+- Type text, move through a presentation, open a web page, wake the screen,
+  read text out loud. Off until you turn them on.
 
 **Notifications**
 
 - Windows notifications from Home Assistant, with a picture and buttons that
-  start automations. The doorbell on your screen, with *Open gate* on it.
+  start automations. The doorbell on your screen, with *Open gate* on it. A
+  tag replaces the earlier one, and an automation can clear it once the door
+  is open.
 
 **Screen time and family rules**
 
-- Screen time for each Windows account, a daily limit, extra time for today,
-  allowed hours (bedtime).
-- Warnings before the time runs out, then the PC locks or signs out.
-- An *Ask for more time* button that reaches your phone through Home Assistant.
-- Block games and apps.
-- Works without internet and without a Microsoft account. With one
-  administrator password a child cannot just close it.
+- Screen time for each Windows account, a daily limit, allowed hours, a block
+  list for games and apps, and an *Ask for more time* button that reaches
+  your phone.
+- Counted and enforced on the PC, without internet and without a Microsoft
+  account. With one administrator password a child cannot just close it.
 
 **Files and clipboard**
 
 - Send files from your phone or laptop to the PC, download from folders you
-  share. All through the Deskmate page in the Home Assistant sidebar.
+  share, through the Deskmate page in the Home Assistant sidebar.
 - Copy on the PC, paste on your phone, and the other way round.
 
 **Control your home from the PC**
 
-- Hotkeys that switch lights or start scenes from any app.
-- A small always-on-top panel with the entities you pick.
-- Home Assistant dashboards in their own window, and your own shortcuts in the
-  tray menu.
-- A [Stream Deck plugin](docs/STREAMDECK.md): keys for entities, services,
-  scenes and the actions you defined in Deskmate.
+- Hotkeys, a small always-on-top panel with the entities you pick, Home
+  Assistant dashboards in their own window, your own shortcuts in the tray.
+- A [Stream Deck plugin](docs/STREAMDECK.md) that Deskmate installs. Its keys
+  work through Deskmate without a token of their own.
+
+**Linux**
+
+- A daemon with the sensors and power buttons, and the desktop app with
+  notifications, media controls and files. See [docs/LINUX.md](docs/LINUX.md).
 
 **Everyday**
 
-- Light and dark theme, starts with Windows, tells you when an update is out.
+- Light and dark theme, starts with Windows, installs its own updates and
+  asks first unless you choose otherwise.
 - Several computers, and several Windows users on one computer; see the
   [guide](docs/GUIDE.md#10-several-computers-several-windows-users).
-- Windows 10 and 11, x64 and ARM64 (Snapdragon laptops too), a 3 MB installer.
 
 ## Security in short
 
@@ -111,8 +115,9 @@ Setting this up with an AI assistant? Point it at
 - Anything that reveals what you do or lets Home Assistant act beyond the
   built-in buttons is off until you turn it on, and much of it can ask on the PC
   first.
-- No PowerShell for notifications, no telemetry. The only call home is an
-  optional daily look at GitHub for a newer release.
+- No telemetry. The only call home is the daily update check on GitHub,
+  which you can switch off, and Deskmate runs only an installer signed with
+  the project's release key. Home Assistant cannot start an update.
 
 The threat model, including what it does not protect against:
 [docs/SECURITY.md](docs/SECURITY.md).
@@ -128,9 +133,10 @@ events, a widget panel, files from the phone).
 ## Documentation
 
 - [docs/GUIDE.md](docs/GUIDE.md): the guide, start here
-- [docs/LINUX.md](docs/LINUX.md): the Linux daemon (preview), with the sensors and power buttons
-- [docs/LINK.md](docs/LINK.md): the connection, pairing, remote access, protocol
+- [docs/LINUX.md](docs/LINUX.md): the Linux daemon and desktop app
+- [docs/STREAMDECK.md](docs/STREAMDECK.md): the Stream Deck plugin
 - [docs/SECURITY.md](docs/SECURITY.md): threat model and defaults
+- [docs/LINK.md](docs/LINK.md): the connection, pairing, remote access, protocol
 - [docs/HA-SETUP.md](docs/HA-SETUP.md) and [docs/MIGRATION.md](docs/MIGRATION.md):
   the MQTT route, and moving from it
 - [CHANGELOG.md](CHANGELOG.md) and [docs/releases/](docs/releases/): release history
@@ -147,8 +153,10 @@ npm run tauri build          # release for the current architecture
 npm run tauri build -- --target x86_64-pc-windows-msvc   # cross to x64
 ```
 
-Toolchain: Node 20+, Rust stable (`aarch64-pc-windows-msvc` and/or
-`x86_64-pc-windows-msvc`). No C compiler needed on either architecture.
+Toolchain: Node 24, Rust stable (`aarch64-pc-windows-msvc` and/or
+`x86_64-pc-windows-msvc`). No C compiler needed on either architecture. A
+release build also packs the Stream Deck plugin and the Deskmate service, and
+stops after writing the installer when no update signing key is set.
 
 ## License
 
