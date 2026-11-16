@@ -39,6 +39,38 @@ Ordered by user value. Done items stay for context; release details are in
   *Connection* sensor. Details in
   [RELEASE-0.9.0](../releases/RELEASE-0.9.0.md).
 
+## 0.9.1
+
+What people asked for after 0.9.0, on GitHub, Reddit and Facebook.
+
+- **Code-signed Windows installer** (#40): Smart App Control blocks an
+  unsigned installer and offers no way past it. The signature covers the
+  installer, the app and the service, so updates installed from the app pass
+  too.
+- **Large notification images** (#43): an optional `image_placement` field
+  for `deskmate_link.notify`, `logo` (today's behaviour and the default),
+  `hero` or `inline`, so a camera snapshot is big enough to see who is at
+  the door.
+- **A fuller media player** (#41): cover art, duration and position with a
+  seek bar, seeking, and the album, on Windows and on Linux (MPRIS).
+- **More hardware sensors** (#42): first what Windows provides without a
+  driver (memory used in MiB, CPU frequency, disk activity and disk health),
+  then the sensors of a running LibreHardwareMonitor (CPU and GPU power and
+  clocks, PSU, disk temperatures), opt-in. FPS needs ETW and comes later.
+- **Docs**: a side-by-side comparison with HASS.Agent, the Deskmate service
+  explained in plain words, and a step-by-step guide to the family rules.
+- **Under investigation**:
+  - a Sendspin player, so Music Assistant can stream to the PC's speakers
+    and put it in a group;
+  - the PC as an Assist voice satellite (wake word and microphone), off by
+    default;
+  - SteamOS (Steam Deck, Steam Frame): the ARM64 AppImage in desktop mode
+    and the daemon as a user unit on a read-only system;
+  - User state: games in borderless windowed mode reported as `game`, not
+    only `fullscreen`;
+  - macOS, once there is a Mac to develop on and the cost of a signed,
+    notarized app is clear.
+
 ## Open after 0.9.0
 
 - **Updates**: the update notification says when the Home Assistant
@@ -91,7 +123,6 @@ Sending files to the PC and reading its shared folders already work (0.6 and
     entity (doorbell on the TV), not just a still frame — asked for in the
     Reddit thread;
   - a picture-in-picture style overlay that does not take the remote's focus.
-- Media artwork as an `image` entity.
 - WebSocket to Home Assistant for widget tiles instead of polling.
 
 ## Infrastructure
