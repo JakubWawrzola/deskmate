@@ -533,7 +533,8 @@ If you press **Disconnect** on the Status page, the service does not connect
 either until you press **Connect**.
 
 To remove the service, press **Remove** in the same panel and approve the
-prompt. Uninstalling Deskmate removes it as well; updating Deskmate does not.
+prompt. Uninstalling Deskmate removes it as well; updating Deskmate does not,
+also when you run the new installer by hand.
 
 ## 11. Screen time and family rules
 
@@ -676,6 +677,8 @@ signed with its release key, and Home Assistant cannot start an update; see
 [SECURITY.md](SECURITY.md#updates).
 
 You can always update by hand: run the new installer over the old version.
+Keep *Uninstall before installing* and leave *Delete the application data*
+unticked; the Deskmate service then stays installed.
 Update the Home Assistant integration through HACS; the release notes say when
 the order matters.
 

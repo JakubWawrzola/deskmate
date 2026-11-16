@@ -616,7 +616,12 @@ during an approved step.
 *Remove* in Settings, or uninstalling Deskmate, runs `uninstall` with one
 administrator approval: the service forgets its settings and keys, is removed,
 and both folders are deleted. An update of the app does not touch the
-service. Without an installed service the uninstaller asks for nothing.
+service, whether the updater installs it or someone runs the new installer
+over the old version and keeps *Uninstall before installing*: that
+uninstaller runs inside the install folder, where the one started from
+*Settings → Apps* never does, and leaves the service alone unless *Delete the
+application data* is ticked as well. Without an installed service the
+uninstaller asks for nothing.
 
 ## Updates
 

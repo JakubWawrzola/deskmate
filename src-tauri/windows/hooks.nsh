@@ -8,15 +8,27 @@
 ; Start with Windows, the settings, the saved keys, the CPU temperature helper,
 ; the family protection and the Deskmate service therefore survive. Keep every
 ; step added here behind the same $UpdateMode check.
+;
+; A newer installer run by hand over this version is an update too, but it
+; runs this uninstaller without /UPDATE when the user keeps "Uninstall before
+; installing". See the service step below.
 
 !macro NSIS_HOOK_PREUNINSTALL
-  ; The Deskmate service (service.rs in the app) is removed with Deskmate,
-  ; whether or not the application data goes too: it runs the bundled
-  ; $INSTDIR\service\deskmate-service.exe uninstall, which needs one
-  ; administrator approval. Without an installed service it asks for nothing.
-  ; Runs while that file still exists.
+  ; The Deskmate service (service.rs in the app) is removed with Deskmate: it
+  ; runs the bundled $INSTDIR\service\deskmate-service.exe uninstall, which
+  ; needs one administrator approval. Without an installed service it asks for
+  ; nothing. Runs while that file still exists.
+  ;
+  ; Started from Settings > Apps, an NSIS uninstaller copies itself to a
+  ; temporary folder and runs from there. An installer that replaces this
+  ; version runs it in place instead (`uninstall.exe _?=<install folder>`), so
+  ; $EXEDIR is the install folder and the service stays for the new version,
+  ; unless "Delete the application data" is ticked as well.
   ${If} $UpdateMode <> 1
-    ExecWait '"$INSTDIR\${MAINBINARYNAME}.exe" --remove-service'
+    ${If} $DeleteAppDataCheckboxState = 1
+    ${OrIfNot} ${FileExists} "$EXEDIR\${MAINBINARYNAME}.exe"
+      ExecWait '"$INSTDIR\${MAINBINARYNAME}.exe" --remove-service'
+    ${EndIf}
   ${EndIf}
 
   ; "Delete the application data" ticked and not an update: settings, logs and

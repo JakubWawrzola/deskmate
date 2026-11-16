@@ -12,8 +12,9 @@ pub const FORGET_ARG: &str = "--forget-this-computer";
 
 /// `deskmate.exe --remove-service`, run by the uninstaller before the files
 /// go, whether or not the application data is deleted: the Deskmate service
-/// belongs to the computer. Asks for administrator approval only when the
-/// service is installed (service.rs).
+/// belongs to the computer. A newer installer that replaces this version
+/// keeps it (windows/hooks.nsh). Asks for administrator approval only when
+/// the service is installed (service.rs).
 pub const REMOVE_SERVICE_ARG: &str = "--remove-service";
 
 /// Removes the Deskmate service; the process exit code.
