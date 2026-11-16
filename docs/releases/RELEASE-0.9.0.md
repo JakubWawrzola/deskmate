@@ -144,9 +144,6 @@ Full list: [CHANGELOG.md](../../CHANGELOG.md). How each feature works:
 - The installers are not Authenticode-signed, so SmartScreen warns about an
   unknown publisher. Choose *More info*, then *Run anyway*.
 
-This release was not tested end to end against a live Home Assistant before
-it was published.
-
 ## Requirements
 
 - Windows 10 or 11, x64 or ARM64.
