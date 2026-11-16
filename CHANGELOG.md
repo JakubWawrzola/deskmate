@@ -5,9 +5,10 @@ notes and asset names are available in `docs/releases/RELEASE-*.md`.
 
 ## 0.9.0 - Unreleased
 
-The computer stays in Home Assistant while nobody is signed in, Deskmate runs
-on Linux as a preview, updates install themselves after a signature check,
-and the Stream Deck plugin works through the app. The release also brings the
+With the optional Deskmate service, the computer stays in Home Assistant
+while nobody is signed in. Deskmate runs on Linux as a preview. The Windows
+app can install signed updates after you say yes, and the Stream Deck plugin
+can work through the app. The release also brings the
 extras asked for on the forums: a media player, notification tags, and
 sensors for the screen and the user's state. Upgrade notes:
 `docs/releases/RELEASE-0.9.0.md`.
@@ -16,8 +17,8 @@ Update the Home Assistant integration first. Deskmate 0.8.5 keeps working
 with the 0.9.0 integration, and Deskmate 0.9.0 still connects to the 0.8.5
 integration, but the Deskmate service, the Linux daemon, the media player,
 notification tags and the Connection sensor need the new one. Coming from
-0.8.5 or older, install Deskmate 0.9.0 by hand once; from then on the app
-offers its own updates. The Deskmate service and the Stream Deck plugin are
+0.8.5 or older, install Deskmate 0.9.0 by hand once. From then on the
+Windows app offers its own updates. The Deskmate service and the Stream Deck plugin are
 optional and stay off until you install them in Settings.
 
 ### Added
@@ -25,7 +26,7 @@ optional and stay off until you install them in Settings.
 - **Deskmate service** (#8): an optional Windows service that keeps the
   computer in Home Assistant while nobody is signed in, at the sign-in screen
   and after a restart. It reports the processor, memory, system drive,
-  network, uptime and battery, and offers Sleep, Hibernate, Shut down and
+  network, uptime and battery, and offers Sleep, Hibernate, Shutdown and
   Restart. Settings → *Deskmate service* installs it with one administrator
   approval. At sign-in the app takes the connection over and at sign-out the
   service takes it back; Home Assistant keeps the computer available in
@@ -33,24 +34,28 @@ optional and stay off until you install them in Settings.
   refuses the power buttons, so a misfiring automation cannot keep the
   computer off. It never shows notifications or receives files. It needs the
   Deskmate integration 0.9.0 (not MQTT). An app update brings a newer
-  service, which the panel installs when you press *Update*; *Apply* hands it
-  changed settings, and uninstalling Deskmate removes it.
-- **Deskmate for Linux, preview**: a daemon run by systemd, for 64-bit x86
+  service. Press *Update* in Settings → *Deskmate service* to install it, and
+  *Apply* to give it changed settings. Uninstalling Deskmate removes the
+  service.
+- **Deskmate for Linux**: a daemon run by systemd, for 64-bit x86
   and ARM, as a `.deb` and as a tarball with an install script. It reports
   the processor, memory, the root file system and other drives, network,
   uptime, battery and AC power, disk activity, CPU temperature and AMD or
   Intel GPU sensors. It offers Sleep, Hibernate where the computer can
-  hibernate, Shutdown and Restart, with the same five minutes after start and
-  wake-up. `sudo deskmate-service pair` takes the usual pairing code. See
+  hibernate, Shutdown and Restart, and like the Windows service it refuses
+  them for five minutes after start and wake-up. `sudo deskmate-service pair` takes the usual pairing code. See
   [docs/LINUX.md](docs/LINUX.md).
-- **Linux desktop app, preview**: the Deskmate window on Linux, as a `.deb`
-  and an AppImage. Pairing, Link or MQTT, idle time, locked and Lock through
-  logind, media sensors, keys and the media player through MPRIS, volume and
-  mute, notifications, opening URLs, Link Files, widgets and dashboards. The
+- **Linux desktop app**: the Deskmate window on Linux, as a `.deb` and an
+  AppImage. It pairs over Link or MQTT and offers idle time, the *Session
+  locked* sensor and the *Lock* button, media sensors, media keys and the
+  media player, volume and mute, notifications, opening web pages, Link
+  Files, widgets and dashboards. Receiving files is *Off* or *Accept
+  automatically*; asking on the computer for each file is not offered yet. The
   tray needs an AppIndicator host and global hotkeys need X11. The pairing key
   goes to the keyring through the Secret Service. With the daemon on the same
   computer, the app and the daemon hand the connection to each other.
-- **Signed automatic updates**: Settings → *Updates* has three modes. *Ask
+- **Signed automatic updates on Windows**: Settings → *Updates* has three
+  modes. *Ask
   first* (the default) offers *Install now* and *Later* in a notification and
   on the Status page. *Install automatically* installs once the computer has
   had no input for five minutes and nothing runs full screen. *Only tell me*
@@ -60,8 +65,9 @@ optional and stay off until you install them in Settings.
   the CPU temperature helper and the family protection. Home Assistant cannot
   start an update. On Linux the app only says that a release is out.
 - **Stream Deck plugin connected to the app**: the plugin reaches Home
-  Assistant through Deskmate, with the address and token Deskmate already
-  has, or directly with its own token. *Automatic* uses the app when it is
+  Assistant through Deskmate, with the Home Assistant address and access
+  token set in Deskmate under Settings → *Home Assistant API*, or directly
+  with its own token. *Automatic* uses the app when it is
   reachable. A fourth key, *Deskmate Action*, runs a hotkey or tray quick
   action defined in Deskmate. The installer carries the plugin: Settings →
   *Stream Deck* has *Install plugin*, *Update plugin* and *Remove plugin*,
@@ -72,10 +78,13 @@ optional and stay off until you install them in Settings.
   are sent only while their own sensors are on, and the volume only while the
   *Volume* sensor is on.
 - `deskmate_link.notify` takes `tag` and `priority`. A notification with the
-  same tag replaces the earlier one. `urgent` asks Windows to show it during
-  Do not disturb, as far as Windows allows (build 22546 and newer).
+  same tag replaces the earlier one. On Windows build 22546 and newer,
+  `urgent` asks Windows to show it during Do not disturb; Windows asks the
+  user once whether to allow important notifications from Deskmate.
   `deskmate_link.clear_notification` removes a tagged notification from the
   screen and the notification centre, on every paired computer or on one.
+  Tags, priority and clearing need Deskmate 0.9.0 for Windows on the
+  computer.
 - *Screen on* sensor, on by default, and a *Wake screen* button that turns
   the screens back on. *Wake screen* counts as input and sits behind
   *Remote input* in Settings, which is off by default.
@@ -86,9 +95,10 @@ optional and stay off until you install them in Settings.
 - Idle time and *Last active* count game controllers (Xbox-style, through
   XInput) as well as the keyboard and mouse. Stick drift at rest does not
   count.
-- A *Connection* diagnostic sensor for every computer, added by the
-  integration: `app`, `service` or `daemon` while connected, and `sleeping`,
-  `off` or `disconnected` when not. It stays available while the computer is
+- A *Connection* diagnostic sensor for every Link computer, added by the
+  integration: `app`, `service` or `daemon` while connected, `connected` for a
+  client that does not identify itself, such as Deskmate 0.8.5 or
+  DeskmateTV, and `sleeping`, `off` or `disconnected` when not. It stays available while the computer is
   offline, so automations can react to it.
 - The Status page shows the version of the integration Deskmate is connected
   to.
@@ -122,9 +132,7 @@ optional and stay off until you install them in Settings.
 - The Stream Deck plugin is now *Deskmate for Home Assistant*,
   `com.deskmate.streamdeck`, built on Stream Deck SDK 3 and Node 24.
 - The code is a Cargo workspace: `deskmate-core` holds what the app, the
-  service and the daemon share. CI checks every push, including the ARM64
-  build, a secret scan, the integration tests and the service end to end
-  against a stand-in hub.
+  service and the daemon share.
 
 ### Fixed
 
@@ -143,6 +151,17 @@ optional and stay off until you install them in Settings.
   to open files. Its settings and keys are readable only by SYSTEM and
   Administrators. The threat model, including the install step, is in
   [docs/SECURITY.md](docs/SECURITY.md#the-deskmate-service).
+- Signed updates are the one exception to the rule that Deskmate runs nothing
+  it receives over the network. The app runs a Deskmate installer only for a
+  higher version, downloaded from this project's GitHub releases and signed
+  with the release key for that version. Home Assistant cannot start an
+  update. See [docs/SECURITY.md](docs/SECURITY.md#updates).
+- The Stream Deck channel is new and off by default. While *Let Stream Deck
+  use Deskmate* is on, any program running as your Windows user can list
+  your Home Assistant entities, call any Home Assistant service with the
+  access token set in Deskmate and run your Deskmate hotkeys and tray quick
+  actions. The plugin does not check which program serves the pipe it opens.
+  See [docs/SECURITY.md](docs/SECURITY.md#the-stream-deck-channel).
 
 ## 0.8.5 - 2026-11-12
 
