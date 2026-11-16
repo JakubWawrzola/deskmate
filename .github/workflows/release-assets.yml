@@ -1,0 +1,69 @@
+# Attaches files that a CI run built to an existing release, from GitHub's
+# side, so large packages do not have to be uploaded from a home connection.
+# Every file must be listed in the release's SHA256SUMS.txt with the same
+# checksum, or nothing is attached.
+name: Release assets from CI
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag, for example v0.9.0
+        required: true
+      run_id:
+        description: ID of the CI run whose artifacts hold the files
+        required: true
+      artifacts:
+        description: Artifact names, separated by spaces
+        required: true
+        default: deskmate-desktop-x86_64 deskmate-desktop-aarch64
+      pattern:
+        description: Which files of those artifacts to attach (shell glob)
+        required: true
+        default: "*.AppImage"
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  attach:
+    name: Attach checked files to the release
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ inputs.tag }}
+      RUN_ID: ${{ inputs.run_id }}
+      ARTIFACTS: ${{ inputs.artifacts }}
+      PATTERN: ${{ inputs.pattern }}
+    steps:
+      - name: Check the inputs
+        run: |
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::bad tag"; exit 1; }
+          [[ "$RUN_ID" =~ ^[0-9]+$ ]] || { echo "::error::bad run id"; exit 1; }
+          [[ "$ARTIFACTS" =~ ^[A-Za-z0-9._\ -]+$ ]] || { echo "::error::bad artifact names"; exit 1; }
+          [[ "$PATTERN" =~ ^[A-Za-z0-9.*_-]+$ ]] || { echo "::error::bad pattern"; exit 1; }
+      - name: Download the artifacts and the release's checksums
+        run: |
+          mkdir -p artifacts files
+          for name in $ARTIFACTS; do
+            gh run download "$RUN_ID" --name "$name" --dir "artifacts/$name"
+          done
+          gh release download "$TAG" --pattern SHA256SUMS.txt --dir .
+          find artifacts -type f -name "$PATTERN" -exec cp {} files/ \;
+          ls -l files
+          [ -n "$(ls files)" ] || { echo "::error::no file matches"; exit 1; }
+      - name: Check every file against SHA256SUMS.txt
+        working-directory: files
+        run: |
+          for f in *; do
+            expected=$(awk -v n="$f" '$2 == n { print $1 }' ../SHA256SUMS.txt)
+            [ -n "$expected" ] || { echo "::error::$f is not in SHA256SUMS.txt"; exit 1; }
+            actual=$(sha256sum "$f" | cut -d' ' -f1)
+            [ "$expected" = "$actual" ] || { echo "::error::$f does not match its checksum"; exit 1; }
+            echo "$f: OK"
+          done
+      - name: Attach the files
+        working-directory: files
+        run: gh release upload "$TAG" * --clobber
