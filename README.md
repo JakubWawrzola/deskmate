@@ -1,16 +1,16 @@
 # Deskmate
 
-Deskmate puts your computer into Home Assistant as a device, with sensors,
-power and media buttons, notifications with buttons, files from your phone
-and screen time rules for the kids. It brings its own integration and talks
-to it over one encrypted connection that the PC opens, so there is no MQTT
-broker to set up (MQTT still works if you already run one). Open source, for
-Windows 10 and 11 on **x64 and ARM64** (Snapdragon laptops included). An
-optional Windows service keeps the PC in Home Assistant while nobody is
-signed in, and Linux is available as a preview.
+Deskmate is a Windows app and a Home Assistant integration. Together they add
+your PC to Home Assistant as a device. You get sensors, power and media
+buttons, notifications with action buttons, files sent from your phone and
+screen time rules for children. The integration replaces MQTT, so you do not
+need a broker. MQTT still works if you already run one.
 
-**Start with the [guide](docs/GUIDE.md).** It goes from installing to
-automations in one place.
+Deskmate is open source and runs on Windows 10 and 11, x64 and ARM64
+(Snapdragon laptops included). Linux is available as a preview.
+
+To try it, follow the three steps below. The [guide](docs/GUIDE.md) covers
+everything from installing to automations.
 
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=JakubWawrzola&repository=deskmate&category=integration)
 
@@ -18,17 +18,23 @@ Deskmate is in the default HACS catalog, so no custom repository is needed.
 
 ## Quick start (about 5 minutes)
 
-1. **Home Assistant:** in HACS search for **Deskmate** (or press the button
-   above), download it and restart Home Assistant.
-2. **Home Assistant:** *Settings → Devices & services → Add integration →
-   Deskmate*. Copy the pairing code it shows (`DMP1.…`).
-3. **PC:** install `Deskmate_<version>_x64-setup.exe` or `_arm64-setup.exe`
-   from [Releases](https://github.com/JakubWawrzola/deskmate/releases), paste
-   the code, *Connect*. The PC appears as a device in Home Assistant.
+1. In HACS, search for **Deskmate** (or press the button above), download it
+   and restart Home Assistant.
+2. In Home Assistant, go to *Settings → Devices & services → Add integration
+   → Deskmate*. Copy the pairing code it shows (`DMP1.…`).
+3. On the PC, download the installer from
+   [Releases](https://github.com/JakubWawrzola/deskmate/releases):
+   `Deskmate_<version>_x64-setup.exe` for most PCs,
+   `Deskmate_<version>_arm64-setup.exe` for ARM64 PCs such as Snapdragon
+   laptops. The installer is not code-signed, so SmartScreen warns about an
+   unknown publisher. Choose *More info*, then *Run anyway*. Paste the code
+   and click *Connect*. The PC appears as a device in Home Assistant.
 
-On Linux, step 3 is a package and one command: see
-[docs/LINUX.md](docs/LINUX.md). To set Deskmate up with an AI assistant, point
-it at [docs/AI-DEPLOY.md](docs/AI-DEPLOY.md).
+On Linux, install the daemon and run `sudo deskmate-service pair` with the
+code from step 2, or install the desktop app and paste the code into its
+window. [docs/LINUX.md](docs/LINUX.md) has the packages and the steps. To set
+Deskmate up with an AI assistant, point it at
+[docs/AI-DEPLOY.md](docs/AI-DEPLOY.md).
 
 ## Screenshots
 
@@ -46,15 +52,19 @@ it at [docs/AI-DEPLOY.md](docs/AI-DEPLOY.md).
 
 - CPU, memory, disks, network, battery, uptime, and GPU and temperatures where
   the hardware allows (CPU temperature too, with a small optional helper).
-- Whether someone is at the PC: idle time (game controllers count too), last
-  activity, locked or not, who is signed in, whether the screen is on.
+- Whether someone is at the PC: idle time (game controllers count too),
+  locked or not, who is signed in, whether the screen is on, presenting or
+  full screen, and, once you turn it on, the time of the last activity.
 - If you want them: the window you are in, the Wi-Fi name, what is playing
   (with a media player entity for any media card), camera and microphone in
-  use, gaming or presenting. Off until you turn them on.
+  use, and *User state* (gaming, presenting, busy). Off until you turn them
+  on.
 - Your own sensors: is a program running, is a window open, is a Windows
   service up, or anything a script can tell.
-- With the optional Deskmate service, the sensors and power buttons stay
-  while nobody is signed in, at the sign-in screen and after a restart.
+- Install the optional Deskmate service from Settings and the PC stays in
+  Home Assistant at the sign-in screen and after a restart, with processor,
+  memory, system drive, network, uptime and battery sensors and the power
+  buttons.
 
 **Control the PC from Home Assistant**
 
@@ -92,8 +102,10 @@ it at [docs/AI-DEPLOY.md](docs/AI-DEPLOY.md).
 
 - Hotkeys, a small always-on-top panel with the entities you pick, Home
   Assistant dashboards in their own window, your own shortcuts in the tray.
-- A [Stream Deck plugin](docs/STREAMDECK.md) that Deskmate installs. Its keys
-  work through Deskmate without a token of their own.
+- A [Stream Deck plugin](docs/STREAMDECK.md) that comes with Deskmate.
+  Install it from Settings → *Stream Deck* and turn on *Let Stream Deck use
+  Deskmate* (off by default). Its keys then use the Home Assistant address
+  and token set in Deskmate, so Stream Deck needs no token of its own.
 
 **Linux**
 
@@ -102,8 +114,9 @@ it at [docs/AI-DEPLOY.md](docs/AI-DEPLOY.md).
 
 **Everyday**
 
-- Light and dark theme, starts with Windows, installs its own updates and
-  asks first unless you choose otherwise.
+- Light and dark theme, and it starts with Windows.
+- On Windows, Deskmate installs updates after you say yes. Settings →
+  *Updates* can make it install them on its own, or only tell you.
 - Several computers, and several Windows users on one computer; see the
   [guide](docs/GUIDE.md#10-several-computers-several-windows-users).
 
@@ -115,14 +128,14 @@ it at [docs/AI-DEPLOY.md](docs/AI-DEPLOY.md).
 - Anything that reveals what you do or lets Home Assistant act beyond the
   built-in buttons is off until you turn it on, and much of it can ask on the PC
   first.
-- No telemetry. The only call home is the daily update check on GitHub,
-  which you can switch off, and Deskmate runs only an installer signed with
-  the project's release key. Home Assistant cannot start an update.
+- No telemetry. The only call home is the daily update check on GitHub, and
+  you can switch it off. Deskmate installs an update only if it is signed
+  with the project's release key. Home Assistant cannot start an update.
 
 The threat model, including what it does not protect against:
 [docs/SECURITY.md](docs/SECURITY.md).
 
-## Why not HASS.Agent?
+## Deskmate and HASS.Agent
 
 If HASS.Agent or its [active fork](https://github.com/hass-agent/HASS.Agent)
 already does what you need, use it. Deskmate exists because of two gaps I kept
