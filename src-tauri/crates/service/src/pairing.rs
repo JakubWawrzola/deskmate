@@ -10,7 +10,7 @@
 use base64::alphabet;
 use base64::engine::{DecodePaddingMode, GeneralPurpose, GeneralPurposeConfig};
 use base64::Engine;
-use serde_json::Value;
+use serde_json::{Map, Value};
 use zeroize::Zeroizing;
 
 use crate::config::{ServiceConfig, DEFAULT_INTERVAL_SECS};
@@ -63,6 +63,15 @@ fn is_node_id(text: &str) -> bool {
             .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
 }
 
+/// Moves the text of a key out of the parsed code, so no copy of it stays
+/// behind in the JSON value that is dropped unwiped.
+fn take_secret(record: &mut Map<String, Value>, name: &str) -> Option<Zeroizing<String>> {
+    match record.get_mut(name) {
+        Some(Value::String(text)) => Some(Zeroizing::new(std::mem::take(text))),
+        _ => None,
+    }
+}
+
 /// Reads a pasted pairing code. None when it is not one.
 pub fn parse(input: &str) -> Option<PairingCode> {
     let text = input.trim();
@@ -72,18 +81,18 @@ pub fn parse(input: &str) -> Option<PairingCode> {
         body.push('=');
     }
     let raw = forgiving_base64(&body)?;
-    let data: Value = serde_json::from_slice(&raw).ok()?;
-    let record = data.as_object()?;
+    let mut data: Value = serde_json::from_slice(&raw).ok()?;
+    let record = data.as_object_mut()?;
+    // Both keys leave the record before anything can return early.
+    let key = take_secret(record, "k");
+    let cascade_key = take_secret(record, "c").filter(|key| !key.is_empty());
+    let key = key?;
     let text_field = |name: &str| record.get(name).and_then(Value::as_str);
-    let key = Zeroizing::new(text_field("k")?.to_string());
     let url = text_field("u").map(str::to_string);
     let url_remote = text_field("r").map(str::to_string);
     let node = text_field("n")
         .filter(|node| is_node_id(node))
         .map(str::to_string);
-    let cascade_key = text_field("c")
-        .filter(|key| !key.is_empty())
-        .map(|key| Zeroizing::new(key.to_string()));
     // Only a remote address known: it becomes the primary one.
     let (url, url_remote) = match url {
         Some(url) if !url.is_empty() => (Some(url), url_remote),
@@ -246,6 +255,23 @@ mod tests {
         for input in inputs {
             assert!(parse(&input).is_none(), "{input}");
         }
+    }
+
+    #[test]
+    fn a_key_leaves_the_parsed_code_instead_of_being_copied() {
+        let mut data = json!({"k": KEY_A, "c": KEY_B, "u": 1});
+        let record = data.as_object_mut().unwrap();
+        assert_eq!(
+            take_secret(record, "k").as_deref().map(String::as_str),
+            Some(KEY_A)
+        );
+        assert_eq!(
+            take_secret(record, "c").as_deref().map(String::as_str),
+            Some(KEY_B)
+        );
+        assert_eq!(take_secret(record, "u"), None);
+        assert_eq!(take_secret(record, "n"), None);
+        assert_eq!(data, json!({"k": "", "c": "", "u": 1}));
     }
 
     #[test]

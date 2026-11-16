@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
+use zeroize::Zeroizing;
 
 /// Name of the settings file in the data folder.
 pub const FILE_NAME: &str = "config.json";
@@ -198,7 +199,10 @@ impl ServiceConfig {
     /// 8. the number of `sensors_enabled` entries in decimal
     /// 9. for every entry, sorted by key: the key, then `1` or `0`
     /// 10. the 32 bytes of the cascade key, or nothing without one
-    fn canonical(&self, cascade: Option<&[u8; 32]>) -> Vec<u8> {
+    ///
+    /// The bytes hold the cascade key, so they are wiped when dropped. `enc`
+    /// sizes its buffer up front and never leaves a copy behind by growing.
+    fn canonical(&self, cascade: Option<&[u8; 32]>) -> Zeroizing<Vec<u8>> {
         let interval = self.publish_interval_secs.to_string();
         let count = self.sensors_enabled.len().to_string();
         let flag = |on: bool| -> &'static [u8] {
@@ -223,7 +227,7 @@ impl ServiceConfig {
             parts.push(flag(*enabled));
         }
         parts.push(cascade.map_or(&[][..], |key| &key[..]));
-        link::enc(&parts)
+        Zeroizing::new(link::enc(&parts))
     }
 
     /// Tells whether two sides hold the same settings and keys without
@@ -504,9 +508,24 @@ mod tests {
             b"0",
             b"",
         ]);
-        assert_eq!(config.canonical(None), expected);
+        assert_eq!(*config.canonical(None), expected);
         let mac = link::mac(&[7u8; 32], &expected).unwrap();
         let hex: String = mac.iter().map(|byte| format!("{byte:02x}")).collect();
         assert_eq!(config.fingerprint(&[7u8; 32], None).unwrap(), hex);
+    }
+
+    #[test]
+    fn the_canonical_form_with_a_cascade_key_is_wiped_when_dropped() {
+        let config = parse(&json!({
+            "node_id": "pc",
+            "link_url": "ws://192.168.1.10:8123",
+            "link_cascade": true,
+        }))
+        .unwrap();
+        let cascade = [9u8; 32];
+        let canonical: Zeroizing<Vec<u8>> = config.canonical(Some(&cascade));
+        assert!(canonical.ends_with(&cascade));
+        // One allocation of the exact size: no copy was freed while it grew.
+        assert_eq!(canonical.capacity(), canonical.len());
     }
 }
