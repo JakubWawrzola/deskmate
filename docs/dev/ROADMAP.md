@@ -33,57 +33,29 @@ Ordered by user value. Done items stay for context; release details are in
   unauthenticated connections are validated for every protocol version.
 - **0.8.5** — *Start minimized to tray* is stored as soon as it is switched
   (#11).
+- **0.9.0** — the Deskmate service (#8): sensors and power buttons while
+  nobody is signed in, installed from Settings with one administrator
+  approval, handing the connection to the app and back, power commands
+  refused for five minutes after start and wake-up; Deskmate for Linux
+  (preview): a systemd daemon as .deb and tarball, the desktop app as .deb
+  and AppImage; signed automatic updates with three modes; the Stream Deck
+  plugin installed from the app and connected to it through a local channel
+  (off by default); a media player entity, notification tags, priority and
+  clearing, *Screen on*, *Wake screen* behind *Remote input*, screen
+  brightness, *User state*, game controllers in the idle time; the
+  *Connection* sensor; machine-scoped declarations, `bye` and the
+  availability rules in the integration.
 
-## In progress
+## Open after 0.9.0
 
-- Deskmate 0.9.0, described below.
-
-## Next update (0.9.0): Windows service, Linux and auto-update
-
-- **Deskmate as a Windows service** (#8): Home Assistant keeps the PC's
-  machine sensors and power buttons while nobody is signed in.
-  - an optional service, installed with one administrator approval, that
-    reports CPU, memory, disks, network, temperatures and uptime, and accepts
-    only shutdown, restart, sleep and hibernate;
-  - at sign-in the user's Deskmate takes the connection over, the same way it
-    already moves between Windows users (seat.rs); at sign-out the service
-    takes it back;
-  - a headless Link client without the app window (Windows runs services in a
-    session without a desktop, so windows, media, clipboard, input and
-    notifications stay with the signed-in app);
-  - its own copy of the pairing key, readable only by SYSTEM and
-    administrators, handed over during the elevated install;
-  - entities that need a signed-in user show as unavailable instead of being
-    removed, so names, areas and dashboards survive;
-  - an app update refreshes the service with one administrator approval, and
-    uninstall removes it.
-
-- **Deskmate for Linux, preview** (asked for by the community): the Rust core
-  and the Link protocol are portable; sensors, notifications (libnotify /
-  D-Bus), tray and hotkeys need Linux backends.
-  - a client without a window, run by systemd, with the machine sensors and
-    the power buttons;
-  - the desktop app, as far as the Linux desktop allows: global shortcuts
-    need X11, and the tray needs a desktop that shows one;
-  - packaging: .deb and AppImage.
-
-- **Auto-update** (Jakub, 14.10: moved from 0.8.1 to 0.9.0): the daily check
-  finds a new release and shows a notification with *Install now* and
-  *Later*; the same choice sits in the tray menu and on the Status page.
-  - *Install now*: Deskmate downloads the installer for its architecture from
-    the GitHub release, checks it, runs it in update mode and starts again
-    with the same settings and pairing;
-  - the check: Tauri updater plugin with an update manifest (`latest.json`)
-    signed with an Ed25519 key on every release, plus the SHA-256 from the
-    release notes; nothing unsigned runs (decide where the private key lives:
-    local only or CI secret, never in the repo);
-  - Settings → Updates: install automatically, ask first (default), or only
-    tell me (today's behaviour); *Later* asks again the next day;
-  - the installer's update mode keeps "Start with Windows" (the root cause of
-    #7), the CPU temperature helper and the family protection; the watchdog
-    copy in Program Files is refreshed with the next protection step;
-  - the Home Assistant integration keeps updating through HACS; the
-    notification says when it needs updating too.
+- **Updates**: the update notification says when the Home Assistant
+  integration needs updating too (today the Deskmate service panel says so
+  for the service); the copies of Deskmate used by the CPU temperature
+  helper and the family watchdog follow the app's version (today they stay
+  at the version they were installed with).
+- **Linux desktop app**: notification tags, the urgent priority and
+  clearing; asking on the computer before a received file is saved;
+  clipboard, typing text and the active window sensor.
 
 ## Next
 
@@ -126,14 +98,13 @@ Sending files to the PC and reading its shared folders already work (0.6 and
     entity (doorbell on the TV), not just a still frame — asked for in the
     Reddit thread;
   - a picture-in-picture style overlay that does not take the remote's focus.
-- Full `media_player` entity for the PC (now play/pause/next buttons and
-  sensors).
 - Media artwork as an `image` entity.
 - WebSocket to Home Assistant for widget tiles instead of polling.
 
 ## Infrastructure
 
-- GitHub Actions: build x64 + ARM64, attach release artifacts (local uplink is
-  slow, about 6 KB/s).
+- GitHub Actions: build the Windows installers for x64 and ARM64 and attach
+  the release artifacts (the Linux packages are already built as workflow
+  artifacts; the local uplink is slow, about 6 KB/s).
 - Code signing (cost decision pending); it would also calm antivirus
   heuristics.
