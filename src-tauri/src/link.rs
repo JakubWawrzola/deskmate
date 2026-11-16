@@ -90,7 +90,7 @@ pub async fn restart(app: AppHandle) {
     if let Some(client) = state.client.lock().await.take() {
         let _ = client.disconnect().await;
     }
-    *state.link_tx.lock().await = None;
+    forget_session(&app).await;
 
     let cfg = state.config.lock().await.clone();
     if !cfg.configured || cfg.link_url.is_empty() {
@@ -187,15 +187,15 @@ pub async fn restart(app: AppHandle) {
                 stop_connection.clone(),
             )
             .await;
-            *app_connection.state::<AppState>().link_tx.lock().await = None;
-            app_connection.state::<AppState>().set_link_info(None);
-            app_connection.state::<AppState>().set_link_farewell(None);
-            // Half-written files from Home Assistant cannot be resumed on a
-            // new session; remove them now.
-            crate::link_files::abort_all();
+            // A loop that `restart` or `transport::stop` replaced may end
+            // while the next loop's session is up: the shared state is that
+            // session's now, and they forgot this one's already.
+            if *stop_connection.borrow() {
+                break;
+            }
+            forget_session(&app_connection).await;
             let mut retry_delay = if endpoints.len() > 1 { 2 } else { 5 };
             match session_result {
-                Ok(()) if *stop_connection.borrow() => break,
                 Ok(()) => {
                     failures = 0;
                     auth_failures = 0;
@@ -247,7 +247,9 @@ pub async fn restart(app: AppHandle) {
                 _ = tokio::time::sleep(Duration::from_secs(retry_delay)) => {}
             }
         }
-        *app_connection.state::<AppState>().link_tx.lock().await = None;
+        if !*stop_connection.borrow() {
+            forget_session(&app_connection).await;
+        }
     });
 
     let app_sensors = app.clone();
@@ -291,13 +293,29 @@ async fn run_session(
     endpoint: &str,
     mut stop: watch::Receiver<bool>,
 ) -> Result<(), LinkError> {
-    let (mut socket, _) = tokio_tungstenite::connect_async(endpoint)
-        .await
-        .map_err(classify_connect_error)?;
-    let SessionCodecs {
-        mut encoder,
-        mut decoder,
-    } = client_handshake(&mut socket, &cfg.node_id, psk, cascade).await?;
+    let open = async {
+        let (mut socket, _) = tokio_tungstenite::connect_async(endpoint)
+            .await
+            .map_err(classify_connect_error)?;
+        let codecs = client_handshake(&mut socket, &cfg.node_id, psk, cascade).await?;
+        Ok::<_, LinkError>((socket, codecs))
+    };
+    // A connect to an unreachable address takes Windows about 21 s to give
+    // up. A loop that was replaced in the meantime must not open a session
+    // next to the new one.
+    let (
+        socket,
+        SessionCodecs {
+            mut encoder,
+            mut decoder,
+        },
+    ) = tokio::select! {
+        _ = stop.changed() => return Ok(()),
+        opened = open => opened?,
+    };
+    if *stop.borrow() {
+        return Ok(());
+    }
     let (mut writer, mut reader) = socket.split();
     let (out_tx, mut out_rx) = mpsc::unbounded_channel::<Value>();
     // `info` goes first: it is queued before any other task can reach the
@@ -382,8 +400,12 @@ async fn run_session(
         }
     }
     let stopped = *stop.borrow();
-    *app.state::<AppState>().link_tx.lock().await = None;
-    app.state::<AppState>().set_link_farewell(None);
+    if !stopped {
+        // After a stop, what is shared may belong to the next session
+        // already; whoever stopped this one has forgotten it.
+        *app.state::<AppState>().link_tx.lock().await = None;
+        app.state::<AppState>().set_link_farewell(None);
+    }
     if let Some(done) = goodbye {
         // Windows may end the process right after the goodbye; it waits
         // only a moment for the close.
@@ -602,6 +624,17 @@ async fn handle_file_request(app: AppHandle, tx: mpsc::UnboundedSender<Value>, p
     if let Some(notice) = notice {
         crate::transport::handle_notify(&app, &notice.to_string()).await;
     }
+}
+
+/// Forgets what a Link session left in the shared state: the channel to it,
+/// Home Assistant's `info` answer, the way to its goodbye, and the files it
+/// was receiving, which a new session cannot resume.
+pub async fn forget_session(app: &AppHandle) {
+    let state = app.state::<AppState>();
+    *state.link_tx.lock().await = None;
+    state.set_link_info(None);
+    state.set_link_farewell(None);
+    crate::link_files::abort_all();
 }
 
 pub async fn send(app: &AppHandle, payload: Value) -> bool {

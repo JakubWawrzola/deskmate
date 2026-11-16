@@ -35,7 +35,7 @@ pub async fn stop(app: &AppHandle) {
     if let Some(tx) = state.stop_tx.lock().await.take() {
         let _ = tx.send(true);
     }
-    *state.link_tx.lock().await = None;
+    crate::link::forget_session(app).await;
     let node = state.config.lock().await.node_id.clone();
     let client = state.client.lock().await.take();
     if let Some(client) = client {
