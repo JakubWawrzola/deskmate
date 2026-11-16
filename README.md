@@ -9,7 +9,7 @@ Windows 10 and 11 on **x64 and ARM64** (Snapdragon laptops included). An
 optional Windows service keeps the PC in Home Assistant while nobody is
 signed in, and Linux is available as a preview.
 
-**New here? Read the [guide](docs/GUIDE.md).** It goes from installing to
+**Start with the [guide](docs/GUIDE.md).** It goes from installing to
 automations in one place.
 
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=JakubWawrzola&repository=deskmate&category=integration)
@@ -27,8 +27,8 @@ Deskmate is in the default HACS catalog, so no custom repository is needed.
    the code, *Connect*. The PC appears as a device in Home Assistant.
 
 On Linux, step 3 is a package and one command: see
-[docs/LINUX.md](docs/LINUX.md). Setting this up with an AI assistant? Point it
-at [docs/AI-DEPLOY.md](docs/AI-DEPLOY.md).
+[docs/LINUX.md](docs/LINUX.md). To set Deskmate up with an AI assistant, point
+it at [docs/AI-DEPLOY.md](docs/AI-DEPLOY.md).
 
 ## Screenshots
 
