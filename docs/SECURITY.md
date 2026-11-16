@@ -888,9 +888,28 @@ instances to its pipe.
 What remains is on the plugin's side. The plugin does not check who serves
 the pipe it opens. A program that holds the name can refuse the plugin, or
 answer it: it would then see which entities, services and actions your keys
-ask for, and could show wrong states. It receives no token and no key: the
-plugin sends none over the channel. Use the plugin's *Direct* connection on a
-computer where you do not trust the other accounts.
+ask for, and could show wrong states. The plugin sends no token and no key
+over the channel.
+
+The connection itself gives such a program more. Stream Deck's Node opens the
+pipe with the impersonation level Windows uses by default, which lets the
+server of a pipe act as its client once it has read from it, and the plugin's
+first line is `hello`. Every program that holds the name learns your account,
+its groups and its privileges. One that runs under an account allowed to
+impersonate (`SeImpersonatePrivilege`: administrators, and service accounts
+such as NETWORK SERVICE, LOCAL SERVICE, IIS application pools and SQL Server)
+can act as you on this computer: read your files, and read what you stored
+in Credential Manager, the Home Assistant token among it. Node offers no way
+to open a pipe at a lower level.
+
+The name is free whenever Deskmate's channel is off, which is the default, or
+Deskmate is not installed. With the connection on *Automatic* or *Deskmate
+app*, the plugin keeps trying the pipe while a key that needs Home Assistant
+is shown: at once, then at most 30 seconds apart, and on *Automatic* also at
+each press of such a key. Set the connection to *Direct* on a computer that
+runs services you do not trust or where you do not trust the other accounts.
+The plugin then opens the pipe only for *Deskmate Action* keys, and does not
+open it when there are none.
 
 ### Installing the plugin
 
