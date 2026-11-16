@@ -195,7 +195,12 @@ service only; such a program could just as well stop the app.
 The [Deskmate service](#the-deskmate-service) uses the same seat. It takes it
 only while no app wants it and gives it up as soon as one does. An app whose
 user pressed *Disconnect* keeps the seat without connecting while the service
-is installed, so the service does not connect against the user's wish.
+is installed, so the service does not connect against the user's wish. This
+holds only while that app runs: the pause is a setting of the app, and the
+service does not read it. After the user quits the app, signs out or
+restarts the computer, the service takes the free seat and connects with
+the machine scope, the power buttons included. Removing the service is what
+keeps the computer away from Home Assistant then.
 
 ## The Linux daemon
 

@@ -530,7 +530,10 @@ The panel tells you when something needs doing:
 - **Integration too old**: update the Deskmate integration in HACS.
 
 If you press **Disconnect** on the Status page, the service does not connect
-either until you press **Connect**.
+either, but only while Deskmate runs. When you quit Deskmate, sign out or
+restart Windows, the service connects again, power buttons included, until
+Deskmate runs again. To keep the computer away from Home Assistant then as
+well, remove the service.
 
 To remove the service, press **Remove** in the same panel and approve the
 prompt. Uninstalling Deskmate removes it as well; updating Deskmate does not,
@@ -742,7 +745,8 @@ turned off.
 **I disabled Deskmate in Home Assistant and the PC keeps trying to connect.**
 Press *Disconnect* on the Status page, or *Disconnect from Home Assistant* in
 the tray menu. Deskmate stays disconnected, also after a restart, until you
-press *Connect*.
+press *Connect*. With the Deskmate service installed, the service still
+connects whenever the app is not running, so remove the service as well.
 
 **I reinstalled Deskmate and it does not connect.** You do not need a new
 entry in Home Assistant. Open the computer's entry → *Reconfigure* → *Show the

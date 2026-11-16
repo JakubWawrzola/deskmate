@@ -26,7 +26,7 @@ function describeService(view: ServiceView): string {
       break;
   }
   if (view.paused_by_user) {
-    return "Running, waiting: you pressed Disconnect, so neither Deskmate nor the service connects. Press Connect on the Status page to connect again.";
+    return "Running, waiting: you pressed Disconnect, so neither Deskmate nor the service connects while Deskmate runs. If you quit Deskmate or sign out, the service connects. Press Connect on the Status page to connect again.";
   }
   switch (view.activity) {
     case "connected":
