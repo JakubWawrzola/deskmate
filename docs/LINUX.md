@@ -249,13 +249,13 @@ Download the package for your processor from
 against `SHA256SUMS.txt` as above.
 
 ```sh
-sudo apt install ./deskmate_<version>_amd64.deb   # or _arm64.deb
+sudo apt install ./Deskmate_<version>_amd64.deb   # or _arm64.deb
 ```
 
 On other distributions use the AppImage: make it executable and start it.
 
 ```sh
-chmod +x Deskmate_<version>_amd64.AppImage
+chmod +x Deskmate_<version>_amd64.AppImage   # or _aarch64
 ./Deskmate_<version>_amd64.AppImage
 ```
 
