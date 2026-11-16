@@ -124,7 +124,9 @@ pub fn next_step(situation: &Situation) -> Step {
         return Step::Nothing;
     }
     if !situation.installable || situation.mode == UpdateMode::Notify {
-        return if situation.announced {
+        // "Later" can come from a notification shown while the release was
+        // still installable, and it holds here too.
+        return if situation.announced || situation.postponed {
             Step::Nothing
         } else {
             Step::Tell
@@ -332,6 +334,24 @@ mod tests {
             assert!(!installs_when_idle(&found));
             found.announced = true;
             assert_eq!(next_step(&found), Step::Nothing);
+        }
+    }
+
+    #[test]
+    fn later_holds_for_a_release_that_is_only_announced() {
+        // "Later" on an old notification forgets the announcement, after the
+        // installer was dropped or the mode became `notify`.
+        let link_only = [UpdateMode::Auto, UpdateMode::Ask, UpdateMode::Notify]
+            .into_iter()
+            .map(|mode| Situation {
+                installable: false,
+                ..situation(mode)
+            });
+        for mut found in link_only.chain([situation(UpdateMode::Notify)]) {
+            found.postponed = true;
+            assert_eq!(next_step(&found), Step::Nothing);
+            found.postponed = false;
+            assert_eq!(next_step(&found), Step::Tell);
         }
     }
 }
