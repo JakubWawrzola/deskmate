@@ -652,8 +652,11 @@ release. Settings → Updates decides what follows:
 
 Every request carries a `Deskmate/<version>` user agent and no other data.
 When a release has no manifest, or its manifest is refused, the app falls
-back to the request and the behaviour of *Only tell me*. Links to the release
-page are built locally from the version number.
+back to the request and the behaviour of *Only tell me*. The one exception is
+a version that an earlier check already found with a manifest: its installer,
+checked then, stays on offer, so a manifest that cannot be read for a moment
+does not take *Install now* away. Links to the release page are built locally
+from the version number.
 
 *Check for updates once a day* is the main switch. Off, Deskmate sends no
 request, downloads nothing and installs nothing by itself, whatever the mode.

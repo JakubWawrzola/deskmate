@@ -150,6 +150,7 @@ async fn mode(app: &AppHandle) -> UpdateMode {
 /// Looks for a newer release and remembers what it found. Ok(None): this is
 /// the latest version.
 async fn check(app: &AppHandle) -> Result<Option<UpdateInfo>, String> {
+    let mut manifest_failed = false;
     let manifest = match mode(app).await {
         UpdateMode::Notify => None,
         UpdateMode::Ask | UpdateMode::Auto => match check::installable_release(app).await {
@@ -158,6 +159,7 @@ async fn check(app: &AppHandle) -> Result<Option<UpdateInfo>, String> {
             // refused: the user is still told that a release exists.
             Err(error) => {
                 log::info!("no installable update: {error}");
+                manifest_failed = true;
                 None
             }
         },
@@ -176,7 +178,12 @@ async fn check(app: &AppHandle) -> Result<Option<UpdateInfo>, String> {
     };
     {
         let mut shared = shared();
-        let (info, update) = known::after_check(shared.info.take(), shared.update.take(), found);
+        let (info, update) = known::after_check(
+            shared.info.take(),
+            shared.update.take(),
+            found,
+            manifest_failed,
+        );
         shared.info = info;
         shared.update = update;
     }
