@@ -3,7 +3,7 @@
 All notable changes to Deskmate are documented here. Release-specific upgrade
 notes and asset names are available in `docs/releases/RELEASE-*.md`.
 
-## 0.9.0 - Unreleased
+## 0.9.0 - 2026-11-16
 
 With the optional Deskmate service, the computer stays in Home Assistant
 while nobody is signed in. Deskmate runs on Linux as a preview. The Windows

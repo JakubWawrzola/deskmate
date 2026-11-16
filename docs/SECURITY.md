@@ -1,12 +1,11 @@
 # Security
 
-Last reviewed: 2026-11-16. Scope: Deskmate 0.8.5: the Windows app, the
+Last reviewed: 2026-11-16. Scope: Deskmate 0.9.0: the Windows app, the
 [Linux daemon](#the-linux-daemon) and the
 [Linux desktop app](#the-linux-desktop-app), the Home
 Assistant integration (`deskmate_link`), the Deskmate Link connection between
 them, the optional MQTT and REST channels, what Home Assistant can do on
-the PC through them, and the local channel for the Stream Deck plugin, which
-comes with the release after 0.8.5. To report a problem, see the
+the PC through them, and the local channel for the Stream Deck plugin. To report a problem, see the
 [security policy](../.github/SECURITY.md).
 
 Deskmate lets Home Assistant read from a signed-in Windows session and act in

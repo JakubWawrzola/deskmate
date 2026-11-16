@@ -637,7 +637,8 @@ beyond the built-in buttons, is off until you turn it on:
 
 | Feature | Where | Default |
 |---|---|---|
-| Window title, Wi-Fi name, media, camera, microphone sensors | Sensors | Off |
+| Window title, Wi-Fi name, media, camera, microphone and user state sensors | Sensors | Off |
+| Media player entity (follows the *Media status* sensor) | Sensors | Off |
 | Custom commands and program controls | Commands | Off, ask before running |
 | PowerShell sensors | Sensors → Your sensors | Off |
 | CPU temperature helper (administrator, at sign-in) | Settings → CPU temperature | Not installed |
