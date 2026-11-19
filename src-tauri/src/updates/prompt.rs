@@ -49,9 +49,10 @@ fn link_prefix() -> String {
 
 /// The link for one button, with a single-use token.
 pub(super) fn issue_link(choice: Choice) -> String {
-    use rand::RngCore;
+    use rand::Rng;
     let mut raw = [0u8; 16];
-    rand::rngs::OsRng.fill_bytes(&mut raw);
+    // Panics only if the system's random source fails, as rand 0.8's OsRng did.
+    rand::rand_core::UnwrapErr(rand::rngs::SysRng).fill_bytes(&mut raw);
     let token: String = raw.iter().map(|b| format!("{b:02x}")).collect();
     let mut tokens = link_tokens();
     tokens.retain(|(_, _, issued)| issued.elapsed() < LINK_TOKEN_TTL);

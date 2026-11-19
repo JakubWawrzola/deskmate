@@ -43,9 +43,10 @@ fn action_tokens() -> &'static Mutex<HashMap<String, (String, Instant)>> {
 /// Issues a single-use token for one toast button.
 #[cfg(windows)]
 fn issue_action_token(action: &str) -> String {
-    use rand::RngCore;
+    use rand::Rng;
     let mut raw = [0u8; 16];
-    rand::rngs::OsRng.fill_bytes(&mut raw);
+    // Panics only if the system's random source fails, as rand 0.8's OsRng did.
+    rand::rand_core::UnwrapErr(rand::rngs::SysRng).fill_bytes(&mut raw);
     let token: String = raw.iter().map(|b| format!("{b:02x}")).collect();
     if let Ok(mut tokens) = action_tokens().lock() {
         tokens.retain(|_, (_, issued)| issued.elapsed() < ACTION_TOKEN_TTL);

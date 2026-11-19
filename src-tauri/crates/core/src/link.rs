@@ -16,8 +16,9 @@ use chacha20poly1305::ChaCha20Poly1305;
 use futures_util::{SinkExt, StreamExt};
 use hkdf::Hkdf;
 use hmac::{Hmac, Mac};
-use rand::rngs::OsRng;
-use rand::RngCore;
+use rand::rand_core::UnwrapErr;
+use rand::rngs::SysRng;
+use rand::TryRng;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -272,7 +273,7 @@ pub fn welcome_bytes(hello: &[u8], sn: &[u8; 16], ts: i64, epk: &[u8; 32]) -> Ve
 
 fn keyed_hmac(psk: &[u8; 32]) -> Result<HmacSha256, String> {
     // HMAC takes a key of any length, so this does not fail for 32 bytes.
-    <HmacSha256 as Mac>::new_from_slice(psk).map_err(|_| "HMAC refused the key".to_string())
+    <HmacSha256 as KeyInit>::new_from_slice(psk).map_err(|_| "HMAC refused the key".to_string())
 }
 
 /// HMAC-SHA256 of `data` under a pairing key.
@@ -406,7 +407,7 @@ impl FrameCodec {
         let mut ciphertext = self
             .cipher
             .encrypt(
-                Nonce::from_slice(&nonce),
+                &Nonce::from(nonce),
                 Payload {
                     msg: &plaintext,
                     aad: &self.aad,
@@ -416,7 +417,7 @@ impl FrameCodec {
         if let Some(cascade) = &self.cascade {
             ciphertext = cascade
                 .encrypt(
-                    chacha20poly1305::Nonce::from_slice(&nonce),
+                    &chacha20poly1305::Nonce::from(nonce),
                     Payload {
                         msg: &ciphertext,
                         aad: &self.cascade_aad,
@@ -454,7 +455,7 @@ impl FrameCodec {
         if let Some(cascade) = &self.cascade {
             ciphertext = cascade
                 .decrypt(
-                    chacha20poly1305::Nonce::from_slice(&nonce),
+                    &chacha20poly1305::Nonce::from(nonce),
                     Payload {
                         msg: &ciphertext,
                         aad: &self.cascade_aad,
@@ -465,7 +466,7 @@ impl FrameCodec {
         let plaintext = self
             .cipher
             .decrypt(
-                Nonce::from_slice(&nonce),
+                &Nonce::from(nonce),
                 Payload {
                     msg: &ciphertext,
                     aad: &self.aad,
@@ -500,12 +501,16 @@ where
     S: AsyncRead + AsyncWrite + Unpin,
 {
     let mut cn = [0u8; 16];
-    OsRng.fill_bytes(&mut cn);
+    SysRng
+        .try_fill_bytes(&mut cn)
+        .map_err(|e| format!("cannot read the system's random source: {e}"))?;
     let cn_b64 = B64.encode(cn);
     let ts = now_unix();
     // Fresh X25519 key for this session only; dropped (and wiped) right after
     // the shared secret is computed.
-    let ephemeral = EphemeralSecret::random_from_rng(OsRng);
+    // UnwrapErr cannot panic here: the same random source has just filled
+    // `cn`, and x25519-dalek takes only an infallible generator.
+    let ephemeral = EphemeralSecret::random_from_rng(&mut UnwrapErr(SysRng));
     let client_epk = PublicKey::from(&ephemeral).to_bytes();
     let hello_data = hello_bytes(node, &cn, ts, &client_epk, cascade.is_some());
     let hello = json!({

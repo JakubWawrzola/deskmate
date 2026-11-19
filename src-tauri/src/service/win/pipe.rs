@@ -13,7 +13,7 @@
 //!
 //! The frame is written once from a buffer that the caller wipes.
 
-use rand::RngCore;
+use rand::Rng;
 use std::time::{Duration, Instant};
 use windows::core::HSTRING;
 use windows::Win32::Foundation::{ERROR_IO_PENDING, ERROR_PIPE_CONNECTED, HANDLE, WAIT_OBJECT_0};
@@ -44,7 +44,8 @@ fn sddl(user_sid: &str) -> String {
 /// A fresh name: the prefix and 32 lowercase hex digits.
 pub fn random_name() -> String {
     let mut bytes = [0u8; NAME_RANDOM_BYTES];
-    rand::rngs::OsRng.fill_bytes(&mut bytes);
+    // Panics only if the system's random source fails, as rand 0.8's OsRng did.
+    rand::rand_core::UnwrapErr(rand::rngs::SysRng).fill_bytes(&mut bytes);
     let mut name = String::with_capacity(NAME_PREFIX.len() + 2 * NAME_RANDOM_BYTES);
     name.push_str(NAME_PREFIX);
     for byte in bytes {

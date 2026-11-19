@@ -36,16 +36,16 @@ tokio = { version = "1", features = ["macros", "sync", "time"] }
 
 # Deskmate Link (link.rs): handshake and frame encryption. The crypto stack is
 # pure Rust - no ring, no C toolchain, so ARM64 keeps building.
-aes-gcm = "0.10"
+aes-gcm = "0.11"
 # Second cipher for the optional cascade layer.
-chacha20poly1305 = "0.10"
+chacha20poly1305 = "0.11"
 base64 = "0.22"
-hkdf = "0.12"
-hmac = "0.12"
-rand = "0.8"
-sha2 = "0.10"
+hkdf = "0.13"
+hmac = "0.13"
+rand = "0.10"
+sha2 = "0.11"
 # Ephemeral X25519 per session (forward secrecy).
-x25519-dalek = { version = "2", features = ["static_secrets", "zeroize"] }
+x25519-dalek = { version = "3", features = ["static_secrets", "zeroize"] }
 futures-util = "0.3"
 # Only the WebSocket stream type and its messages; connecting and TLS belong
 # to the program that uses this crate.

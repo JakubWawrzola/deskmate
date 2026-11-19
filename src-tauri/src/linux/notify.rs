@@ -343,9 +343,10 @@ fn escape_markup(text: &str) -> String {
 }
 
 fn random_key() -> String {
-    use rand::RngCore;
+    use rand::Rng;
     let mut raw = [0u8; 16];
-    rand::rngs::OsRng.fill_bytes(&mut raw);
+    // Panics only if the system's random source fails, as rand 0.8's OsRng did.
+    rand::rand_core::UnwrapErr(rand::rngs::SysRng).fill_bytes(&mut raw);
     raw.iter().map(|b| format!("{b:02x}")).collect()
 }
 
