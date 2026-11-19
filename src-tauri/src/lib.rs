@@ -14,6 +14,7 @@ mod farewell;
 mod gamepad;
 mod ha_api;
 mod hotkeys;
+mod http_client;
 mod keys;
 mod link;
 mod link_files;

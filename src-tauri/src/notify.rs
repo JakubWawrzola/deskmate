@@ -139,19 +139,15 @@ pub fn parse(payload: &str) -> NotifyPayload {
 fn fetch_image(url: &str) -> Option<std::path::PathBuf> {
     let parsed = crate::sys_commands::parse_web_url(url).ok()?;
     use std::io::Read;
-    let connector = native_tls::TlsConnector::new().ok()?;
-    let agent = ureq::AgentBuilder::new()
-        .tls_connector(std::sync::Arc::new(connector))
-        .timeout(std::time::Duration::from_secs(10))
-        // Redirects would bypass the origin allowlist checked before this call.
-        .redirects(0)
-        .build();
+    // Redirects would bypass the origin allowlist checked before this call.
+    let agent = crate::http_client::agent(std::time::Duration::from_secs(10), 0);
     let resp = agent.get(parsed.as_str()).call().ok()?;
-    if (300..400).contains(&resp.status()) {
+    if resp.status().is_redirection() {
         return None;
     }
     let mut buf = Vec::with_capacity(256 * 1024);
-    resp.into_reader()
+    resp.into_body()
+        .into_reader()
         .take(5 * 1024 * 1024)
         .read_to_end(&mut buf)
         .ok()?;

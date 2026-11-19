@@ -61,12 +61,13 @@ pub fn is_configured(cfg: &AppConfig) -> bool {
     !cfg.ha_url.trim().is_empty() && has_token(cfg)
 }
 
+/// What a request to Home Assistant may take, connection included.
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(6);
+/// ureq 2's default, kept when moving to ureq 3 (which follows 10).
+const MAX_REDIRECTS: u32 = 5;
+
 fn agent() -> ureq::Agent {
-    let connector = native_tls::TlsConnector::new().expect("tls");
-    ureq::AgentBuilder::new()
-        .tls_connector(std::sync::Arc::new(connector))
-        .timeout(Duration::from_secs(6))
-        .build()
+    crate::http_client::agent(REQUEST_TIMEOUT, MAX_REDIRECTS)
 }
 
 /// URL candidates in try order: local first, then the fallback (if different).
@@ -132,7 +133,7 @@ fn with_failover<T>(
     for base in &candidates {
         match f(&agent, base, &token) {
             Ok(v) => return Ok(v),
-            Err(ureq::Error::Status(code, _)) => {
+            Err(ureq::Error::StatusCode(code)) => {
                 return Err(format!("HA API returned HTTP {code}"))
             }
             Err(e) => last_err = e.to_string(),
@@ -171,9 +172,9 @@ pub fn call_service(
     with_failover(cfg, |agent, base, token| {
         agent
             .post(&format!("{base}/api/services/{domain}/{service}"))
-            .set("Authorization", &format!("Bearer {token}"))
-            .set("Content-Type", "application/json")
-            .send_string(&body.to_string())
+            .header("Authorization", &format!("Bearer {token}"))
+            .header("Content-Type", "application/json")
+            .send(body.to_string())
             .map(|_| ())
     })
 }
@@ -198,9 +199,9 @@ pub fn get_state(cfg: &AppConfig, entity_id: &str) -> Result<EntityState, String
     let raw = with_failover(cfg, |agent, base, token| {
         agent
             .get(&format!("{base}/api/states/{id}"))
-            .set("Authorization", &format!("Bearer {token}"))
+            .header("Authorization", &format!("Bearer {token}"))
             .call()
-            .map(|r| r.into_string().unwrap_or_default())
+            .map(|mut r| r.body_mut().read_to_string().unwrap_or_default())
     })?;
     serde_json::from_str::<EntityState>(&raw).map_err(|e| e.to_string())
 }
@@ -224,10 +225,11 @@ pub fn get_all_states(cfg: &AppConfig) -> Result<Vec<EntitySummary>, String> {
     let raw = with_failover(cfg, |agent, base, token| {
         let response = agent
             .get(&format!("{base}/api/states"))
-            .set("Authorization", &format!("Bearer {token}"))
+            .header("Authorization", &format!("Bearer {token}"))
             .call()?;
         let mut body = Vec::new();
         response
+            .into_body()
             .into_reader()
             .take(MAX_STATES_BYTES + 1)
             .read_to_end(&mut body)
@@ -280,13 +282,13 @@ pub fn get_states_of(cfg: &AppConfig, ids: &[String]) -> Result<Vec<Option<Strin
         for id in ids {
             let answer = agent
                 .get(&format!("{base}/api/states/{id}"))
-                .set("Authorization", &format!("Bearer {token}"))
+                .header("Authorization", &format!("Bearer {token}"))
                 .call();
             match answer {
-                Ok(response) => {
-                    bodies.push(Some(response.into_string().map_err(ureq::Error::from)?));
+                Ok(mut response) => {
+                    bodies.push(Some(response.body_mut().read_to_string()?));
                 }
-                Err(ureq::Error::Status(404, _)) => bodies.push(None),
+                Err(ureq::Error::StatusCode(404)) => bodies.push(None),
                 Err(error) => return Err(error),
             }
         }
@@ -328,9 +330,9 @@ pub fn ping(cfg: &AppConfig) -> Result<String, String> {
     with_failover(cfg, |agent, base, token| {
         agent
             .get(&format!("{base}/api/"))
-            .set("Authorization", &format!("Bearer {token}"))
+            .header("Authorization", &format!("Bearer {token}"))
             .call()
-            .map(|r| r.into_string().unwrap_or_default())
+            .map(|mut r| r.body_mut().read_to_string().unwrap_or_default())
     })
 }
 

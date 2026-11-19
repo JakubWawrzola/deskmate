@@ -49,9 +49,9 @@ rumqttc = { version = "0.25", default-features = false, features = ["use-native-
 sysinfo = "0.33"
 # arboard bez default (image-data ciagnie ciezki crate image); na Windows = clipboard-win (pure rust)
 arboard = { version = "3", default-features = false }
-# native-tls = schannel na Windows (zero zaleznosci C - ring/clang niepotrzebne na ARM64)
-ureq = { version = "2", default-features = false, features = ["native-tls"] }
-native-tls = "0.2"
+# native-tls = schannel na Windows (zero zaleznosci C - ring/clang niepotrzebne na ARM64).
+# "-no-default" leaves out the bundled Mozilla roots: src/http_client.rs uses the system ones.
+ureq = { version = "3", default-features = false, features = ["native-tls-no-default"] }
 url = "2"
 log = "0.4"
 env_logger = "0.11"

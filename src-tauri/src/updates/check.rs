@@ -2,7 +2,6 @@
 //! for the version number only, and the release manifest, through the updater
 //! plugin. Nothing is downloaded here.
 
-use std::sync::Arc;
 use std::time::Duration;
 use tauri::AppHandle;
 use tauri_plugin_updater::{Update, UpdaterExt};
@@ -13,24 +12,24 @@ use super::RUNNING_VERSION;
 const LATEST_API: &str = "https://api.github.com/repos/JakubWawrzola/deskmate/releases/latest";
 const USER_AGENT: &str = concat!("Deskmate/", env!("CARGO_PKG_VERSION"));
 const CHECK_TIMEOUT: Duration = Duration::from_secs(15);
+/// ureq 2's default, kept when moving to ureq 3 (which follows 10).
+const MAX_REDIRECTS: u32 = 5;
 /// Debug builds only: another address for the release manifest, to try the
 /// flow against a local file server. Release builds never read it.
 #[cfg(debug_assertions)]
 const ENDPOINT_VAR: &str = "DESKMATE_UPDATE_ENDPOINT";
 
 fn fetch_latest_tag() -> Result<String, String> {
-    let connector = native_tls::TlsConnector::new().map_err(|e| e.to_string())?;
-    let agent = ureq::AgentBuilder::new()
-        .tls_connector(Arc::new(connector))
-        .timeout(CHECK_TIMEOUT)
-        .build();
-    let body = agent
+    let agent = crate::http_client::agent(CHECK_TIMEOUT, MAX_REDIRECTS);
+    let mut response = agent
         .get(LATEST_API)
-        .set("User-Agent", USER_AGENT)
-        .set("Accept", "application/vnd.github+json")
+        .header("User-Agent", USER_AGENT)
+        .header("Accept", "application/vnd.github+json")
         .call()
-        .map_err(|e| e.to_string())?
-        .into_string()
+        .map_err(|e| e.to_string())?;
+    let body = response
+        .body_mut()
+        .read_to_string()
         .map_err(|e| e.to_string())?;
     let value: serde_json::Value = serde_json::from_str(&body).map_err(|e| e.to_string())?;
     value
