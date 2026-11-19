@@ -56,7 +56,22 @@ What people asked for after 0.9.0, on GitHub, Reddit and Facebook.
 - **More hardware sensors** (#42): first what Windows provides without a
   driver (memory used in MiB, CPU frequency, disk activity and disk health),
   then the sensors of a running LibreHardwareMonitor (CPU and GPU power and
-  clocks, PSU, disk temperatures), opt-in. FPS needs ETW and comes later.
+  clocks, PSU, disk temperatures), opt-in. GPU temperature without
+  LibreHardwareMonitor, read the way Task Manager reads it. FPS needs ETW and
+  comes later.
+- **Session locked on the lock screen** (#45): the sensor turns on as soon
+  as Windows locks, not only when the PIN or password prompt appears.
+- **Current user with the service** (#8): `none` while nobody is signed in,
+  instead of unavailable.
+- **Extra screen time without Home Assistant**: on the time's-up screen, an
+  administrator adds 15 or 30 minutes with their password, for trips without
+  internet or when Home Assistant is down.
+- **Clearer headings** in the app window (#46).
+- **Languages** (#48): the app, its installer and the Home Assistant
+  integration in English, German, French, Spanish, Portuguese (Brazil),
+  Polish and Simplified Chinese. The installer asks for the language, the
+  app follows it and can switch in Settings. Corrections from native
+  speakers are welcome as pull requests.
 - **Docs**: a side-by-side comparison with HASS.Agent, the Deskmate service
   explained in plain words, and a step-by-step guide to the family rules.
 - **Under investigation**:
@@ -112,6 +127,9 @@ Sending files to the PC and reading its shared folders already work (0.6 and
     audit log, everything opt-in;
   - open questions: key rotation and recovery when a computer is lost,
     conflict handling for edits on two computers, Pi storage limits.
+
+- **Volume per app** (#44): the Windows volume mixer in Home Assistant, both
+  ways, so a dashboard can turn a voice chat up and a game down.
 
 - **Family rules, second step**: per-child rules on a shared PC (keyed by the
   Windows account), a weekday/weekend schedule, opt-in time per app, and an
