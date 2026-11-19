@@ -49,14 +49,14 @@ x25519-dalek = { version = "2", features = ["static_secrets", "zeroize"] }
 futures-util = "0.3"
 # Only the WebSocket stream type and its messages; connecting and TLS belong
 # to the program that uses this crate.
-tokio-tungstenite = { version = "0.28", default-features = false, features = ["handshake"] }
+tokio-tungstenite = { version = "0.30", default-features = false, features = ["handshake"] }
 
 [dev-dependencies]
 # The handshake tests run a stand-in hub over an in-memory stream.
 tokio = { version = "1", features = ["io-util", "macros", "rt"] }
 
 [target.'cfg(windows)'.dependencies]
-winreg = "0.55"
+winreg = "0.56"
 
 [target.'cfg(windows)'.dependencies.windows]
 version = "0.61"

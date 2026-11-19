@@ -61,7 +61,7 @@ base64 = "0.22"
 sha2 = "0.10"
 futures-util = "0.3"
 rand = "0.8"
-tokio-tungstenite = { version = "0.28", default-features = false, features = ["connect", "native-tls"] }
+tokio-tungstenite = { version = "0.30", default-features = false, features = ["connect", "native-tls"] }
 # Wipes pairing keys from memory when they go out of scope.
 zeroize = "1"
 
@@ -71,7 +71,7 @@ zeroize = "1"
 deskmate-core = { path = "crates/core", features = ["audit-log-off"] }
 
 [target.'cfg(windows)'.dependencies]
-winreg = "0.55"
+winreg = "0.56"
 
 # The Linux desktop keeps its secrets in the user's keyring through the
 # Secret Service (GNOME Keyring, KWallet), which this core feature builds in.
