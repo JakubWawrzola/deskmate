@@ -384,7 +384,7 @@ impl ProcessExit {
             WAIT_TIMEOUT => Err("the process did not end in time".into()),
             _ => Err(format!(
                 "cannot wait for the process: {}",
-                windows::core::Error::from_win32()
+                windows::core::Error::from_thread()
             )),
         }
     }

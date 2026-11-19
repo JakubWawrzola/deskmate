@@ -147,7 +147,7 @@ impl OneTimePipe {
         if pipe.is_invalid() {
             return Err(format!(
                 "cannot create the provisioning pipe: {}",
-                windows::core::Error::from_win32()
+                windows::core::Error::from_thread()
             ));
         }
         Ok(Self {

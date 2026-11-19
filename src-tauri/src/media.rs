@@ -14,7 +14,7 @@ fn session() -> Option<windows::Media::Control::GlobalSystemMediaTransportContro
     use windows::Media::Control::GlobalSystemMediaTransportControlsSessionManager;
     let mgr = GlobalSystemMediaTransportControlsSessionManager::RequestAsync()
         .ok()?
-        .get()
+        .join()
         .ok()?;
     mgr.GetCurrentSession().ok()
 }
@@ -23,7 +23,7 @@ fn session() -> Option<windows::Media::Control::GlobalSystemMediaTransportContro
 pub fn current() -> Option<MediaInfo> {
     use windows::Media::Control::GlobalSystemMediaTransportControlsSessionPlaybackStatus as PS;
     let s = session()?;
-    let props = s.TryGetMediaPropertiesAsync().ok()?.get().ok()?;
+    let props = s.TryGetMediaPropertiesAsync().ok()?.join().ok()?;
     let status = match s.GetPlaybackInfo().ok()?.PlaybackStatus().ok()? {
         PS::Playing => "playing",
         PS::Paused => "paused",
@@ -61,7 +61,7 @@ pub fn control(action: &str) -> Result<(), String> {
         _ => return Err(format!("unknown media action: {action}")),
     };
     op.map_err(|e| e.to_string())?
-        .get()
+        .join()
         .map(|_| ())
         .map_err(|e| e.to_string())
 }

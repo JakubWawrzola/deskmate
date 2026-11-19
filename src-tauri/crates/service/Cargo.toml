@@ -63,7 +63,7 @@ tokio = { version = "1", features = ["signal"] }
 windows-service = "0.8"
 
 [target.'cfg(windows)'.dependencies.windows]
-version = "0.61"
+version = "0.62"
 features = [
   "Win32_Foundation",
   # descriptors of the pipes and the data folder, the elevation check
