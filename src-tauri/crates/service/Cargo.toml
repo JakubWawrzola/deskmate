@@ -46,7 +46,7 @@ log = { version = "0.4", features = ["std"] }
 sysinfo = "0.33"
 # The pairing code (pairing.rs) is base64url; the same crate deskmate-core
 # decodes keys with.
-base64 = "0.22"
+base64 = "0.23"
 
 [dev-dependencies]
 # Paused time: the tests of the runner control every timer.
