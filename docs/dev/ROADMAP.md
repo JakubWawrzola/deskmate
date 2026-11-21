@@ -39,7 +39,7 @@ Ordered by user value. Done items stay for context; release details are in
   *Connection* sensor. Details in
   [RELEASE-0.9.0](../releases/RELEASE-0.9.0.md).
 
-## 0.9.1
+## 0.9.5
 
 What people asked for after 0.9.0, on GitHub, Reddit and Facebook.
 
@@ -66,6 +66,16 @@ What people asked for after 0.9.0, on GitHub, Reddit and Facebook.
 - **Extra screen time without Home Assistant**: on the time's-up screen, an
   administrator adds 15 or 30 minutes with their password, for trips without
   internet or when Home Assistant is down.
+- **Screen time warnings you choose**: the minutes before the limit at
+  which the warnings appear can be set, instead of the fixed 10, 5 and 1.
+- **Volume per app** (#44): the Windows volume mixer in Home Assistant, both
+  ways, so a dashboard can turn a voice chat up and a game down. The apps
+  are picked in the Deskmate window; nothing is listed until one is picked.
+- **Away from home**: the app gives up on the home address after a few
+  seconds and tries the remote one, and the connection error says what to
+  do when Home Assistant cannot be reached from where the computer is.
+- **User state**: a game in a borderless window counts as `game`, not only
+  as `fullscreen`.
 - **Clearer headings** in the app window (#46).
 - **Languages** (#48): the app, its installer and the Home Assistant
   integration in English, German, French, Spanish, Portuguese (Brazil),
@@ -81,12 +91,12 @@ What people asked for after 0.9.0, on GitHub, Reddit and Facebook.
     default;
   - SteamOS (Steam Deck, Steam Frame): the ARM64 AppImage in desktop mode
     and the daemon as a user unit on a read-only system;
-  - User state: games in borderless windowed mode reported as `game`, not
-    only `fullscreen`;
   - macOS, once there is a Mac to develop on and the cost of a signed,
     notarized app is clear.
 
 ## Open after 0.9.0
+
+Planned for 0.9.5 as well.
 
 - **Updates**: the update notification says when the Home Assistant
   integration needs updating too (today the Deskmate service panel says so
@@ -127,9 +137,6 @@ Sending files to the PC and reading its shared folders already work (0.6 and
     audit log, everything opt-in;
   - open questions: key rotation and recovery when a computer is lost,
     conflict handling for edits on two computers, Pi storage limits.
-
-- **Volume per app** (#44): the Windows volume mixer in Home Assistant, both
-  ways, so a dashboard can turn a voice chat up and a game down.
 
 - **Family rules, second step**: per-child rules on a shared PC (keyed by the
   Windows account), a weekday/weekend schedule, opt-in time per app, and an
