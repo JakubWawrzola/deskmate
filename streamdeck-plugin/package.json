@@ -14,17 +14,17 @@
 	},
 	"dependencies": {
 		"@elgato/streamdeck": "^3.0.4",
-		"ws": "^8.22.1"
+		"ws": "^8.23.0"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "2.6.6",
+		"@biomejs/biome": "2.6.7",
 		"@rollup/plugin-commonjs": "^29.0.3",
 		"@rollup/plugin-node-resolve": "^16.0.0",
 		"@rollup/plugin-typescript": "^12.3.1",
-		"@tsconfig/node24": "^24.0.5",
+		"@tsconfig/node24": "^24.0.6",
 		"@types/node": "^24.19.2",
 		"@types/ws": "^8.18.2",
-		"rollup": "^4.68.0",
+		"rollup": "^4.68.3",
 		"tslib": "^2.9.1",
 		"typescript": "^5.6.3"
 	},
