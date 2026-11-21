@@ -427,7 +427,7 @@ const FALLBACK_ID: &str = "windows_pc";
 const FALLBACK_ID: &str = "linux_pc";
 
 pub fn hostname() -> String {
-    sysinfo::System::host_name().unwrap_or_else(|| FALLBACK_HOST.into())
+    sysinfo::System::host_name().unwrap_or_else(|_| FALLBACK_HOST.into())
 }
 
 /// hostname -> safe topic/unique_id id

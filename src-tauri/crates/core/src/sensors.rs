@@ -379,10 +379,13 @@ pub fn is_hardware_enabled(cfg: &crate::config::AppConfig, id: &str) -> bool {
 /// Collects the sensors that need no signed-in user: CPU, memory, the system
 /// drive, network, uptime, power and the detected hardware. Keeps the state
 /// needed between ticks (network counters).
+///
+/// sysinfo reports a source it cannot open as an error. The collector then
+/// goes on without that source, and the sensors that need it are not sent.
 pub struct MachineCollector {
-    sys: System,
-    networks: Networks,
-    disks: Disks,
+    sys: Option<System>,
+    networks: Option<Networks>,
+    disks: Option<Disks>,
     hardware: crate::hardware::HardwareCollector,
     last_tick: std::time::Instant,
     net_primed: bool,
@@ -395,9 +398,9 @@ impl MachineCollector {
     )]
     pub fn new() -> Self {
         Self {
-            sys: System::new(),
-            networks: Networks::new_with_refreshed_list(),
-            disks: Disks::new_with_refreshed_list(),
+            sys: opened("the system counters", System::new()),
+            networks: opened("the network adapters", Networks::new_with_refreshed_list()),
+            disks: opened("the drives", Disks::new_with_refreshed_list()),
             hardware: crate::hardware::HardwareCollector::new(),
             last_tick: std::time::Instant::now(),
             net_primed: false,
@@ -416,7 +419,8 @@ impl MachineCollector {
 
         self.collect_builtin(cfg, elapsed, &mut out);
 
-        let (hardware_values, hardware_defs) = self.hardware.collect(&self.disks, elapsed);
+        let disks = self.disks.as_deref().unwrap_or_default();
+        let (hardware_values, hardware_defs) = self.hardware.collect(disks, elapsed);
         for (id, value) in hardware_values {
             if is_hardware_enabled(cfg, &id) {
                 out.insert(id, value);
@@ -433,27 +437,26 @@ impl MachineCollector {
         elapsed: f64,
         out: &mut HashMap<String, String>,
     ) {
-        if is_enabled(cfg, "cpu") {
-            self.sys.refresh_cpu_usage();
-            out.insert("cpu".into(), format!("{:.1}", self.sys.global_cpu_usage()));
+        if let Some(sys) = self.sys.as_mut().filter(|_| is_enabled(cfg, "cpu")) {
+            sys.refresh_cpu_usage();
+            out.insert("cpu".into(), format!("{:.1}", sys.global_cpu_usage()));
         }
-        if is_enabled(cfg, "memory") {
-            self.sys.refresh_memory();
-            let total = self.sys.total_memory().max(1);
+        if let Some(sys) = self.sys.as_mut().filter(|_| is_enabled(cfg, "memory")) {
+            sys.refresh_memory();
+            let total = sys.total_memory().max(1);
             out.insert(
                 "memory".into(),
-                format!(
-                    "{:.1}",
-                    self.sys.used_memory() as f64 / total as f64 * 100.0
-                ),
+                format!("{:.1}", sys.used_memory() as f64 / total as f64 * 100.0),
             );
         }
-        self.disks.refresh(true);
+        if let Some(disks) = self.disks.as_mut() {
+            disks.refresh(true);
+        }
         if is_enabled(cfg, "disk") {
             // system drive (usually C:)
             #[cfg(windows)]
             let sysdrive = std::env::var("SystemDrive").unwrap_or_else(|_| "C:".into());
-            for d in self.disks.list() {
+            for d in self.disks.as_deref().unwrap_or_default() {
                 #[cfg(windows)]
                 let is_system_drive = d
                     .mount_point()
@@ -473,10 +476,14 @@ impl MachineCollector {
                 }
             }
         }
-        if is_enabled(cfg, "net_down") || is_enabled(cfg, "net_up") {
-            self.networks.refresh(true);
+        if let Some(networks) = self
+            .networks
+            .as_mut()
+            .filter(|_| is_enabled(cfg, "net_down") || is_enabled(cfg, "net_up"))
+        {
+            networks.refresh(true);
             let (mut rx, mut tx) = (0u64, 0u64);
-            for (_name, data) in self.networks.iter() {
+            for (_name, data) in networks.iter() {
                 // Linux counts what programs on this computer send each
                 // other; that is not network traffic.
                 #[cfg(target_os = "linux")]
@@ -512,7 +519,12 @@ impl MachineCollector {
             }
         }
         if is_enabled(cfg, "uptime") {
-            out.insert("uptime".into(), System::uptime().to_string());
+            match System::uptime() {
+                Ok(seconds) => {
+                    out.insert("uptime".into(), seconds.to_string());
+                }
+                Err(error) => log::debug!("cannot read the uptime: {error}"),
+            }
         }
 
         if is_enabled(cfg, "battery") || is_enabled(cfg, "ac_power") {
@@ -528,6 +540,14 @@ impl MachineCollector {
             }
         }
     }
+}
+
+/// A source of sysinfo, or None with a warning in the log when the system
+/// refuses it.
+fn opened<T>(what: &str, source: Result<T, sysinfo::Error>) -> Option<T> {
+    source
+        .inspect_err(|error| log::warn!("cannot read {what}, its sensors are left out: {error}"))
+        .ok()
 }
 
 /// (percent 0-100 or None if no battery, whether plugged into power)
@@ -582,6 +602,20 @@ mod tests {
         for key in ["cpu", "memory", "net_down", "net_up", "uptime"] {
             assert!(values.contains_key(key), "{key} was not collected");
         }
+    }
+
+    #[test]
+    fn a_source_that_did_not_open_leaves_its_sensors_out() {
+        let mut collector = MachineCollector::new();
+        collector.sys = None;
+        collector.networks = None;
+        collector.disks = None;
+        let mut values = HashMap::new();
+        collector.collect_builtin(&AppConfig::default(), 1.0, &mut values);
+        for key in ["cpu", "memory", "disk", "net_down", "net_up"] {
+            assert!(!values.contains_key(key), "{key} was collected");
+        }
+        assert!(values.contains_key("uptime"));
     }
 
     #[test]

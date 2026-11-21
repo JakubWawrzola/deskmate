@@ -62,7 +62,15 @@ pub struct SystemClock;
 
 impl Clock for SystemClock {
     fn uptime(&self) -> Duration {
-        Duration::from_secs(sysinfo::System::uptime())
+        // An uptime that cannot be read counts as "just started", so the
+        // valve refuses power commands instead of letting them through.
+        match sysinfo::System::uptime() {
+            Ok(seconds) => Duration::from_secs(seconds),
+            Err(error) => {
+                log::warn!("cannot read the uptime, power commands stay refused: {error}");
+                Duration::ZERO
+            }
+        }
     }
 }
 

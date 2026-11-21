@@ -10,7 +10,7 @@ use crate::sensors::OwnedSensorDef;
 use pdh::GpuCounters;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
-use sysinfo::{Disk, Disks};
+use sysinfo::Disk;
 
 /// How many collection ticks a detected sensor survives without a reading
 /// before its definition is withdrawn (about 2.5 minutes at the default 15 s).
@@ -46,7 +46,7 @@ impl HardwareCollector {
 
     pub fn collect(
         &mut self,
-        disks: &Disks,
+        disks: &[Disk],
         elapsed: f64,
     ) -> (HashMap<String, String>, Vec<OwnedSensorDef>) {
         let mut values = HashMap::new();
@@ -87,7 +87,7 @@ impl HardwareCollector {
             read_bytes = read_bytes.saturating_add(usage.read_bytes);
             written_bytes = written_bytes.saturating_add(usage.written_bytes);
         }
-        if !disks.list().is_empty() {
+        if !disks.is_empty() {
             defs.push(sensor(
                 "disk_read",
                 "Disk read",
@@ -217,9 +217,8 @@ struct Volume<'a> {
 
 /// On Windows a drive is a volume with a letter: `disk_c_free`, "Disk C free".
 #[cfg(windows)]
-fn volumes(disks: &Disks) -> Vec<Volume<'_>> {
+fn volumes(disks: &[Disk]) -> Vec<Volume<'_>> {
     disks
-        .list()
         .iter()
         .filter_map(|disk| {
             let letter = drive_letter(disk.mount_point())?;
@@ -235,10 +234,9 @@ fn volumes(disks: &Disks) -> Vec<Volume<'_>> {
 /// On Linux a drive is named by its mount point: `disk_root_free`,
 /// "Disk / free" (linux/disks.rs).
 #[cfg(target_os = "linux")]
-fn volumes(disks: &Disks) -> Vec<Volume<'_>> {
+fn volumes(list: &[Disk]) -> Vec<Volume<'_>> {
     use crate::linux::disks::{top_mounts, Mount, MOUNTINFO};
 
-    let list = disks.list();
     let tops = match std::fs::read_to_string(MOUNTINFO) {
         Ok(text) => top_mounts(&text),
         Err(error) => {
@@ -640,7 +638,7 @@ mod tests {
     #[cfg(target_os = "linux")]
     #[test]
     fn every_collected_value_has_a_definition() {
-        let disks = Disks::new_with_refreshed_list();
+        let disks = sysinfo::Disks::new_with_refreshed_list().unwrap();
         let mut collector = HardwareCollector::new();
         for _ in 0..2 {
             let (values, defs) = collector.collect(&disks, 1.0);
