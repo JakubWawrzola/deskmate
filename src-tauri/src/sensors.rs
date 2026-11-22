@@ -295,6 +295,10 @@ fn truncate(s: &str, n: usize) -> String {
 #[cfg(windows)]
 pub mod win {
     use windows::Win32::Foundation::{CloseHandle, HWND};
+    use windows::Win32::System::RemoteDesktop::{
+        WTSFreeMemory, WTSQuerySessionInformationW, WTSSessionInfoEx, WTSINFOEXW,
+        WTS_CURRENT_SESSION, WTS_SESSIONSTATE_LOCK,
+    };
     use windows::Win32::System::StationsAndDesktops::{
         CloseDesktop, OpenInputDesktop, DESKTOP_ACCESS_FLAGS, DESKTOP_CONTROL_FLAGS,
     };
@@ -323,8 +327,24 @@ pub mod win {
         }
     }
 
-    /// Session locked = cannot open the input desktop with SWITCHDESKTOP rights.
+    /// Session locked = Windows reports the session as locked, or the input
+    /// desktop cannot be opened with SWITCHDESKTOP rights. The lock screen
+    /// that only shows the clock keeps the user's desktop as the input
+    /// desktop, so the desktop check alone misses it. Either answer counts
+    /// as locked, so adding the first one can only report a lock more often.
     pub fn is_locked() -> bool {
+        locked_from(session_lock_flag(), input_desktop_refused())
+    }
+
+    /// `session_flag` is `SessionFlags` of the session, `None` when Windows
+    /// did not answer.
+    pub(super) fn locked_from(session_flag: Option<u32>, input_desktop_refused: bool) -> bool {
+        session_flag == Some(WTS_SESSIONSTATE_LOCK) || input_desktop_refused
+    }
+
+    fn input_desktop_refused() -> bool {
+        // SAFETY: OpenInputDesktop takes no pointers; the handle it returns is
+        // closed before leaving the block.
         unsafe {
             const DESKTOP_SWITCHDESKTOP: DESKTOP_ACCESS_FLAGS = DESKTOP_ACCESS_FLAGS(0x0100);
             match OpenInputDesktop(DESKTOP_CONTROL_FLAGS(0), false, DESKTOP_SWITCHDESKTOP) {
@@ -334,6 +354,43 @@ pub mod win {
                 }
                 Err(_) => true,
             }
+        }
+    }
+
+    /// The lock state Windows keeps for this session.
+    fn session_lock_flag() -> Option<u32> {
+        // SAFETY: `buffer` and `bytes` are valid out-pointers. On success WTS
+        // returns a buffer of `bytes` bytes holding one WTSINFOEXW; it is read
+        // only when it is at least that large, the union only at the level
+        // that says which member it holds, and the buffer is released with
+        // WTSFreeMemory, as the API requires.
+        unsafe {
+            let mut buffer = windows::core::PWSTR::null();
+            let mut bytes = 0u32;
+            if WTSQuerySessionInformationW(
+                None,
+                WTS_CURRENT_SESSION,
+                WTSSessionInfoEx,
+                &mut buffer,
+                &mut bytes,
+            )
+            .is_err()
+                || buffer.is_null()
+            {
+                return None;
+            }
+            let flag = if bytes as usize >= std::mem::size_of::<WTSINFOEXW>() {
+                let info = std::ptr::read_unaligned(buffer.0 as *const WTSINFOEXW);
+                if info.Level == 1 {
+                    Some(info.Data.WTSInfoExLevel1.SessionFlags as u32)
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+            WTSFreeMemory(buffer.0 as *mut _);
+            flag
         }
     }
 
@@ -474,5 +531,24 @@ mod tests {
         assert_eq!(iso8601_utc(951_782_400), "2000-02-29T00:00:00+00:00");
         assert_eq!(iso8601_utc(1_791_900_000), "2026-10-13T14:00:00+00:00");
         assert_eq!(iso8601_utc(4_102_444_799), "2099-12-31T23:59:59+00:00");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn either_lock_signal_counts_as_locked() {
+        use super::win::locked_from;
+        use windows::Win32::System::RemoteDesktop::{
+            WTS_SESSIONSTATE_LOCK, WTS_SESSIONSTATE_UNKNOWN, WTS_SESSIONSTATE_UNLOCK,
+        };
+
+        // The clock screen: Windows says locked, the input desktop is still ours.
+        assert!(locked_from(Some(WTS_SESSIONSTATE_LOCK), false));
+        // The secure desktop, whatever the session flag says.
+        assert!(locked_from(Some(WTS_SESSIONSTATE_UNLOCK), true));
+        assert!(locked_from(None, true));
+        // Unlocked, or no answer from Windows: the desktop check decides.
+        assert!(!locked_from(Some(WTS_SESSIONSTATE_UNLOCK), false));
+        assert!(!locked_from(Some(WTS_SESSIONSTATE_UNKNOWN), false));
+        assert!(!locked_from(None, false));
     }
 }
