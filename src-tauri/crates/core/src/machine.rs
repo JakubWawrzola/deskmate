@@ -22,8 +22,16 @@ pub use crate::sensors::MachineCollector as Collector;
 /// Keys of the built-in sensors in the machine scope. The hardware sensors
 /// (drives, disk activity, GPU, temperatures) are detected at run time, and
 /// every one of them belongs to the scope as well.
-pub const SENSOR_KEYS: [&str; 8] = [
-    "cpu", "memory", "disk", "net_down", "net_up", "battery", "ac_power", "uptime",
+pub const SENSOR_KEYS: [&str; 9] = [
+    "cpu",
+    "memory",
+    "disk",
+    "net_down",
+    "net_up",
+    "battery",
+    "ac_power",
+    "uptime",
+    "current_user",
 ];
 
 /// Keys of the buttons in the machine scope: the power commands.
@@ -54,6 +62,8 @@ pub struct Offered {
     pub ac_power: bool,
     /// The computer can hibernate.
     pub hibernate: bool,
+    /// The program can tell who is signed in without being in a session.
+    pub current_user: bool,
 }
 
 impl Offered {
@@ -62,6 +72,7 @@ impl Offered {
         battery: true,
         ac_power: true,
         hibernate: true,
+        current_user: true,
     };
 
     /// None of them, for a computer that could not be asked.
@@ -69,6 +80,7 @@ impl Offered {
         battery: false,
         ac_power: false,
         hibernate: false,
+        current_user: false,
     };
 
     /// What this computer offers right now.
@@ -87,6 +99,8 @@ impl Offered {
             battery: power.battery_percent.is_some(),
             ac_power: power.plugged_in.is_some(),
             hibernate: crate::linux::power::can_hibernate(sys),
+            // The daemon does not ask logind who is signed in.
+            current_user: false,
         }
     }
 
@@ -95,6 +109,7 @@ impl Offered {
             "battery" => self.battery,
             "ac_power" => self.ac_power,
             "hibernate" => self.hibernate,
+            "current_user" => self.current_user,
             _ => true,
         }
     }
@@ -223,6 +238,7 @@ mod tests {
                 "battery",
                 "ac_power",
                 "uptime",
+                "current_user",
                 "cpu_temperature",
                 "disk_c_free",
                 "disk_c_usage",
@@ -276,14 +292,9 @@ mod tests {
 
     #[test]
     fn what_the_computer_does_not_offer_is_not_declared() {
-        let nothing = Offered {
-            battery: false,
-            ac_power: false,
-            hibernate: false,
-        };
-        let frame = declare_frame_for(&AppConfig::default(), &detected_hardware(), nothing);
+        let frame = declare_frame_for(&AppConfig::default(), &detected_hardware(), Offered::NONE);
         let declared = keys(&frame);
-        for key in ["battery", "ac_power", "hibernate"] {
+        for key in ["battery", "ac_power", "hibernate", "current_user"] {
             assert!(!declared.contains(&key), "{key}");
         }
         for key in [

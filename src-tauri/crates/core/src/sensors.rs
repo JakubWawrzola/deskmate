@@ -526,6 +526,16 @@ impl MachineCollector {
                 Err(error) => log::debug!("cannot read the uptime: {error}"),
             }
         }
+        // The app replaces this with the account it runs as. What is left is
+        // the answer of a program outside every session: the account in use,
+        // or "none" at the sign-in screen.
+        #[cfg(windows)]
+        if is_enabled(cfg, "current_user") {
+            out.insert(
+                "current_user".into(),
+                crate::console_user::shown(crate::console_user::active_user()),
+            );
+        }
 
         if is_enabled(cfg, "battery") || is_enabled(cfg, "ac_power") {
             if let Some((pct, ac)) = battery() {

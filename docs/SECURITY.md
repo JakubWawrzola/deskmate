@@ -524,6 +524,9 @@ It can:
   connection (the seat, see [Several Windows users](#several-windows-users-on-one-computer));
 - report the sensors that need no signed-in user: processor, memory, the
   system drive, network, uptime, battery and AC power;
+- report the name of the account that is signed in, or `none` when nobody
+  is, while the *Current user* sensor is on in the app. This is the same
+  value the app reports, so the service reveals nothing the app did not;
 - press sleep, hibernate, shut down and restart. These four, with the action
   `press`, are the only commands it runs.
 

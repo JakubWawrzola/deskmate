@@ -3,6 +3,7 @@
 //! It builds for Windows and for Linux.
 
 pub mod config;
+pub mod console_user;
 pub mod consts;
 #[cfg(windows)]
 pub mod cpu_temperature;
