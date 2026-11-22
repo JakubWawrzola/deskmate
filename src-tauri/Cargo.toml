@@ -91,6 +91,9 @@ version = "0.62"
 features = [
   "Media_Control",
   "Foundation",
+  # the cover of what is playing, scaled down and encoded (media_art.rs)
+  "Graphics_Imaging",
+  "Storage_Streams",
   "Win32_Foundation",
   "Win32_UI_WindowsAndMessaging",
   "Win32_UI_Input_KeyboardAndMouse",

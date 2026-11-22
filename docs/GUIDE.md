@@ -169,7 +169,8 @@ One device per PC, with:
   sensors and buttons stay as they are. From 0.9.5 the card also has a
   progress bar that you can drag, with players that tell Windows how long the
   track is and where it is: Spotify and the browsers do, some players do
-  not, and the bar is then simply missing.
+  not, and the bar is then simply missing. The cover of the track shows on
+  the card while *Media title* is on (Windows only).
 - **Connection**: a diagnostic sensor that Home Assistant adds itself. It says
   what is connected for this PC (*App*, *Service*, *Daemon*, or *Connected*
   for a Deskmate that does not say what it is) and, when nothing is, whether

@@ -23,6 +23,7 @@ mod linux;
 mod media;
 #[cfg(windows)]
 mod media_activity;
+mod media_art;
 mod media_player;
 mod monitor;
 mod mqtt;

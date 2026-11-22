@@ -63,8 +63,16 @@ With an integration that supports it, turning on *Media status* also adds a
 media player to Home Assistant. Its state is that sensor's value, so no
 other media sensor adds it. Its title, artist and app are sent only while
 their own sensors are on, and its volume only while the *Volume* sensor is
-on. Its commands are the built-in media keys, volume and mute, so it gives
-Home Assistant no control that it did not have.
+on. Its commands are the built-in media keys, volume and mute, and moving
+the playback position, which acts on the media session only.
+
+The cover of what is playing goes to Home Assistant as a picture, and only
+while *Media title* is on: a cover reveals what a title does. Deskmate
+re-encodes the picture as a JPEG of at most 512 pixels before it sends it,
+so nothing of the original file (its metadata, or anything hidden in it)
+leaves the computer. Home Assistant in turn trusts nothing about it: it
+checks the size, the type and the first bytes, keeps the picture in memory
+only and serves it as an image of that type.
 
 New installs use Deskmate Link. The key is stored in Windows Credential
 Manager, and a plain `ws://` address is accepted only inside a private network.

@@ -4,8 +4,8 @@
 //! media and volume actions as the separate media buttons and controls.
 
 use deskmate_core::link::media::{
-    declares_media_player, media_state_frame, parse_media_command, MediaOp, MediaPlayerState,
-    MediaSession, VOLUME_SENSOR,
+    art_track, declares_media_player, media_art_frame, media_state_frame, parse_media_command,
+    takes_media_art, MediaOp, MediaPlayerState, MediaSession, VOLUME_SENSOR,
 };
 use serde_json::Value;
 use std::collections::HashMap;
@@ -13,15 +13,20 @@ use std::sync::Mutex;
 use tauri::{AppHandle, Manager};
 
 use crate::config::AppConfig;
+use crate::media_art::{ArtStep, ArtTracker};
 use crate::state::AppState;
 
 /// The state last sent in this session. Cleared when a send fails, so the
 /// next session gets the state again.
 static LAST_SENT: Mutex<Option<MediaPlayerState>> = Mutex::new(None);
 
-/// Reads what the media player shows. Blocking: the media session and the
-/// sound device are COM and WinRT calls.
-fn read(cfg: &AppConfig) -> MediaPlayerState {
+/// Which cover Home Assistant has, so that each one is sent once.
+static ART: Mutex<ArtTracker> = Mutex::new(ArtTracker::new());
+
+/// Reads what the media player shows, and the track a cover would belong
+/// to. Blocking: the media session and the sound device are COM and WinRT
+/// calls.
+fn read(cfg: &AppConfig) -> (MediaPlayerState, Option<String>) {
     let session = crate::media::current().map(|info| MediaSession {
         status: info.status,
         title: info.title,
@@ -30,43 +35,75 @@ fn read(cfg: &AppConfig) -> MediaPlayerState {
         app: info.app,
         timeline: info.timeline,
     });
-    MediaPlayerState::new(
+    let state = MediaPlayerState::new(
         cfg,
         session.as_ref(),
         crate::sys_commands::get_volume(),
         crate::sys_commands::audio_muted(),
-    )
+    );
+    (state, art_track(cfg, session.as_ref()))
 }
 
 /// Sends the state object of the media player when it differs from the one
-/// sent last, or in any case with `force`. Does nothing while the current
-/// Link session does not declare the media player.
+/// sent last, or in any case with `force`, and the cover of the track when
+/// Home Assistant does not have it yet. Does nothing while the current Link
+/// session does not declare the media player.
 pub async fn publish(app: &AppHandle, force: bool) {
     let state = app.state::<AppState>();
     let cfg = state.config.lock().await.clone();
-    if cfg.transport != "link" || !declares_media_player(&cfg, state.link_info().as_ref()) {
+    let hub = state.link_info();
+    if cfg.transport != "link" || !declares_media_player(&cfg, hub.as_ref()) {
         return;
     }
-    let reading = match tokio::task::spawn_blocking(move || read(&cfg)).await {
-        Ok(reading) => reading,
+    let with_art = takes_media_art(&cfg, hub.as_ref());
+    let (reading, track) = match tokio::task::spawn_blocking(move || read(&cfg)).await {
+        Ok(read) => read,
         Err(error) => {
             log::warn!("reading the media player failed: {error}");
             return;
         }
     };
-    {
+    let changed = {
         let mut last = LAST_SENT.lock().unwrap_or_else(|e| e.into_inner());
-        if !force
-            && last
-                .as_ref()
-                .is_some_and(|sent| !reading.differs_from(sent))
-        {
+        let changed = force || last.as_ref().is_none_or(|sent| reading.differs_from(sent));
+        if changed {
+            *last = Some(reading.clone());
+        }
+        changed
+    };
+    if changed && !crate::link::send(app, media_state_frame(&reading)).await {
+        *LAST_SENT.lock().unwrap_or_else(|e| e.into_inner()) = None;
+    }
+    if with_art {
+        publish_art(app, track, force).await;
+    }
+}
+
+/// Sends the cover of `track` when Home Assistant does not have it yet, or
+/// takes the cover away when nothing has one. `new_session` forgets what the
+/// session before was sent.
+async fn publish_art(app: &AppHandle, track: Option<String>, new_session: bool) {
+    // Reading and scaling the picture is WinRT work, off the runtime. The
+    // lock is held across it so that two calls do not read the same cover.
+    let step = tokio::task::spawn_blocking(move || {
+        let mut tracker = ART.lock().unwrap_or_else(|e| e.into_inner());
+        if new_session {
+            tracker.reset();
+        }
+        tracker.next(track.as_deref(), crate::media_art::current)
+    })
+    .await;
+    let frame = match step {
+        Ok(ArtStep::Send(art)) => media_art_frame(Some(&art)),
+        Ok(ArtStep::Remove) => media_art_frame(None),
+        Ok(ArtStep::Keep) => return,
+        Err(error) => {
+            log::warn!("reading the media picture failed: {error}");
             return;
         }
-        *last = Some(reading.clone());
-    }
-    if !crate::link::send(app, media_state_frame(&reading)).await {
-        *LAST_SENT.lock().unwrap_or_else(|e| e.into_inner()) = None;
+    };
+    if !crate::link::send(app, frame).await {
+        ART.lock().unwrap_or_else(|e| e.into_inner()).reset();
     }
 }
 

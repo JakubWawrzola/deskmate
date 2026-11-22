@@ -241,12 +241,14 @@ integration lacks:
 | `bye` | the [`bye`](#bye) frame |
 | `media_player` | the [`media_player`](#media-player-entities) entity kind |
 | `notify_tag` | [tags and priorities of notifications](#notification-tags-and-priorities), and `notify_clear` |
+| `media_art` | the [`media_art`](#media-art) frame |
 
 A client sends a machine declaration only to an integration that lists
 `scoped_declare`. An older one reads it as a full declaration and removes
 every entity that it does not name. A `bye` is harmless there: the frame is
 ignored, and the session ends as it does without one. A client declares a
-`media_player` entity only to an integration that lists `media_player`.
+`media_player` entity only to an integration that lists `media_player`, and
+sends `media_art` only to one that lists `media_art`.
 
 The names in `features` work the other way round. `media_player` and
 `notify_tag` mean the same as in `caps`, and Home Assistant sends `tag`,
@@ -479,6 +481,39 @@ object as its value:
 | `seek` | `position`, seconds from 0 to 604800 |
 
 The client checks the op and its field, and answers with the usual `ack`.
+
+### Media art
+
+To an integration that lists `media_art` in `caps`, a client that declared
+the media player may send the cover of what is playing:
+
+```json
+{"t": "media_art", "hash": "ba7816bf8f01cfea414140de5dae2223", "mime": "image/jpeg", "data": "/9j/4AAQ..."}
+```
+
+| Field | Value |
+|---|---|
+| `hash` | 16 to 64 lowercase hex characters: the client's name for the picture |
+| `mime` | `image/jpeg` or `image/png` |
+| `data` | the picture in base64, at most 262144 bytes once decoded |
+
+Home Assistant keeps one picture per computer, in memory only, and shows it
+on the media player. It fetches the picture again when `hash` changes, so a
+client sends a cover once per track, not with every state.
+
+Home Assistant checks every field, and that the picture begins with the
+bytes of a JPEG or a PNG file as `mime` says. A frame that fails a check is
+dropped, and the picture kept before goes with it, because it belonged to
+another track. A frame with `hash` and `data` null, or without them, takes
+the picture away; a client sends it when nothing plays any more. The picture
+does not outlive the session.
+
+The frame has no `ack`. Deskmate for Windows sends the thumbnail of the
+media session scaled down to at most 512 pixels a side as a JPEG, named by
+the first 32 hex characters of its SHA-256. It sends a cover only while the
+*Media title* sensor is on, since a cover gives away as much as a title, and
+looks at the thumbnail at most three times per track: players set the title
+first and the picture a moment later. Deskmate for Linux sends no cover.
 
 ### Notification tags and priorities
 

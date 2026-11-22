@@ -13,7 +13,8 @@ notes and asset names are available in `docs/releases/RELEASE-*.md`.
 - **Media player with a progress bar** (#41): the *Media* entity shows the
   album, the length of the track and where it is, and the bar can be dragged
   to seek. On Windows this works with players that report a timeline to
-  Windows, on Linux with MPRIS players that have a position.
+  Windows, on Linux with MPRIS players that have a position. On Windows the
+  card also shows the cover of the track, while *Media title* is on.
 - **Current user stays right without a signed-in user** (#8): with the
   Deskmate service installed, the sensor shows `none` at the sign-in screen
   instead of the name it had last.

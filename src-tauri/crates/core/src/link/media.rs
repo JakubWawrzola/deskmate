@@ -3,7 +3,9 @@
 //! "Media player"). Reading the media session and running the commands is up
 //! to the client.
 
+use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 
 use super::frames::{feature, HubInfo};
 use crate::config::AppConfig;
@@ -17,6 +19,13 @@ pub const MAX_MEDIA_SECONDS: f64 = 604_800.0;
 /// How far a reported position may be from where playback would have got to
 /// by itself before it counts as a jump worth sending.
 const POSITION_TOLERANCE_SECONDS: f64 = 2.0;
+/// The capability an integration announces when it takes the cover of what
+/// is playing in a `media_art` frame.
+pub const CAP_MEDIA_ART: &str = "media_art";
+/// Largest cover Home Assistant keeps, in bytes.
+pub const MAX_MEDIA_ART_BYTES: usize = 256 * 1024;
+/// Hex characters of the cover's name, out of its SHA-256.
+const ART_HASH_CHARS: usize = 32;
 /// The media sensors. The media player shows the part of each one only
 /// while its switch is on.
 pub const MEDIA_SENSORS: [&str; 4] = ["media_title", "media_artist", "media_app", "media_status"];
@@ -224,6 +233,61 @@ pub fn media_state_frame(state: &MediaPlayerState) -> Value {
     json!({"t": "state", "s": {MEDIA_KEY: state.to_value()}})
 }
 
+/// The cover of what is playing, as a JPEG.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MediaArt {
+    pub jpeg: Vec<u8>,
+    /// The name Home Assistant knows the picture by; see `art_hash`.
+    pub hash: String,
+}
+
+/// The name of a picture: the start of its SHA-256 in hex. Home Assistant
+/// fetches a picture again only when the name changes.
+pub fn art_hash(picture: &[u8]) -> String {
+    let mut hash: String = Sha256::digest(picture)
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect();
+    hash.truncate(ART_HASH_CHARS);
+    hash
+}
+
+/// The `media_art` frame: a picture, or with `None` the news that nothing
+/// has one.
+pub fn media_art_frame(art: Option<&MediaArt>) -> Value {
+    match art {
+        Some(art) => json!({
+            "t": "media_art",
+            "hash": art.hash,
+            "mime": "image/jpeg",
+            "data": B64.encode(&art.jpeg),
+        }),
+        None => json!({"t": "media_art", "hash": null, "data": null}),
+    }
+}
+
+/// Whether the cover may go to Home Assistant at all: only to an integration
+/// that asked for it, and only next to a declared media player.
+pub fn takes_media_art(cfg: &AppConfig, hub: Option<&HubInfo>) -> bool {
+    declares_media_player(cfg, hub) && hub.is_some_and(|hub| hub.has_cap(CAP_MEDIA_ART))
+}
+
+/// What identifies the track a cover belongs to, or `None` when no cover is
+/// to be shown: nothing plays, or the user keeps the title to themselves, and
+/// a cover says as much as a title does.
+pub fn art_track(cfg: &AppConfig, session: Option<&MediaSession>) -> Option<String> {
+    let session = session?;
+    if !crate::sensors::is_enabled(cfg, "media_title")
+        || PlaybackState::from_status(Some(&session.status)) == PlaybackState::Off
+    {
+        return None;
+    }
+    Some(format!(
+        "{}\n{}\n{}\n{}",
+        session.app, session.artist, session.album, session.title
+    ))
+}
+
 /// What Home Assistant asks the media player to do.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum MediaOp {
@@ -393,6 +457,67 @@ mod tests {
             assert_eq!(value[field], Value::Null, "{field}");
         }
         assert_eq!(value["album"], "Record");
+    }
+
+    #[test]
+    fn a_cover_is_named_by_the_start_of_its_hash_and_sent_as_base64() {
+        // SHA-256 of "abc".
+        assert_eq!(art_hash(b"abc"), "ba7816bf8f01cfea414140de5dae2223");
+        let art = MediaArt {
+            jpeg: vec![0xff, 0xd8, 0xff, 0xe0],
+            hash: art_hash(&[0xff, 0xd8, 0xff, 0xe0]),
+        };
+        assert_eq!(
+            media_art_frame(Some(&art)),
+            json!({"t": "media_art", "hash": art.hash, "mime": "image/jpeg", "data": "/9j/4A=="})
+        );
+        assert_eq!(
+            media_art_frame(None),
+            json!({"t": "media_art", "hash": null, "data": null})
+        );
+    }
+
+    #[test]
+    fn the_cover_goes_only_to_an_integration_that_takes_it() {
+        let cfg = with_sensors(&["media_status", "media_title"]);
+        assert!(takes_media_art(
+            &cfg,
+            Some(&hub(&["info", "media_player", "media_art"]))
+        ));
+        assert!(!takes_media_art(
+            &cfg,
+            Some(&hub(&["info", "media_player"]))
+        ));
+        assert!(!takes_media_art(&cfg, Some(&hub(&["info", "media_art"]))));
+        assert!(!takes_media_art(&cfg, None));
+        // Without the media player there is nothing to show it on.
+        assert!(!takes_media_art(
+            &AppConfig::default(),
+            Some(&hub(&["info", "media_player", "media_art"]))
+        ));
+    }
+
+    #[test]
+    fn a_cover_belongs_to_a_track_only_while_the_title_may_be_shown() {
+        let shown = with_sensors(&["media_status", "media_title"]);
+        let track = art_track(&shown, Some(&session()));
+        assert_eq!(track.as_deref(), Some("Player.exe\nBand\nRecord\nSong"));
+        let other = MediaSession {
+            title: "Other".into(),
+            ..session()
+        };
+        assert_ne!(art_track(&shown, Some(&other)), track);
+
+        // The title sensor is off: a cover would give the title away.
+        let hidden = with_sensors(&["media_status", "media_artist"]);
+        assert_eq!(art_track(&hidden, Some(&session())), None);
+        // Nothing plays.
+        assert_eq!(art_track(&shown, None), None);
+        let closed = MediaSession {
+            status: "closed".into(),
+            ..session()
+        };
+        assert_eq!(art_track(&shown, Some(&closed)), None);
     }
 
     #[test]
