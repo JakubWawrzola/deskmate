@@ -725,7 +725,9 @@ read back through Home Assistant unless you also add it as a shared folder.
 
 - `Link pairing key missing`: paste the key in Settings and save again.
 - `Link clock mismatch`: correct the Windows and Home Assistant clocks.
-- Repeated local connection failures rotate to the configured fallback URL.
+- An address that does not accept a connection within five seconds gives way
+  to the other configured URL at once. A session that broke is retried at the
+  same address first, and a second failure in a row rotates.
 - If entities do not match the current settings, save the relevant setting or
   reconnect once. Both operations send a fresh full declaration; Link v0.2
   prunes omitted entities automatically.

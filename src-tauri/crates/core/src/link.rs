@@ -21,6 +21,7 @@ use rand::rngs::SysRng;
 use rand::TryRng;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
+use std::future::Future;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio_tungstenite::tungstenite::Message;
@@ -31,6 +32,7 @@ use zeroize::Zeroizing;
 mod frames;
 pub mod media;
 pub mod notify;
+pub mod retry;
 
 pub use frames::{
     feature, info_frame, parse_info, state_frame, ClientPlatform, ClientRole, HubInfo,
@@ -62,8 +64,19 @@ pub enum LinkFailure {
     Locked,
     /// This computer's clock and Home Assistant's differ by more than 90 s.
     Clock,
-    /// Network, URL or a dropped connection.
+    /// No connection could be opened at this address: nothing answered in
+    /// time, the address refused or does not exist, or TLS failed. Another
+    /// address may still work.
+    Unreachable,
+    /// A session that was open broke, or the handshake did.
     Transport,
+}
+
+impl LinkFailure {
+    /// A failure of the network, as opposed to one Home Assistant decided on.
+    pub fn is_network(self) -> bool {
+        matches!(self, Self::Unreachable | Self::Transport)
+    }
 }
 
 /// A failed connection attempt or session: the kind of failure and a text
@@ -112,7 +125,35 @@ pub fn classify_connect_error(error: tokio_tungstenite::tungstenite::Error) -> L
             return LinkError::new(LinkFailure::Locked, LOCKED_MESSAGE);
         }
     }
-    LinkError::from(error.to_string())
+    LinkError::new(LinkFailure::Unreachable, error.to_string())
+}
+
+/// Longest wait for an address to accept a WebSocket connection. Windows
+/// gives up on an address that does not answer only after about 21 seconds,
+/// which is how long a computer away from home would otherwise sit on its
+/// local address before trying the remote one.
+pub const OPEN_TIMEOUT: Duration = Duration::from_secs(5);
+/// The text of the failure when an address did not answer within the limit.
+pub const OPEN_TIMEOUT_MESSAGE: &str = "the address did not answer in time";
+
+/// Opens a WebSocket connection, giving up after `OPEN_TIMEOUT`.
+pub async fn open_in_time<T>(
+    opening: impl Future<Output = Result<T, tokio_tungstenite::tungstenite::Error>>,
+) -> Result<T, LinkError> {
+    open_within(OPEN_TIMEOUT, opening).await
+}
+
+async fn open_within<T>(
+    limit: Duration,
+    opening: impl Future<Output = Result<T, tokio_tungstenite::tungstenite::Error>>,
+) -> Result<T, LinkError> {
+    match tokio::time::timeout(limit, opening).await {
+        Ok(opened) => opened.map_err(classify_connect_error),
+        Err(_) => Err(LinkError::new(
+            LinkFailure::Unreachable,
+            OPEN_TIMEOUT_MESSAGE,
+        )),
+    }
 }
 
 /// Maps the server's `reject` reason to a failure the user can act on.
@@ -615,6 +656,43 @@ mod tests {
     use tokio::io::DuplexStream;
     use tokio_tungstenite::tungstenite::protocol::Role;
     use x25519_dalek::StaticSecret;
+
+    #[tokio::test]
+    async fn an_address_that_does_not_answer_in_time_is_unreachable() {
+        let silent = std::future::pending::<Result<(), tokio_tungstenite::tungstenite::Error>>();
+        let error = open_within(Duration::from_millis(10), silent)
+            .await
+            .unwrap_err();
+        assert_eq!(error.kind, LinkFailure::Unreachable);
+        assert_eq!(error.message, OPEN_TIMEOUT_MESSAGE);
+    }
+
+    #[tokio::test]
+    async fn a_refused_connection_is_unreachable_and_a_lockout_is_not() {
+        use tokio_tungstenite::tungstenite::{http::Response, Error};
+
+        let refused = async { Err::<(), _>(Error::ConnectionClosed) };
+        let error = open_within(Duration::from_secs(1), refused)
+            .await
+            .unwrap_err();
+        assert_eq!(error.kind, LinkFailure::Unreachable);
+
+        let locked = async {
+            let response = Response::builder().status(429).body(None).unwrap();
+            Err::<(), _>(Error::Http(Box::new(response)))
+        };
+        let error = open_within(Duration::from_secs(1), locked)
+            .await
+            .unwrap_err();
+        assert_eq!(error.kind, LinkFailure::Locked);
+
+        assert_eq!(
+            open_within(Duration::from_secs(1), async { Ok(7) })
+                .await
+                .unwrap(),
+            7
+        );
+    }
 
     #[test]
     fn normalizes_link_url() {

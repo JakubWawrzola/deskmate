@@ -14,9 +14,10 @@ use zeroize::Zeroizing;
 
 use deskmate_core::link::media::declares_media_player;
 use deskmate_core::link::notify::{parse_notify_clear, parse_notify_extras};
+use deskmate_core::link::retry::RetrySchedule;
 use deskmate_core::link::{
-    auth_retry_delay, classify_connect_error, client_handshake, info_frame, parse_info,
-    state_frame, ClientRole, HubInfo, LinkError, LinkFailure, SessionCodecs, PING_INTERVAL,
+    client_handshake, info_frame, open_in_time, parse_info, state_frame, ClientRole, HubInfo,
+    LinkError, LinkFailure, SessionCodecs, PING_INTERVAL,
 };
 pub use deskmate_core::link::{normalize_url, validate_pairing_key};
 
@@ -149,9 +150,8 @@ pub async fn restart(app: AppHandle) {
         {
             endpoints.push(cfg_connection.link_url_remote.clone());
         }
-        let mut endpoint_index = 0usize;
-        let mut failures = 0u32;
-        let mut auth_failures = 0u32;
+        let has_remote = endpoints.len() > 1;
+        let mut retry = RetrySchedule::new(endpoints);
         loop {
             if *stop_connection.borrow() {
                 break;
@@ -167,13 +167,7 @@ pub async fn restart(app: AppHandle) {
             {
                 break;
             }
-            let label = if endpoints.len() == 1 {
-                ""
-            } else if endpoint_index == 0 {
-                " (local)"
-            } else {
-                " (remote)"
-            };
+            let label = retry.label();
             crate::mqtt::set_status(
                 &app_connection,
                 false,
@@ -184,7 +178,7 @@ pub async fn restart(app: AppHandle) {
                 &cfg_connection,
                 &psk,
                 cascade.as_deref(),
-                &endpoints[endpoint_index],
+                retry.endpoint(),
                 stop_connection.clone(),
             )
             .await;
@@ -195,14 +189,12 @@ pub async fn restart(app: AppHandle) {
                 break;
             }
             forget_session(&app_connection).await;
-            let mut retry_delay = if endpoints.len() > 1 { 2 } else { 5 };
-            match session_result {
+            let retry_delay = match session_result {
                 Ok(()) => {
-                    failures = 0;
-                    auth_failures = 0;
+                    retry.reset();
+                    retry.base_delay()
                 }
                 Err(error) => {
-                    failures += 1;
                     let status = match error.kind {
                         LinkFailure::Auth => format!(
                             "Home Assistant rejected the pairing{label}: {} (node \"{}\")",
@@ -220,6 +212,12 @@ pub async fn restart(app: AppHandle) {
                                 error.message
                             )
                         }
+                        LinkFailure::Unreachable => {
+                            format!(
+                                "Connection error{label}: {}",
+                                crate::transport::explain_unreachable(&error.message, has_remote)
+                            )
+                        }
                         LinkFailure::Transport => {
                             format!(
                                 "Connection error{label}: {}",
@@ -228,24 +226,12 @@ pub async fn restart(app: AppHandle) {
                         }
                     };
                     crate::mqtt::set_status(&app_connection, false, &status);
-                    if error.kind == LinkFailure::Transport {
-                        auth_failures = 0;
-                    } else {
-                        // Nie dobijaj serwera co 2 s - to wpycha node w lockout
-                        // i zasypuje log Home Assistanta.
-                        retry_delay = auth_retry_delay(error.kind, auth_failures);
-                        auth_failures += 1;
-                    }
-                    if endpoints.len() > 1 && failures >= 2 {
-                        endpoint_index = (endpoint_index + 1) % endpoints.len();
-                        failures = 0;
-                        retry_delay = retry_delay.max(3);
-                    }
+                    retry.on_failure(error.kind)
                 }
-            }
+            };
             tokio::select! {
                 _ = stop_connection.changed() => break,
-                _ = tokio::time::sleep(Duration::from_secs(retry_delay)) => {}
+                _ = tokio::time::sleep(retry_delay) => {}
             }
         }
         if !*stop_connection.borrow() {
@@ -295,15 +281,13 @@ async fn run_session(
     mut stop: watch::Receiver<bool>,
 ) -> Result<(), LinkError> {
     let open = async {
-        let (mut socket, _) = tokio_tungstenite::connect_async(endpoint)
-            .await
-            .map_err(classify_connect_error)?;
+        let (mut socket, _) = open_in_time(tokio_tungstenite::connect_async(endpoint)).await?;
         let codecs = client_handshake(&mut socket, &cfg.node_id, psk, cascade).await?;
         Ok::<_, LinkError>((socket, codecs))
     };
-    // A connect to an unreachable address takes Windows about 21 s to give
-    // up. A loop that was replaced in the meantime must not open a session
-    // next to the new one.
+    // A connect to an unreachable address can take seconds to give up. A
+    // loop that was replaced in the meantime must not open a session next to
+    // the new one.
     let (
         socket,
         SessionCodecs {

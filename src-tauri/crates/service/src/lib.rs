@@ -25,7 +25,6 @@ pub mod logging;
 pub mod pairing;
 pub mod power;
 pub mod provisioning;
-pub mod retry;
 pub mod runner;
 pub mod secrets;
 pub mod status;

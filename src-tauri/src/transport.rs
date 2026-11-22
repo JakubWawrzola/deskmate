@@ -26,6 +26,26 @@ pub fn explain_connection_error(message: &str) -> String {
     format!("{hint} ({message})")
 }
 
+/// The text for an address at which no connection could be opened.
+/// `has_other_address` says whether a second address is configured. Without
+/// one, a computer that left the home network has nowhere else to go, so the
+/// text says how to give it one.
+pub fn explain_unreachable(message: &str, has_other_address: bool) -> String {
+    let no_answer = message == deskmate_core::link::OPEN_TIMEOUT_MESSAGE
+        || message.contains("os error 10060")
+        || message.contains("os error 10065");
+    if !no_answer {
+        return explain_connection_error(message);
+    }
+    let hint = if has_other_address {
+        "Home Assistant did not answer at this address. The other address is tried next"
+    } else {
+        "Home Assistant did not answer. Check that this computer is on the same network or VPN \
+         and that the address is right. To connect away from home, add a fallback URL in Settings"
+    };
+    format!("{hint} ({message})")
+}
+
 /// Shown while the user has disconnected on purpose.
 pub const PAUSED_STATUS: &str = "Disconnected. Press Connect to connect again";
 
@@ -470,4 +490,35 @@ pub async fn handle_command(
         publish_states(app, &values).await;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{explain_connection_error, explain_unreachable};
+    use deskmate_core::link::OPEN_TIMEOUT_MESSAGE;
+
+    #[test]
+    fn an_address_that_did_not_answer_says_what_to_do_away_from_home() {
+        for message in [OPEN_TIMEOUT_MESSAGE, "IO error: timed out (os error 10060)"] {
+            let alone = explain_unreachable(message, false);
+            assert!(alone.contains("fallback URL"), "{alone}");
+            assert!(alone.ends_with(&format!("({message})")), "{alone}");
+            let with_other = explain_unreachable(message, true);
+            assert!(with_other.contains("other address"), "{with_other}");
+            assert!(!with_other.contains("fallback URL"), "{with_other}");
+        }
+    }
+
+    #[test]
+    fn other_connection_errors_keep_their_own_explanation() {
+        let refused = "IO error: refused (os error 10061)";
+        assert_eq!(
+            explain_unreachable(refused, false),
+            explain_connection_error(refused)
+        );
+        assert_eq!(
+            explain_unreachable("bad certificate", true),
+            "bad certificate"
+        );
+    }
 }

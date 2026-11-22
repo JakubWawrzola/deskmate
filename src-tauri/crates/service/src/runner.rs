@@ -10,6 +10,7 @@
 //! as soon as an app waits for the seat and comes back when the seat is free.
 
 use deskmate_core::config::AppConfig;
+use deskmate_core::link::retry::RetrySchedule;
 use deskmate_core::link::{
     info_frame, parse_info, ClientPlatform, ClientRole, HubInfo, LinkError, LinkFailure,
     PING_INTERVAL,
@@ -28,7 +29,6 @@ use crate::audit::AuditSink;
 use crate::connector::{Connector, LinkSession};
 use crate::power::{Clock, PowerExecutor, SafetyValve};
 use crate::provisioning::{Provisioning, Setup, SetupSource};
-use crate::retry::RetrySchedule;
 use crate::status::{State, Status};
 
 /// The capability an integration announces when a `declare` with a scope
@@ -477,7 +477,7 @@ impl<C: Connector> Runner<C> {
                             State::Error,
                             "This computer's clock and Home Assistant's differ by more than 90 seconds.",
                         ),
-                        LinkFailure::Transport => (
+                        LinkFailure::Unreachable | LinkFailure::Transport => (
                             State::Connecting,
                             "Home Assistant cannot be reached. Trying again.",
                         ),

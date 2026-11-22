@@ -3,9 +3,7 @@
 //! WebSocket with the Link handshake and frame encryption from
 //! `deskmate_core::link`; the tests of the runner put their own in its place.
 
-use deskmate_core::link::{
-    classify_connect_error, client_handshake, FrameCodec, LinkError, SessionCodecs,
-};
+use deskmate_core::link::{client_handshake, open_in_time, FrameCodec, LinkError, SessionCodecs};
 use futures_util::{SinkExt, StreamExt};
 use serde_json::Value;
 use std::future::Future;
@@ -59,9 +57,7 @@ impl Connector for WebSocketConnector {
         node: &str,
         keys: &Keys,
     ) -> Result<Self::Session, LinkError> {
-        let (mut socket, _) = tokio_tungstenite::connect_async(url)
-            .await
-            .map_err(classify_connect_error)?;
+        let (mut socket, _) = open_in_time(tokio_tungstenite::connect_async(url)).await?;
         let SessionCodecs { encoder, decoder } =
             client_handshake(&mut socket, node, &keys.pairing, keys.cascade.as_deref()).await?;
         Ok(WebSocketSession {
