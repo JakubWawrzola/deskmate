@@ -446,6 +446,38 @@ pub async fn handle_command(
         return result;
     }
 
+    // The volume or the mute switch of one program. Only a program on the
+    // user's list has such a key, so no other program can be reached.
+    if let Some((program, control)) =
+        deskmate_core::app_volume::program_for(&cfg.app_volume_programs, key)
+    {
+        use deskmate_core::app_volume::{parse_percent, Control};
+        let program = program.to_string();
+        let value = match control {
+            Control::Volume => {
+                let percent =
+                    parse_percent(&payload).ok_or("the volume must be a number from 0 to 100")?;
+                tokio::task::spawn_blocking(move || {
+                    crate::app_volume::set_volume(&program, percent)
+                })
+                .await
+                .map_err(|e| e.to_string())??;
+                percent.to_string()
+            }
+            Control::Mute => {
+                let muted = payload.trim().eq_ignore_ascii_case("ON");
+                tokio::task::spawn_blocking(move || crate::app_volume::set_muted(&program, muted))
+                    .await
+                    .map_err(|e| e.to_string())??;
+                if muted { "ON" } else { "OFF" }.to_string()
+            }
+        };
+        // Echo the new value at once, as for the volume of the whole computer.
+        let values = HashMap::from([(key.to_string(), value)]);
+        publish_states(app, &values).await;
+        return Ok(());
+    }
+
     if let Some(id) = key.strip_prefix("custom_") {
         let cfg2 = cfg.clone();
         let id = id.to_string();

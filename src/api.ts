@@ -39,6 +39,8 @@ export const api = {
   setSensorEnabled: (id: string, enabled: boolean) =>
     invoke<void>("set_sensor_enabled", { id, enabled }),
   setGamePrograms: (programs: string[]) => invoke<void>("set_game_programs", { programs }),
+  setAppVolumePrograms: (programs: string[]) =>
+    invoke<void>("set_app_volume_programs", { programs }),
   setSensorsEnabled: (ids: string[], enabled: boolean) =>
     invoke<void>("set_sensors_enabled", { ids, enabled }),
   setConnectionPaused: (paused: boolean) => invoke<void>("set_connection_paused", { paused }),

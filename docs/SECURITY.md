@@ -426,6 +426,15 @@ stable since Windows 7. Home Assistant sends a device name; Deskmate acts only
 on a name that matches an active device it listed itself. Microphone mute and
 volume use Core Audio like the speaker controls.
 
+The volume of single programs is off until you list programs on the Sensors
+page. Which programs run and play sound says what you are doing, so Deskmate
+enumerates nothing for Home Assistant: only the programs on your list get a
+slider and a switch, and a command for any other program is refused because
+no such entity exists. For a listed program Home Assistant learns its volume,
+whether it is muted, and, from the value being there or not, whether it is
+playing sound right now. The controls change the program's own sound session
+of the default output device, nothing else.
+
 ### Notifications
 
 Titles, bodies and buttons are bounded, and at most ten notifications a minute

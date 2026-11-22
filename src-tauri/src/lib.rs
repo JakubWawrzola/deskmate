@@ -2,6 +2,7 @@
 //! Composition root: state, tauri commands, tray, window.
 
 mod actions;
+mod app_volume;
 mod audio;
 mod autostart;
 mod clipboard;
@@ -630,6 +631,34 @@ async fn set_sensor_enabled(
     };
     config::save(&cfg)?;
     // republish discovery (add/remove entity in HA) without a full restart
+    transport::refresh_entities(&app).await;
+    Ok(())
+}
+
+/// The programs that get a volume slider and a mute switch in Home
+/// Assistant (app_volume.rs). Names are reduced to plain executable names; a
+/// path or an empty entry is refused.
+#[tauri::command]
+async fn set_app_volume_programs(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    programs: Vec<String>,
+) -> Result<(), String> {
+    let mut names = Vec::new();
+    for program in programs.iter().filter(|program| !program.trim().is_empty()) {
+        names.push(
+            processes::normalize_name(program)
+                .ok_or_else(|| format!("not a program name: {}", program.trim()))?,
+        );
+    }
+    let names = deskmate_core::app_volume::normalize(names)?;
+    let cfg = {
+        let mut cfg = state.config.lock().await;
+        cfg.app_volume_programs = names;
+        cfg.clone()
+    };
+    config::save(&cfg)?;
+    // Add or remove the entities in Home Assistant without a restart.
     transport::refresh_entities(&app).await;
     Ok(())
 }
@@ -1342,6 +1371,7 @@ pub fn run() {
             autostart::set_start_with_windows,
             add_custom_sensor,
             set_game_programs,
+            set_app_volume_programs,
             list_monitor_sensors,
             set_custom_sensor_enabled,
             remove_custom_sensor,

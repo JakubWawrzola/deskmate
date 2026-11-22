@@ -279,6 +279,10 @@ pub struct AppConfig {
     /// as executable names such as "eldenring.exe" (user_state.rs).
     #[serde(default)]
     pub game_programs: Vec<String>,
+    /// Programs that get a volume slider and a mute switch of their own in
+    /// Home Assistant, as executable names (app_volume.rs). Empty: none.
+    #[serde(default)]
+    pub app_volume_programs: Vec<String>,
     pub launch_hidden: bool,
     /// opt-in: allow HA to type text / control a presentation (SendInput keystrokes)
     pub allow_input: bool,
@@ -384,6 +388,7 @@ impl Default for AppConfig {
             custom_commands: Vec::new(),
             custom_sensors: Vec::new(),
             game_programs: Vec::new(),
+            app_volume_programs: Vec::new(),
             launch_hidden: false,
             allow_input: false,
             tts_enabled: false,

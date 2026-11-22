@@ -151,6 +151,7 @@ impl Collector {
                     out.insert("volume".into(), v.to_string());
                 }
             }
+            crate::app_volume::collect(&cfg.app_volume_programs, &mut out);
             // media: a single SMTC query for all 4 sensors
             let media_on = ["media_title", "media_artist", "media_app", "media_status"]
                 .iter()

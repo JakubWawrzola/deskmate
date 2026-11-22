@@ -565,6 +565,7 @@ pub fn build_link_declare(
     entities.push(
         json!({"key": "mic_mute", "kind": "switch", "name": "Mute microphone", "icon": "mdi:microphone-off"}),
     );
+    entities.extend(crate::app_volume::link_entities(&cfg.app_volume_programs));
     entities.extend(session.family.iter().cloned());
     if session.media_player {
         entities.push(crate::link::media::media_entity());

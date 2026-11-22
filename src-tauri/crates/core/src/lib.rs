@@ -2,6 +2,7 @@
 //! without a window. Nothing in this crate may depend on Tauri.
 //! It builds for Windows and for Linux.
 
+pub mod app_volume;
 pub mod config;
 pub mod console_user;
 pub mod consts;

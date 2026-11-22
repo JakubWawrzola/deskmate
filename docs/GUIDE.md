@@ -169,6 +169,13 @@ One device per PC, with:
   output* / *Sound input* lists that switch the Windows default device (the
   speakers, a headset, a USB microphone). Plugging a device in or out updates
   the lists. See [sound devices](#sound-devices-and-the-microphone).
+- **Volume of single programs** (from 0.9.5, with the Deskmate integration):
+  list programs under Sensors → *Sound* → *Volume of single programs*, for
+  example `discord, spotify`, and each gets a volume slider and a mute switch
+  in Home Assistant, like its row in the Windows volume mixer. Lower the game
+  when a call starts, or mute the browser at night. The two controls have a
+  value while the program plays sound on the default output device and show
+  as unknown otherwise; setting them then fails with a message that says so.
 - **Privacy-sensitive sensors**, off until you enable them on the Sensors page:
   active window title, Wi-Fi name, what is playing, camera in use, microphone
   in use, user state.

@@ -172,6 +172,8 @@ export interface AppConfig {
   custom_sensors?: CustomSensor[];
   /** Programs the user state counts as games, such as "eldenring.exe". */
   game_programs?: string[];
+  /** Programs with a volume slider and a mute switch of their own. */
+  app_volume_programs?: string[];
   launch_hidden: boolean;
   allow_input: boolean;
   tts_enabled: boolean;

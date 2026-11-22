@@ -227,6 +227,52 @@ function YourSensors({
   );
 }
 
+/** Which programs get a volume slider and a mute switch (app_volume.rs). */
+function AppVolumePrograms({
+  config,
+  onChanged,
+}: {
+  config: AppConfig;
+  onChanged: () => Promise<void>;
+}) {
+  const [programs, setPrograms] = useState((config.app_volume_programs ?? []).join(", "));
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const save = async () => {
+    setMsg(null);
+    try {
+      await api.setAppVolumePrograms(
+        programs
+          .split(/[,;\n]+/)
+          .map((program) => program.trim())
+          .filter(Boolean),
+      );
+      await onChanged();
+      setMsg("Saved.");
+    } catch (e) {
+      setMsg(String(e));
+    }
+  };
+
+  return (
+    <div className="mt-3 pt-3 border-t border-hairline">
+      <div className="flex items-end gap-3">
+        <div className="flex-1">
+          <Field
+            label="Volume of single programs"
+            value={programs}
+            onChange={setPrograms}
+            placeholder="discord, spotify, chrome"
+            hint="Each program listed here gets a volume slider and a mute switch in Home Assistant, like its row in the Windows volume mixer. They have a value while the program plays sound. Program names separated by commas; Task Manager shows the names."
+          />
+        </div>
+        <Button onClick={() => void save()}>Save</Button>
+      </div>
+      {msg && <p className="mt-2 text-[12px] text-muted">{msg}</p>}
+    </div>
+  );
+}
+
 /** Which programs the "User state" sensor counts as games (user_state.rs). */
 function GamePrograms({
   config,
@@ -413,6 +459,7 @@ export default function SensorsPage({
             onToggle={(v) => void toggle(d.id, v)}
           />
         ))}
+        {!linux && <AppVolumePrograms config={config} onChanged={onChanged} />}
       </Panel>
 
       <Panel title="Privacy-sensitive sensors">

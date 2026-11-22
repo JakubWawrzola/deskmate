@@ -39,6 +39,23 @@ fn typed_states(values: &HashMap<String, String>) -> Value {
             }
             // no daily limit: unknown in Home Assistant
             _ if key == "screen_time_left" && value == "None" => Value::Null,
+            // The volume and the mute state of a single program; unknown
+            // while the program plays no sound.
+            _ if key.starts_with(crate::app_volume::VOLUME_PREFIX)
+                || key.starts_with(crate::app_volume::MUTE_PREFIX) =>
+            {
+                if value == crate::app_volume::NO_SESSION {
+                    Value::Null
+                } else if key.starts_with(crate::app_volume::MUTE_PREFIX) {
+                    Value::Bool(value.eq_ignore_ascii_case("ON"))
+                } else {
+                    value
+                        .parse::<f64>()
+                        .ok()
+                        .and_then(serde_json::Number::from_f64)
+                        .map_or(Value::Null, Value::Number)
+                }
+            }
             _ if matches!(key.as_str(), "screen_time_limit" | "screen_time_bonus") => value
                 .parse::<f64>()
                 .ok()
