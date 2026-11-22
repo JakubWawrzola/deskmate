@@ -43,7 +43,7 @@ zeroize = "1"
 # `std` for a boxed logger: the service writes its own log file.
 log = { version = "0.4", features = ["std"] }
 # Time since boot, for the power safety valve.
-sysinfo = "0.33"
+sysinfo = "0.40"
 # The pairing code (pairing.rs) is base64url; the same crate deskmate-core
 # decodes keys with.
 base64 = "0.23"
