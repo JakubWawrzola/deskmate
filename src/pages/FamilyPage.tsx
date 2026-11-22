@@ -16,6 +16,7 @@ export default function FamilyPage() {
   const [draft, setDraft] = useState<FamilyConfig | null>(null);
   const [limit, setLimit] = useState("0");
   const [apps, setApps] = useState("");
+  const [warnings, setWarnings] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -26,6 +27,7 @@ export default function FamilyPage() {
       setDraft(next.rules);
       setLimit(String(next.rules.daily_limit_min));
       setApps(next.rules.blocked_apps.join(", "));
+      setWarnings(next.rules.warn_at_min.join(", "));
     }
   }, []);
 
@@ -60,6 +62,12 @@ export default function FamilyPage() {
         .split(/[,;\n]+/)
         .map((app) => app.trim())
         .filter(Boolean),
+      // Not a number becomes 0, which the app refuses with the reason.
+      warn_at_min: warnings
+        .split(/[,;]+/)
+        .map((minutes) => minutes.trim())
+        .filter(Boolean)
+        .map((minutes) => (/^\d+$/.test(minutes) ? parseInt(minutes, 10) : 0)),
     });
 
   const elevated = async (action: () => Promise<void>, done: string) => {
@@ -170,10 +178,18 @@ export default function FamilyPage() {
               <option value="sign_out">Sign out (unsaved work can be lost)</option>
             </select>
           </label>
+          <div className="mt-3">
+            <Field
+              label="Warnings (minutes before)"
+              value={warnings}
+              onChange={setWarnings}
+              placeholder="10, 5, 1"
+              hint="Up to five times between 1 and 120 minutes, separated by commas. Empty means 10, 5 and 1."
+            />
+          </div>
           <p className="mt-1 text-[12px] text-muted">
-            Warnings come 10, 5 and 1 minute before. When the time is up there is a minute to save,
-            with a button to ask Home Assistant for more time. Unlocking again locks after 20
-            seconds.
+            When the time is up there is a minute to save, with a button to ask Home Assistant for
+            more time. Unlocking again locks after 20 seconds.
           </p>
 
           <div className="mt-4 flex items-center justify-between h-9">

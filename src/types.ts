@@ -94,6 +94,8 @@ export interface FamilyConfig {
   blocked_apps: string[];
   /** lock | sign_out */
   time_up_action: string;
+  /** Minutes before the stop at which a warning comes; empty = 10, 5, 1. */
+  warn_at_min: number[];
 }
 
 export interface FamilyView {

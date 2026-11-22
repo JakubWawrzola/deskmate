@@ -180,6 +180,9 @@ pub struct FamilyConfig {
     pub blocked_apps: Vec<String>,
     /// lock (default) | sign_out
     pub time_up_action: String,
+    /// Minutes before the stop at which a warning is shown, earliest first.
+    /// Empty = the built-in times (family/warnings.rs).
+    pub warn_at_min: Vec<u32>,
 }
 
 /// An update install that was started. Written before the installer runs,

@@ -24,6 +24,8 @@ use tauri::{AppHandle, Manager};
 use crate::config::{AppConfig, FamilyConfig};
 use crate::state::AppState;
 
+mod warnings;
+
 /// Elevated steps started through UAC from the Family page.
 pub const PROTECT_ARG: &str = "--family-protect";
 pub const UNPROTECT_ARG: &str = "--family-unprotect";
@@ -38,7 +40,6 @@ const TICK: Duration = Duration::from_secs(5);
 /// Without keyboard or mouse input for this long the computer counts as not
 /// in use, unless something plays full screen (a film).
 const IDLE_LIMIT_SECS: u64 = 300;
-const WARN_AT_MIN: [u32; 3] = [10, 5, 1];
 /// Time to save work before the first lock; shorter when the child unlocks
 /// again while the time is still up.
 const FIRST_GRACE: Duration = Duration::from_secs(60);
@@ -85,6 +86,7 @@ pub const ENTITIES: &[(&str, &str)] = &[
     ("switch", "block_apps"),
     ("text", "blocked_apps"),
     ("select", "time_up_action"),
+    ("text", "screen_time_warnings"),
     ("text", "lock_message"),
 ];
 
@@ -97,6 +99,7 @@ const COMMANDS: &[&str] = &[
     "block_apps",
     "blocked_apps",
     "time_up_action",
+    "screen_time_warnings",
     "lock_message",
 ];
 
@@ -165,6 +168,10 @@ pub fn link_entities(cfg: &AppConfig) -> Vec<Value> {
             json!({"key": "time_up_action", "kind": "select", "name": "When time is up",
                      "options": ["Lock", "Sign out"], "icon": "mdi:lock-clock"}),
         ),
+        owned(json!({"key": "screen_time_warnings", "kind": "text",
+                     "name": "Warnings before the limit", "mode": "text",
+                     "max": warnings::MAX_TEXT_LEN, "pattern": warnings::TEXT_PATTERN,
+                     "icon": "mdi:bell-ring-outline"})),
         json!({"key": "lock_message", "kind": "text", "name": "Lock with message", "mode": "text",
                "max": 200, "icon": "mdi:message-lock"}),
     ]
@@ -197,6 +204,10 @@ fn rule_values(rules: &FamilyConfig) -> HashMap<String, String> {
         (
             "time_up_action".to_string(),
             action_label(&rules.time_up_action).to_string(),
+        ),
+        (
+            "screen_time_warnings".to_string(),
+            warnings::as_text(&rules.warn_at_min),
         ),
         ("lock_message".to_string(), String::new()),
     ])
@@ -271,6 +282,7 @@ pub fn normalize(mut rules: FamilyConfig) -> Result<FamilyConfig, String> {
     rules.allowed_until = normalize_time(&rules.allowed_until)?;
     rules.blocked_apps = parse_app_list(&rules.blocked_apps.join(","))?;
     rules.time_up_action = normalize_action(&rules.time_up_action)?;
+    rules.warn_at_min = warnings::validate(rules.warn_at_min)?;
     Ok(rules)
 }
 
@@ -516,17 +528,8 @@ fn tick(rt: &mut Runtime, rules: &FamilyConfig) -> HashMap<String, String> {
         }
         if rules.rules_on && evaluation.status == Status::Ok {
             if let Some(next) = evaluation.next_stop_min {
-                if WARN_AT_MIN
-                    .iter()
-                    .any(|&t| next <= t && !usage.warned.contains(&t))
-                {
-                    // Every threshold already passed counts as shown, so a
-                    // lowered limit gives one notification, not three.
-                    for t in WARN_AT_MIN.iter().filter(|&&t| t >= next) {
-                        if !usage.warned.contains(t) {
-                            usage.warned.push(*t);
-                        }
-                    }
+                let warn_at = warnings::in_force(&rules.warn_at_min);
+                if warnings::due(warn_at, next, &mut usage.warned) {
                     let plural = if next == 1 { "" } else { "s" };
                     let what = if evaluation.stop_is_bedtime {
                         format!("Bedtime in {next} minute{plural}")
@@ -725,6 +728,7 @@ pub async fn handle_command(app: &AppHandle, key: &str, payload: &str) -> Result
         "block_apps" => rules.block_apps = on,
         "blocked_apps" => rules.blocked_apps = parse_app_list(payload)?,
         "time_up_action" => rules.time_up_action = normalize_action(payload)?,
+        "screen_time_warnings" => rules.warn_at_min = warnings::parse(payload)?,
         "screen_time_bonus" => {
             drop(cfg);
             let minutes = parse_minutes(payload, MAX_BONUS_MIN)?;
