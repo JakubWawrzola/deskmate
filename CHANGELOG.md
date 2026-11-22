@@ -41,6 +41,8 @@ notes and asset names are available in `docs/releases/RELEASE-*.md`.
   of leaving it to Windows (about 21 seconds), and an address that cannot be
   reached gives way to the other one at once instead of after two attempts.
   With no fallback address set, the status says how to add one.
+- The notification about a new Deskmate says to update the integration first
+  when the connected one is older than the version on offer.
 - Section headings in the window are darker and heavier (#46).
 
 ### Fixed

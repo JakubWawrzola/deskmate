@@ -294,9 +294,17 @@ async fn announce(app: &AppHandle, info: &UpdateInfo, ask: bool) {
     } else {
         "Download it from the tray menu or the Status page. Settings and pairing are kept."
     };
+    let integration = app
+        .state::<AppState>()
+        .link_info()
+        .map(|hub| hub.integration);
+    let message = match integration_note(integration.as_deref(), &info.version) {
+        Some(note) => format!("{note} {message}"),
+        None => message.to_string(),
+    };
     let toast = NotifyPayload {
         title: format!("Deskmate {} is available", info.version),
-        message: message.into(),
+        message,
         image: None,
         actions: Vec::new(),
         ..NotifyPayload::default()
@@ -320,6 +328,16 @@ async fn announce(app: &AppHandle, info: &UpdateInfo, ask: bool) {
     if let Ok(Err(error)) = shown {
         log::warn!("update notification: {error}");
     }
+}
+
+/// What to say about the integration when Deskmate `offered` is announced.
+/// The integration goes first: it stays compatible with the Deskmate before
+/// it, while a newer Deskmate may use what an older integration lacks. So a
+/// connected integration that is older than the offered Deskmate gets a
+/// reminder; one that is as new, or unknown, gets none.
+fn integration_note(integration: Option<&str>, offered: &str) -> Option<&'static str> {
+    policy::is_newer(integration?, offered)
+        .then_some("Update the Deskmate integration in Home Assistant (HACS) first.")
 }
 
 /// "Later": no question and no banner until tomorrow, then both come back.
@@ -558,6 +576,20 @@ pub fn spawn(app: AppHandle) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_older_integration_is_mentioned_in_the_update_notice() {
+        assert!(integration_note(Some("0.9.0"), "0.9.5").is_some());
+        assert!(integration_note(Some("0.8.5"), "0.9.5").is_some());
+        // As new as the offered Deskmate, or newer: nothing to say.
+        assert_eq!(integration_note(Some("0.9.5"), "0.9.5"), None);
+        assert_eq!(integration_note(Some("0.10.0"), "0.9.5"), None);
+        // Not connected over Link, an integration older than `info`, or a
+        // version that cannot be read.
+        assert_eq!(integration_note(None, "0.9.5"), None);
+        assert_eq!(integration_note(Some("dev"), "0.9.5"), None);
+        assert_eq!(integration_note(Some(""), "0.9.5"), None);
+    }
 
     #[test]
     fn a_found_release_links_to_its_own_page() {
