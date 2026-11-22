@@ -72,6 +72,29 @@ Before a pull request, the same checks CI runs:
 Commit messages follow [Conventional Commits](https://www.conventionalcommits.org)
 (`feat:`, `fix:`, `docs:`, ...). Keep one topic per pull request.
 
+## Improving a translation
+
+Deskmate speaks English, German, Spanish, French, Polish, Brazilian
+Portuguese and Simplified Chinese. Most translations were not written by
+native speakers, so corrections are welcome and need no programming:
+
+- the window: `src/i18n/<language>.json`, one line per text, the English
+  text on the left and the translation on the right;
+- the tray menu and the notifications: `src-tauri/i18n/<language>.json`;
+- the Home Assistant integration:
+  `custom_components/deskmate_link/translations/<language>.json`.
+
+Change only the right-hand side. Keep the words in braces, such as
+`{version}`, exactly as they are, and keep a space at the start or end of a
+text where the English one has it: some texts are parts of a sentence. The
+checks tell you when one of these slipped. A pull request with the corrected
+file is enough; say which language you speak natively.
+
+A new language is a new file with the same keys, plus its name in
+`src/i18n/index.ts`, `src-tauri/src/i18n.rs` and
+`src-tauri/crates/core/src/config.rs`. Open an issue first, so that nobody
+translates five hundred texts twice.
+
 ## Security rules for code
 
 - Nothing Home Assistant sends is run as code; commands map to fixed actions.

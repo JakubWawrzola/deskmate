@@ -63,14 +63,15 @@ What people asked for after 0.9.0, on GitHub, Reddit and Facebook.
   as Windows locks, not only when the PIN or password prompt appears.
 - **Current user with the service** (#8): `none` while nobody is signed in,
   instead of unavailable.
-- **Extra screen time without Home Assistant**: on the time's-up screen, an
-  administrator adds 15 or 30 minutes with their password, for trips without
-  internet or when Home Assistant is down.
+- **Extra screen time without Home Assistant**: on the time's-up
+  notification and the Family page, an administrator adds 15 minutes with
+  their Windows password, up to 60 a day, for trips without internet or when
+  Home Assistant is down.
 - **Screen time warnings you choose**: the minutes before the limit at
   which the warnings appear can be set, instead of the fixed 10, 5 and 1.
-- **Volume per app** (#44): the Windows volume mixer in Home Assistant, both
-  ways, so a dashboard can turn a voice chat up and a game down. The apps
-  are picked in the Deskmate window; nothing is listed until one is picked.
+- **Volume per app** (#44): a volume slider and a mute switch for each
+  program you list in the Deskmate window, so a dashboard can turn a voice
+  chat up and a game down. Nothing is listed until you add a program.
 - **Away from home**: the app gives up on the home address after a few
   seconds and tries the remote one, and the connection error says what to
   do when Home Assistant cannot be reached from where the computer is.

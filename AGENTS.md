@@ -232,7 +232,9 @@ reference implementation.
 
 - The diff contains what the task needs and nothing else. No drive-by
   refactors, renames or reformatting; propose them separately.
-- English in code, comments, commit messages, UI text and docs.
+- English in code, comments, commit messages, UI text and docs. English is
+  the source of every text a user reads; the other languages are
+  translations next to it (see "Translations" below).
 - A function does one thing and its name says what. Constants have names.
 - Comments explain why. Do not narrate what the code does, and do not leave
   commented-out code or a `TODO` without an issue number.
@@ -295,6 +297,32 @@ reference implementation.
   the Stream Deck manifest is kept as a template.
 - The HACS and hassfest workflows stay green.
 
+### Translations
+
+Deskmate is translated into German, Spanish, French, Polish, Brazilian
+Portuguese and Simplified Chinese. The English text is written in the code
+and is the key of its translations, so a text is never invented twice.
+
+- The window: wrap a text in `t("...")` from `src/i18n` (`tn("...")` for a
+  constant that is built before the language is known, shown with `t`). A
+  name or a number goes in as a placeholder, `t("{count} files", { count })`,
+  not glued on with `+`. The translations are `src/i18n/<language>.json`.
+  `npm run lint` runs `scripts/check-i18n.mjs`, which fails when a
+  translation lacks a text, keeps one the code no longer has, changes a
+  `{placeholder}` or the space at the edge of a part of a sentence.
+- The tray menu and Deskmate's own notifications: `i18n::t` and `i18n::tf`
+  in `src-tauri/src/i18n.rs`, with the text added to `TEXTS` and to every
+  file in `src-tauri/i18n/`. Two tests hold the files to that list.
+- The integration: `strings.json` is the source, `translations/<language>.json`
+  carry the same keys, and `tests/test_translations.py` holds them to it.
+- A change that adds or rewords a text updates all six translations in the
+  same commit. A translation you cannot judge is still better than a
+  missing one; say in the pull request which language needs a native
+  speaker's eye.
+- Not translated: entity names and ids (Home Assistant shows them), log
+  lines, error texts from the operating system, key names, protocol and
+  product names, and the examples in placeholders.
+
 ### Kotlin (`tv/`)
 
 - The Link client mirrors the protocol in `docs/LINK.md` and passes the
@@ -314,7 +342,7 @@ most mistakes.
 | `src-tauri/crates/service/`, its Linux side | on Linux or in WSL: `cargo clippy -p deskmate-service --all-targets -- -D warnings` and `cargo test -p deskmate-service`, each also with `--features test-hooks`, then `cargo build -p deskmate-service --features test-hooks` and `python3 tests/daemon_e2e.py --binary <that build> --hub-python <a Python with aiohttp and cryptography>` | no warnings, all tests pass; the script ends with "end-to-end test passed" |
 | `packaging/linux/` | `systemd-analyze verify` on both units (with the program at `/usr/bin/deskmate-service`, as in the `daemon` job of CI) and `systemd-analyze security --offline=yes --threshold=15 packaging/linux/deskmate.service` | no errors; exposure 1.5 or lower |
 | Rust dependencies | `cargo tree --workspace --prefix none --target <target>` for both Windows targets, `cargo tree -p deskmate-core`, `cargo tree -p deskmate-service` | no `ring`, `openssl`, `openssl-sys` or `rustls` for a Windows target; no `tauri` crate under `deskmate-core` or `deskmate-service` |
-| `src/` | `npx tsc --noEmit`, `npm run lint` | no errors |
+| `src/` | `npx tsc --noEmit`, `npm run lint` (Biome, then the translation check) | no errors; "i18n check passed" |
 | `streamdeck-plugin/` | `npx tsc --noEmit`, `npm run lint`, `npm test`, `npm run build` in that folder | no errors, all tests pass, the check after the build passes |
 | The Stream Deck channel, on either side | the rows for `src-tauri/` and `streamdeck-plugin/`, then `cargo test -p deskmate plugin_client -- --ignored` in `src-tauri/` | the plugin's client passes against the app's server |
 | The integration | `ruff check` and `ruff format --check` on `custom_components scripts tests`, `python -m py_compile` on the changed files, `python -m pytest` | no errors, all tests pass |
