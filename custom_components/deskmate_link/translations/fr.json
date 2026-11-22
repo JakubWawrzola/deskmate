@@ -1,0 +1,181 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Associer un appareil Deskmate",
+        "description": "Home Assistant va générer un code d'association. Collez-le dans Deskmate (écran de premier démarrage ou Settings -> Deskmate integration) sur l'ordinateur à associer. Le code contient la clé et l'adresse de ce Home Assistant : il n'y a rien d'autre à saisir. L'entrée se lie au premier ordinateur qui s'authentifie avec ce code.\n\nSi une entrée attend déjà une association, son code est affiché de nouveau au lieu d'en créer une autre."
+      },
+      "show_key": {
+        "title": "Code d'association",
+        "description": "Copiez ce code d'association dans Deskmate :\n\n`{code}`\n\nLes anciennes versions de Deskmate n'acceptent que la clé seule :\n\n`{key}`\n\nMettez à jour cette intégration avant Deskmate sur l'ordinateur. Deskmate 0.6 ne parle que le protocole v2."
+      },
+      "new_key": {
+        "title": "Nouveau code d'association",
+        "description": "L'ancienne clé cesse de fonctionner dès que vous confirmez. Copiez le nouveau code d'association dans Deskmate :\n\n`{code}`\n\nClé seule pour les anciennes versions de Deskmate :\n\n`{key}`"
+      },
+      "unbind": {
+        "title": "Délier cette entrée",
+        "description": "Actuellement liée à `{node_id}`. Une fois déliée, l'entrée s'attache au prochain ordinateur qui s'authentifie avec sa clé d'association. Les entités et leur historique sont conservés."
+      },
+      "cascade_on": {
+        "title": "Activer le chiffrement en cascade",
+        "description": "Ajoute une seconde couche de chiffrement : ChaCha20-Poly1305 autour d'AES-256-GCM, avec sa propre clé. Cela n'aide que si l'un des deux algorithmes est un jour cassé. Les deux clés sont stockées aux mêmes endroits (ici et dans Deskmate), cela n'aide donc pas si une clé est volée. Le protocole v2 dérive déjà des clés de session neuves d'un échange X25519 éphémère.\n\nLes deux côtés doivent l'avoir activé. Collez cette clé dans Deskmate sous Geeky stuff, puis confirmez ici. La connexion est coupée jusqu'à ce que les deux côtés concordent. Elle n'est affichée qu'une fois :\n\n`{key}`"
+      },
+      "cascade_off": {
+        "title": "Désactiver le chiffrement en cascade",
+        "description": "Le trafic revient à une seule couche AES-256-GCM. Désactivez-le aussi dans Deskmate, sinon cet ordinateur ne se reconnectera pas."
+      },
+      "add_user": {
+        "title": "Code d'association pour cet ordinateur",
+        "description": "Collez ce code dans Deskmate sur `{node_id}` : après y avoir réinstallé Deskmate, ou sur un autre compte Windows du même ordinateur.\n\n`{code}`\n\nIl se reconnecte à cette entrée avec son appareil et ses entités. Rien ne change ici. Avec plusieurs comptes Windows, seul celui qui est utilisé est connecté ; changer d'utilisateur déplace la connexion.\n\nLe code contient la clé d'association de cet ordinateur. Ne le partagez pas en dehors de cet ordinateur. Pour couper toutes les copies d'un coup, générez plutôt une nouvelle clé d'association."
+      },
+      "reconfigure": {
+        "title": "Deskmate",
+        "description": "Que voulez-vous faire de l'entrée de `{node_id}` ?",
+        "menu_options": {
+          "add_user": "Afficher le code d'association (Deskmate réinstallé, ou autre utilisateur Windows)",
+          "new_key": "Générer une nouvelle clé d'association (l'actuelle cesse de fonctionner)",
+          "unbind": "Délier de l'ordinateur actuel",
+          "cascade_on": "Activer le chiffrement en cascade (seconde couche)",
+          "cascade_off": "Désactiver le chiffrement en cascade"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Ce nœud est déjà associé.",
+      "reconfigure_successful": "Terminé.",
+      "pending_reused": "Une entrée attend déjà une association. Son code a été affiché de nouveau, rien n'a été créé.",
+      "add_user_done": "Terminé. Collez le code dans Deskmate sur l'autre compte Windows."
+    }
+  },
+  "issues": {
+    "unknown_node": {
+      "title": "Deskmate : un ordinateur non associé tente sans cesse de se connecter",
+      "description": "Un ordinateur qui se nomme `{node}` ({ip}) échoue sans cesse à la poignée de main Deskmate. Aucune entrée associée ne correspond à ce nom, ou sa clé d'association est différente.\n\nAssociez-le (Ajouter une intégration -> Deskmate, puis collez la clé dans Deskmate) ou, s'il doit utiliser une entrée existante, ouvrez cette entrée, choisissez Reconfigurer -> Délier de l'ordinateur actuel, et laissez-le se rattacher."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "connection": {
+        "name": "Connexion",
+        "state": {
+          "app": "Application",
+          "service": "Service",
+          "daemon": "Démon",
+          "connected": "Connecté",
+          "sleeping": "En veille",
+          "off": "Éteint",
+          "disconnected": "Déconnecté"
+        }
+      }
+    }
+  },
+  "services": {
+    "notify": {
+      "name": "Notifier",
+      "description": "Affiche une notification Windows sur un ordinateur associé.",
+      "fields": {
+        "node_id": {
+          "name": "ID du nœud",
+          "description": "Quel ordinateur. Vide : tous les ordinateurs associés."
+        },
+        "title": {
+          "name": "Titre",
+          "description": "Titre de la notification."
+        },
+        "message": {
+          "name": "Message",
+          "description": "Texte de la notification."
+        },
+        "image": {
+          "name": "URL de l'image",
+          "description": "Image facultative. Son origine doit être autorisée dans Deskmate."
+        },
+        "image_placement": {
+          "name": "Position de l'image",
+          "description": "logo (par défaut) affiche l'image en petit, à côté du texte. hero l'affiche sur toute la largeur en haut de la notification, inline sous le texte. Nécessite Deskmate 0.9.5 sous Windows ; une version plus ancienne, et Deskmate sous Linux, affichent la petite image."
+        },
+        "actions": {
+          "name": "Boutons d'action",
+          "description": "Liste de boutons, chacun avec un id et un title. Un clic déclenche l'événement deskmate_link_notify_action."
+        },
+        "tag": {
+          "name": "Étiquette",
+          "description": "Nom facultatif de 64 lettres, chiffres, tirets bas ou traits d'union au plus. Une notification portant la même étiquette remplace celle-ci, et Effacer la notification la supprime. Nécessite un Deskmate qui gère les étiquettes ; un plus ancien affiche la notification sans elle."
+        },
+        "priority": {
+          "name": "Priorité",
+          "description": "normal (par défaut), high ou urgent. Urgent demande à Windows d'afficher la notification même quand Ne pas déranger est actif, dans la mesure où Windows le permet. Nécessite un Deskmate qui le gère."
+        }
+      }
+    },
+    "clear_notification": {
+      "name": "Effacer la notification",
+      "description": "Retire la notification portant cette étiquette de l'écran et du centre de notifications d'un ordinateur associé. Échoue pour un ordinateur dont le Deskmate est trop ancien pour les étiquettes.",
+      "fields": {
+        "node_id": {
+          "name": "ID du nœud",
+          "description": "Quel ordinateur. Vide : tous les ordinateurs associés."
+        },
+        "tag": {
+          "name": "Étiquette",
+          "description": "L'étiquette avec laquelle la notification a été envoyée."
+        }
+      }
+    },
+    "send_file": {
+      "name": "Envoyer un fichier à l'ordinateur",
+      "description": "Enregistre un fichier de Home Assistant dans la boîte de réception de l'ordinateur (Deskmate : Files > Receive files). Le chemin doit se trouver dans allowlist_external_dirs, par exemple /media. Les fichiers existants sur l'ordinateur ne sont jamais écrasés.",
+      "fields": {
+        "node_id": {
+          "name": "ID du nœud",
+          "description": "Quel ordinateur. Vide : le seul associé."
+        },
+        "path": {
+          "name": "Chemin dans Home Assistant",
+          "description": "Fichier à envoyer."
+        },
+        "filename": {
+          "name": "Nom sur l'ordinateur",
+          "description": "Facultatif. Par défaut, le nom du fichier lui-même."
+        }
+      }
+    },
+    "fetch_file": {
+      "name": "Récupérer un fichier de l'ordinateur",
+      "description": "Copie dans Home Assistant un fichier d'un dossier que l'ordinateur partage (Deskmate : Files > Shared folders). La destination doit se trouver dans allowlist_external_dirs.",
+      "fields": {
+        "node_id": {
+          "name": "ID du nœud",
+          "description": "Quel ordinateur. Vide : le seul associé."
+        },
+        "path": {
+          "name": "Chemin sur l'ordinateur",
+          "description": "Fichier à récupérer."
+        },
+        "destination": {
+          "name": "Destination dans Home Assistant",
+          "description": "Dossier ou chemin de fichier."
+        },
+        "overwrite": {
+          "name": "Écraser un fichier existant",
+          "description": "Remplacer la destination si elle existe."
+        }
+      }
+    },
+    "tv_update": {
+      "name": "Mettre à jour DeskmateTV",
+      "description": "Envoie une nouvelle version de DeskmateTV au téléviseur par Deskmate Link (sans ADB). Placez DeskmateTV-X.Y.Z.apk dans /config/deskmate_tv. Le téléviseur vérifie le SHA-256, une version supérieure et le même certificat de signature, puis l'installe. Un fichier plus récent à cet endroit est aussi envoyé automatiquement quand le téléviseur se connecte.",
+      "fields": {
+        "node_id": {
+          "name": "ID du nœud",
+          "description": "Quel téléviseur. Vide : le seul associé."
+        },
+        "file": {
+          "name": "Fichier APK",
+          "description": "Nom du fichier dans /config/deskmate_tv. Vide : le DeskmateTV-X.Y.Z.apk le plus récent."
+        }
+      }
+    }
+  }
+}

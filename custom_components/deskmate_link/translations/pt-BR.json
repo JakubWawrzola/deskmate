@@ -1,0 +1,181 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Parear um dispositivo Deskmate",
+        "description": "O Home Assistant vai gerar um código de pareamento. Cole-o no Deskmate (tela da primeira execução ou Settings -> Deskmate integration) no computador que você quer parear. O código leva a chave e o endereço deste Home Assistant, então não há mais nada para digitar. A entrada se vincula ao primeiro computador que se autenticar com ele.\n\nSe já houver uma entrada aguardando pareamento, o código dela é mostrado de novo em vez de criar outra."
+      },
+      "show_key": {
+        "title": "Código de pareamento",
+        "description": "Copie este código de pareamento no Deskmate:\n\n`{code}`\n\nVersões antigas do Deskmate aceitam apenas a chave pura:\n\n`{key}`\n\nAtualize esta integração antes do Deskmate no computador. O Deskmate 0.6 só fala o protocolo v2."
+      },
+      "new_key": {
+        "title": "Novo código de pareamento",
+        "description": "A chave antiga para de funcionar assim que você confirmar. Copie o novo código de pareamento no Deskmate:\n\n`{code}`\n\nChave pura para versões antigas do Deskmate:\n\n`{key}`"
+      },
+      "unbind": {
+        "title": "Desvincular esta entrada",
+        "description": "Atualmente vinculada a `{node_id}`. Depois de desvincular, a entrada se liga ao próximo computador que se autenticar com a chave de pareamento dela. As entidades e o histórico são mantidos."
+      },
+      "cascade_on": {
+        "title": "Ativar a criptografia em cascata",
+        "description": "Adiciona uma segunda camada de criptografia: ChaCha20-Poly1305 em volta de AES-256-GCM, com chave própria. Só ajuda se uma das duas cifras for quebrada algum dia. As duas chaves ficam guardadas nos mesmos lugares (aqui e no Deskmate), então não ajuda se uma chave for roubada. O protocolo v2 já deriva chaves de sessão novas de uma troca X25519 efêmera.\n\nOs dois lados precisam estar com ela ativada. Cole esta chave no Deskmate, em Geeky stuff, e depois confirme aqui. A conexão cai até os dois lados coincidirem. Ela é mostrada uma única vez:\n\n`{key}`"
+      },
+      "cascade_off": {
+        "title": "Desativar a criptografia em cascata",
+        "description": "O tráfego volta a uma única camada AES-256-GCM. Desative também no Deskmate; caso contrário, esse computador não vai reconectar."
+      },
+      "add_user": {
+        "title": "Código de pareamento para este computador",
+        "description": "Cole este código no Deskmate em `{node_id}`: depois de reinstalar o Deskmate nele, ou em outra conta do Windows do mesmo computador.\n\n`{code}`\n\nEle reconecta a esta entrada com o dispositivo e as entidades dela. Nada muda aqui. Com várias contas do Windows, só a que está em uso fica conectada; trocar de usuário move a conexão.\n\nO código contém a chave de pareamento deste computador. Não o compartilhe fora deste computador. Para cortar todas as cópias de uma vez, gere uma nova chave de pareamento."
+      },
+      "reconfigure": {
+        "title": "Deskmate",
+        "description": "O que você quer fazer com a entrada de `{node_id}`?",
+        "menu_options": {
+          "add_user": "Mostrar o código de pareamento (Deskmate reinstalado ou outro usuário do Windows)",
+          "new_key": "Gerar uma nova chave de pareamento (a atual para de funcionar)",
+          "unbind": "Desvincular do computador atual",
+          "cascade_on": "Ativar a criptografia em cascata (segunda camada)",
+          "cascade_off": "Desativar a criptografia em cascata"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Este nó já está pareado.",
+      "reconfigure_successful": "Pronto.",
+      "pending_reused": "Já existe uma entrada aguardando pareamento. O código dela foi mostrado de novo; nada novo foi criado.",
+      "add_user_done": "Pronto. Cole o código no Deskmate na outra conta do Windows."
+    }
+  },
+  "issues": {
+    "unknown_node": {
+      "title": "Deskmate: um computador não pareado continua tentando conectar",
+      "description": "Um computador que se identifica como `{node}` ({ip}) continua falhando no handshake do Deskmate. Nenhuma entrada pareada corresponde a esse nome, ou a chave de pareamento dele é diferente.\n\nPareie-o (Adicionar integração -> Deskmate e cole a chave no Deskmate) ou, se ele deve usar uma entrada que já existe, abra essa entrada, escolha Reconfigurar -> Desvincular do computador atual e deixe-o se ligar de novo."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "connection": {
+        "name": "Conexão",
+        "state": {
+          "app": "Aplicativo",
+          "service": "Serviço",
+          "daemon": "Daemon",
+          "connected": "Conectado",
+          "sleeping": "Em suspensão",
+          "off": "Desligado",
+          "disconnected": "Desconectado"
+        }
+      }
+    }
+  },
+  "services": {
+    "notify": {
+      "name": "Notificar",
+      "description": "Mostra uma notificação do Windows em um computador pareado.",
+      "fields": {
+        "node_id": {
+          "name": "ID do nó",
+          "description": "Qual computador. Vazio: todos os computadores pareados."
+        },
+        "title": {
+          "name": "Título",
+          "description": "Título da notificação."
+        },
+        "message": {
+          "name": "Mensagem",
+          "description": "Texto da notificação."
+        },
+        "image": {
+          "name": "URL da imagem",
+          "description": "Imagem opcional. A origem dela precisa estar permitida no Deskmate."
+        },
+        "image_placement": {
+          "name": "Posição da imagem",
+          "description": "logo (padrão) mostra a imagem pequena, ao lado do texto. hero mostra a imagem em toda a largura no topo da notificação, inline abaixo do texto. Requer o Deskmate 0.9.5 no Windows; uma versão anterior, e o Deskmate no Linux, mostram a imagem pequena."
+        },
+        "actions": {
+          "name": "Botões de ação",
+          "description": "Lista de botões, cada um com um id e um title. Um clique dispara o evento deskmate_link_notify_action."
+        },
+        "tag": {
+          "name": "Etiqueta",
+          "description": "Nome opcional de até 64 letras, dígitos, sublinhados ou hifens. Uma notificação com a mesma etiqueta substitui esta, e Limpar notificação a remove. Requer um Deskmate com suporte a etiquetas; um mais antigo mostra a notificação sem ela."
+        },
+        "priority": {
+          "name": "Prioridade",
+          "description": "normal (padrão), high ou urgent. Urgent pede ao Windows que mostre a notificação mesmo com o Não perturbe ativado, até onde o Windows permitir. Requer um Deskmate com suporte a isso."
+        }
+      }
+    },
+    "clear_notification": {
+      "name": "Limpar notificação",
+      "description": "Remove a notificação com esta etiqueta da tela e da central de notificações de um computador pareado. Falha em um computador cujo Deskmate é antigo demais para etiquetas.",
+      "fields": {
+        "node_id": {
+          "name": "ID do nó",
+          "description": "Qual computador. Vazio: todos os computadores pareados."
+        },
+        "tag": {
+          "name": "Etiqueta",
+          "description": "A etiqueta com a qual a notificação foi enviada."
+        }
+      }
+    },
+    "send_file": {
+      "name": "Enviar arquivo ao computador",
+      "description": "Salva um arquivo do Home Assistant na caixa de entrada do computador (Deskmate: Files > Receive files). O caminho precisa estar em allowlist_external_dirs, por exemplo /media. Arquivos que já existem no computador nunca são sobrescritos.",
+      "fields": {
+        "node_id": {
+          "name": "ID do nó",
+          "description": "Qual computador. Vazio: o único pareado."
+        },
+        "path": {
+          "name": "Caminho no Home Assistant",
+          "description": "Arquivo a enviar."
+        },
+        "filename": {
+          "name": "Nome no computador",
+          "description": "Opcional. O padrão é o nome do próprio arquivo."
+        }
+      }
+    },
+    "fetch_file": {
+      "name": "Buscar arquivo do computador",
+      "description": "Copia para o Home Assistant um arquivo de uma pasta que o computador compartilha (Deskmate: Files > Shared folders). O destino precisa estar em allowlist_external_dirs.",
+      "fields": {
+        "node_id": {
+          "name": "ID do nó",
+          "description": "Qual computador. Vazio: o único pareado."
+        },
+        "path": {
+          "name": "Caminho no computador",
+          "description": "Arquivo a buscar."
+        },
+        "destination": {
+          "name": "Destino no Home Assistant",
+          "description": "Pasta ou caminho de arquivo."
+        },
+        "overwrite": {
+          "name": "Sobrescrever um arquivo existente",
+          "description": "Substituir o destino se ele existir."
+        }
+      }
+    },
+    "tv_update": {
+      "name": "Atualizar o DeskmateTV",
+      "description": "Envia uma nova versão do DeskmateTV para a TV pelo Deskmate Link (sem ADB). Coloque DeskmateTV-X.Y.Z.apk em /config/deskmate_tv. A TV confere o SHA-256, se a versão é maior e se o certificado de assinatura é o mesmo, e então instala. Um arquivo mais novo nessa pasta também é enviado automaticamente quando a TV conecta.",
+      "fields": {
+        "node_id": {
+          "name": "ID do nó",
+          "description": "Qual TV. Vazio: a única pareada."
+        },
+        "file": {
+          "name": "Arquivo APK",
+          "description": "Nome do arquivo em /config/deskmate_tv. Vazio: o DeskmateTV-X.Y.Z.apk mais recente."
+        }
+      }
+    }
+  }
+}

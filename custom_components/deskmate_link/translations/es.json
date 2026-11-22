@@ -1,0 +1,181 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Emparejar un dispositivo Deskmate",
+        "description": "Home Assistant generará un código de emparejamiento. Pégalo en Deskmate (pantalla de primer inicio o Settings -> Deskmate integration) en el ordenador que quieras emparejar. El código lleva la clave y la dirección de este Home Assistant, así que no hay nada más que escribir. La entrada se vincula al primer ordenador que se autentique con él.\n\nSi ya hay una entrada esperando el emparejamiento, se muestra de nuevo su código en lugar de crear otra."
+      },
+      "show_key": {
+        "title": "Código de emparejamiento",
+        "description": "Copia este código de emparejamiento en Deskmate:\n\n`{code}`\n\nLas versiones antiguas de Deskmate solo aceptan la clave sola:\n\n`{key}`\n\nActualiza esta integración antes que Deskmate en el ordenador. Deskmate 0.6 solo habla el protocolo v2."
+      },
+      "new_key": {
+        "title": "Nuevo código de emparejamiento",
+        "description": "La clave antigua deja de funcionar en cuanto confirmes. Copia el nuevo código de emparejamiento en Deskmate:\n\n`{code}`\n\nClave sola para versiones antiguas de Deskmate:\n\n`{key}`"
+      },
+      "unbind": {
+        "title": "Desvincular esta entrada",
+        "description": "Ahora está vinculada a `{node_id}`. Tras desvincularla, la entrada se une al siguiente ordenador que se autentique con su clave de emparejamiento. Las entidades y su historial se conservan."
+      },
+      "cascade_on": {
+        "title": "Activar el cifrado en cascada",
+        "description": "Añade una segunda capa de cifrado: ChaCha20-Poly1305 envolviendo AES-256-GCM, con su propia clave. Solo ayuda si alguna vez se rompe uno de los dos cifrados. Ambas claves se guardan en los mismos sitios (aquí y en Deskmate), así que no ayuda si roban una clave. El protocolo v2 ya deriva claves de sesión nuevas de un intercambio X25519 efímero.\n\nAmbos lados deben tenerlo activado. Pega esta clave en Deskmate, en Geeky stuff, y luego confirma aquí. La conexión se corta hasta que los dos extremos coincidan. Solo se muestra una vez:\n\n`{key}`"
+      },
+      "cascade_off": {
+        "title": "Desactivar el cifrado en cascada",
+        "description": "El tráfico vuelve a una sola capa AES-256-GCM. Desactívalo también en Deskmate; de lo contrario, ese ordenador no volverá a conectarse."
+      },
+      "add_user": {
+        "title": "Código de emparejamiento para este ordenador",
+        "description": "Pega este código en Deskmate en `{node_id}`: después de reinstalar Deskmate allí o en otra cuenta de Windows del mismo ordenador.\n\n`{code}`\n\nSe reconecta a esta entrada con su dispositivo y sus entidades. Aquí no cambia nada. Con varias cuentas de Windows, solo está conectada la que alguien está usando; al cambiar de usuario, la conexión pasa a la otra.\n\nEl código contiene la clave de emparejamiento de este ordenador. No lo compartas fuera de este ordenador. Para anular todas las copias a la vez, genera una nueva clave de emparejamiento."
+      },
+      "reconfigure": {
+        "title": "Deskmate",
+        "description": "¿Qué quieres hacer con la entrada de `{node_id}`?",
+        "menu_options": {
+          "add_user": "Mostrar el código de emparejamiento (Deskmate reinstalado u otro usuario de Windows)",
+          "new_key": "Generar una nueva clave de emparejamiento (la actual deja de funcionar)",
+          "unbind": "Desvincular del ordenador actual",
+          "cascade_on": "Activar el cifrado en cascada (segunda capa)",
+          "cascade_off": "Desactivar el cifrado en cascada"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Este nodo ya está emparejado.",
+      "reconfigure_successful": "Hecho.",
+      "pending_reused": "Ya hay una entrada esperando el emparejamiento. Se ha mostrado de nuevo su código; no se ha creado nada nuevo.",
+      "add_user_done": "Hecho. Pega el código en Deskmate en la otra cuenta de Windows."
+    }
+  },
+  "issues": {
+    "unknown_node": {
+      "title": "Deskmate: un ordenador sin emparejar intenta conectarse una y otra vez",
+      "description": "Un ordenador que se identifica como `{node}` ({ip}) falla una y otra vez en el saludo de Deskmate. Ninguna entrada emparejada coincide con ese nombre, o su clave de emparejamiento es distinta.\n\nEmparéjalo (Añadir integración -> Deskmate y pega la clave en Deskmate) o, si debe usar una entrada que ya existe, abre esa entrada, elige Reconfigurar -> Desvincular del ordenador actual y deja que se vuelva a unir."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "connection": {
+        "name": "Conexión",
+        "state": {
+          "app": "Aplicación",
+          "service": "Servicio",
+          "daemon": "Demonio",
+          "connected": "Conectado",
+          "sleeping": "En suspensión",
+          "off": "Apagado",
+          "disconnected": "Desconectado"
+        }
+      }
+    }
+  },
+  "services": {
+    "notify": {
+      "name": "Notificar",
+      "description": "Muestra una notificación de Windows en un ordenador emparejado.",
+      "fields": {
+        "node_id": {
+          "name": "ID del nodo",
+          "description": "Qué ordenador. Vacío: todos los ordenadores emparejados."
+        },
+        "title": {
+          "name": "Título",
+          "description": "Título de la notificación."
+        },
+        "message": {
+          "name": "Mensaje",
+          "description": "Texto de la notificación."
+        },
+        "image": {
+          "name": "URL de la imagen",
+          "description": "Imagen opcional. Su origen debe estar permitido en Deskmate."
+        },
+        "image_placement": {
+          "name": "Posición de la imagen",
+          "description": "logo (por defecto) muestra la imagen pequeña, junto al texto. hero la muestra a todo lo ancho en la parte superior de la notificación, inline debajo del texto. Requiere Deskmate 0.9.5 en Windows; una versión anterior, y Deskmate en Linux, muestran la imagen pequeña."
+        },
+        "actions": {
+          "name": "Botones de acción",
+          "description": "Lista de botones, cada uno con un id y un title. Un clic lanza el evento deskmate_link_notify_action."
+        },
+        "tag": {
+          "name": "Etiqueta",
+          "description": "Nombre opcional de hasta 64 letras, dígitos, guiones bajos o guiones. Una notificación con la misma etiqueta sustituye a esta, y Borrar notificación la quita. Requiere un Deskmate que admita etiquetas; uno anterior muestra la notificación sin ella."
+        },
+        "priority": {
+          "name": "Prioridad",
+          "description": "normal (por defecto), high o urgent. Urgent pide a Windows que muestre la notificación aunque No molestar esté activado, hasta donde Windows lo permita. Requiere un Deskmate que lo admita."
+        }
+      }
+    },
+    "clear_notification": {
+      "name": "Borrar notificación",
+      "description": "Quita la notificación con esta etiqueta de la pantalla y del centro de notificaciones de un ordenador emparejado. Falla en un ordenador cuyo Deskmate es demasiado antiguo para las etiquetas.",
+      "fields": {
+        "node_id": {
+          "name": "ID del nodo",
+          "description": "Qué ordenador. Vacío: todos los ordenadores emparejados."
+        },
+        "tag": {
+          "name": "Etiqueta",
+          "description": "La etiqueta con la que se envió la notificación."
+        }
+      }
+    },
+    "send_file": {
+      "name": "Enviar archivo al ordenador",
+      "description": "Guarda un archivo de Home Assistant en la bandeja de entrada del ordenador (Deskmate: Files > Receive files). La ruta debe estar en allowlist_external_dirs, por ejemplo /media. Los archivos que ya existen en el ordenador nunca se sobrescriben.",
+      "fields": {
+        "node_id": {
+          "name": "ID del nodo",
+          "description": "Qué ordenador. Vacío: el único emparejado."
+        },
+        "path": {
+          "name": "Ruta en Home Assistant",
+          "description": "Archivo que se envía."
+        },
+        "filename": {
+          "name": "Nombre en el ordenador",
+          "description": "Opcional. Por defecto, el nombre del propio archivo."
+        }
+      }
+    },
+    "fetch_file": {
+      "name": "Traer archivo del ordenador",
+      "description": "Copia a Home Assistant un archivo de una carpeta que el ordenador comparte (Deskmate: Files > Shared folders). El destino debe estar en allowlist_external_dirs.",
+      "fields": {
+        "node_id": {
+          "name": "ID del nodo",
+          "description": "Qué ordenador. Vacío: el único emparejado."
+        },
+        "path": {
+          "name": "Ruta en el ordenador",
+          "description": "Archivo que se trae."
+        },
+        "destination": {
+          "name": "Destino en Home Assistant",
+          "description": "Carpeta o ruta de archivo."
+        },
+        "overwrite": {
+          "name": "Sobrescribir un archivo existente",
+          "description": "Sustituir el destino si existe."
+        }
+      }
+    },
+    "tv_update": {
+      "name": "Actualizar DeskmateTV",
+      "description": "Envía una nueva versión de DeskmateTV al televisor por Deskmate Link (sin ADB). Pon DeskmateTV-X.Y.Z.apk en /config/deskmate_tv. El televisor comprueba el SHA-256, que la versión sea superior y que el certificado de firma sea el mismo, y luego la instala. Un archivo más nuevo en esa carpeta también se envía automáticamente cuando el televisor se conecta.",
+      "fields": {
+        "node_id": {
+          "name": "ID del nodo",
+          "description": "Qué televisor. Vacío: el único emparejado."
+        },
+        "file": {
+          "name": "Archivo APK",
+          "description": "Nombre del archivo en /config/deskmate_tv. Vacío: el DeskmateTV-X.Y.Z.apk más reciente."
+        }
+      }
+    }
+  }
+}

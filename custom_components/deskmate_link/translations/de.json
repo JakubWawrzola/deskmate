@@ -1,0 +1,181 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Deskmate-Gerät koppeln",
+        "description": "Home Assistant erzeugt einen Kopplungscode. Füge ihn auf dem Computer, den du koppeln möchtest, in Deskmate ein (Startbildschirm oder Settings -> Deskmate integration). Der Code enthält den Schlüssel und die Adresse dieses Home Assistant, mehr musst du nicht eingeben. Der Eintrag bindet sich an den ersten Computer, der sich damit anmeldet.\n\nWartet bereits ein Eintrag auf die Kopplung, wird dessen Code erneut angezeigt und kein neuer angelegt."
+      },
+      "show_key": {
+        "title": "Kopplungscode",
+        "description": "Kopiere diesen Kopplungscode in Deskmate:\n\n`{code}`\n\nÄltere Deskmate-Versionen nehmen nur den reinen Schlüssel:\n\n`{key}`\n\nAktualisiere diese Integration vor Deskmate auf dem Computer. Deskmate 0.6 spricht nur Protokoll v2."
+      },
+      "new_key": {
+        "title": "Neuer Kopplungscode",
+        "description": "Der alte Schlüssel gilt nicht mehr, sobald du bestätigst. Kopiere den neuen Kopplungscode in Deskmate:\n\n`{code}`\n\nReiner Schlüssel für ältere Deskmate-Versionen:\n\n`{key}`"
+      },
+      "unbind": {
+        "title": "Bindung dieses Eintrags lösen",
+        "description": "Derzeit an `{node_id}` gebunden. Danach verbindet sich der Eintrag mit dem nächsten Computer, der sich mit seinem Kopplungsschlüssel anmeldet. Entitäten und ihr Verlauf bleiben erhalten."
+      },
+      "cascade_on": {
+        "title": "Kaskadenverschlüsselung einschalten",
+        "description": "Fügt eine zweite Verschlüsselungsschicht hinzu: ChaCha20-Poly1305 um AES-256-GCM, mit eigenem Schlüssel. Das hilft nur, falls eines der beiden Verfahren jemals gebrochen wird. Beide Schlüssel liegen an denselben Orten (hier und in Deskmate), bei einem gestohlenen Schlüssel hilft es also nicht. Protokoll v2 leitet ohnehin frische Sitzungsschlüssel aus einem kurzlebigen X25519-Austausch ab.\n\nBeide Seiten müssen sie eingeschaltet haben. Füge diesen Schlüssel in Deskmate unter Geeky stuff ein und bestätige dann hier. Die Verbindung bricht ab, bis beide Seiten übereinstimmen. Er wird nur einmal angezeigt:\n\n`{key}`"
+      },
+      "cascade_off": {
+        "title": "Kaskadenverschlüsselung ausschalten",
+        "description": "Der Datenverkehr läuft wieder über eine einzelne AES-256-GCM-Schicht. Schalte sie auch in Deskmate aus, sonst verbindet sich dieser Computer nicht mehr."
+      },
+      "add_user": {
+        "title": "Kopplungscode für diesen Computer",
+        "description": "Füge diesen Code in Deskmate auf `{node_id}` ein: nach einer Neuinstallation von Deskmate dort oder in einem anderen Windows-Konto desselben Computers.\n\n`{code}`\n\nEr verbindet sich wieder mit diesem Eintrag, mit seinem Gerät und seinen Entitäten. Hier ändert sich nichts. Bei mehreren Windows-Konten ist nur das verbunden, das gerade benutzt wird; ein Benutzerwechsel verschiebt die Verbindung.\n\nDer Code enthält den Kopplungsschlüssel dieses Computers. Gib ihn nicht außerhalb dieses Computers weiter. Um alle Kopien auf einmal zu sperren, erzeuge stattdessen einen neuen Kopplungsschlüssel."
+      },
+      "reconfigure": {
+        "title": "Deskmate",
+        "description": "Was möchtest du mit dem Eintrag für `{node_id}` tun?",
+        "menu_options": {
+          "add_user": "Kopplungscode anzeigen (Deskmate neu installiert oder anderer Windows-Benutzer)",
+          "new_key": "Neuen Kopplungsschlüssel erzeugen (der aktuelle gilt dann nicht mehr)",
+          "unbind": "Bindung an den aktuellen Computer lösen",
+          "cascade_on": "Kaskadenverschlüsselung einschalten (zweite Schicht)",
+          "cascade_off": "Kaskadenverschlüsselung ausschalten"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Dieser Knoten ist bereits gekoppelt.",
+      "reconfigure_successful": "Erledigt.",
+      "pending_reused": "Ein Eintrag wartet bereits auf die Kopplung. Sein Code wurde erneut angezeigt, es wurde nichts Neues angelegt.",
+      "add_user_done": "Erledigt. Füge den Code in Deskmate im anderen Windows-Konto ein."
+    }
+  },
+  "issues": {
+    "unknown_node": {
+      "title": "Deskmate: Ein nicht gekoppelter Computer versucht ständig, sich zu verbinden",
+      "description": "Ein Computer, der sich `{node}` nennt ({ip}), scheitert immer wieder am Deskmate-Handshake. Kein gekoppelter Eintrag passt zu diesem Namen, oder sein Kopplungsschlüssel ist ein anderer.\n\nKopple ihn (Integration hinzufügen -> Deskmate, dann den Schlüssel in Deskmate einfügen) oder, falls er einen vorhandenen Eintrag nutzen soll, öffne diesen Eintrag, wähle Neu konfigurieren -> Bindung an den aktuellen Computer lösen und lass ihn sich neu verbinden."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "connection": {
+        "name": "Verbindung",
+        "state": {
+          "app": "App",
+          "service": "Dienst",
+          "daemon": "Daemon",
+          "connected": "Verbunden",
+          "sleeping": "Energiesparmodus",
+          "off": "Aus",
+          "disconnected": "Getrennt"
+        }
+      }
+    }
+  },
+  "services": {
+    "notify": {
+      "name": "Benachrichtigen",
+      "description": "Zeigt eine Windows-Benachrichtigung auf einem gekoppelten Computer.",
+      "fields": {
+        "node_id": {
+          "name": "Knoten-ID",
+          "description": "Welcher Computer. Leer: jeder gekoppelte Computer."
+        },
+        "title": {
+          "name": "Titel",
+          "description": "Titel der Benachrichtigung."
+        },
+        "message": {
+          "name": "Nachricht",
+          "description": "Text der Benachrichtigung."
+        },
+        "image": {
+          "name": "Bild-URL",
+          "description": "Optionales Bild. Seine Herkunft muss in Deskmate erlaubt sein."
+        },
+        "image_placement": {
+          "name": "Bildposition",
+          "description": "logo (Standard) zeigt das Bild klein neben dem Text. hero zeigt es über die ganze Breite oben in der Benachrichtigung, inline unter dem Text. Braucht Deskmate 0.9.5 unter Windows; ein älteres Deskmate und Deskmate unter Linux zeigen das kleine Bild."
+        },
+        "actions": {
+          "name": "Aktionsschaltflächen",
+          "description": "Liste von Schaltflächen, jede mit einer id und einem title. Ein Klick löst das Ereignis deskmate_link_notify_action aus."
+        },
+        "tag": {
+          "name": "Tag",
+          "description": "Optionaler Name aus bis zu 64 Buchstaben, Ziffern, Unterstrichen oder Bindestrichen. Eine Benachrichtigung mit demselben Tag ersetzt diese, und Benachrichtigung entfernen löscht sie. Braucht ein Deskmate, das Tags unterstützt; ein älteres zeigt die Benachrichtigung ohne Tag."
+        },
+        "priority": {
+          "name": "Priorität",
+          "description": "normal (Standard), high oder urgent. Urgent bittet Windows, die Benachrichtigung auch bei aktivem Nicht stören zu zeigen, soweit Windows das zulässt. Braucht ein Deskmate, das dies unterstützt."
+        }
+      }
+    },
+    "clear_notification": {
+      "name": "Benachrichtigung entfernen",
+      "description": "Entfernt die Benachrichtigung mit diesem Tag vom Bildschirm und aus dem Benachrichtigungscenter eines gekoppelten Computers. Schlägt bei einem Computer fehl, dessen Deskmate für Tags zu alt ist.",
+      "fields": {
+        "node_id": {
+          "name": "Knoten-ID",
+          "description": "Welcher Computer. Leer: jeder gekoppelte Computer."
+        },
+        "tag": {
+          "name": "Tag",
+          "description": "Der Tag, mit dem die Benachrichtigung gesendet wurde."
+        }
+      }
+    },
+    "send_file": {
+      "name": "Datei an Computer senden",
+      "description": "Speichert eine Datei aus Home Assistant im Eingang des Computers (Deskmate: Files > Receive files). Der Pfad muss in allowlist_external_dirs liegen, z. B. /media. Vorhandene Dateien auf dem Computer werden nie überschrieben.",
+      "fields": {
+        "node_id": {
+          "name": "Knoten-ID",
+          "description": "Welcher Computer. Leer: der einzige gekoppelte."
+        },
+        "path": {
+          "name": "Pfad in Home Assistant",
+          "description": "Zu sendende Datei."
+        },
+        "filename": {
+          "name": "Name auf dem Computer",
+          "description": "Optional. Standard ist der Name der Datei selbst."
+        }
+      }
+    },
+    "fetch_file": {
+      "name": "Datei vom Computer holen",
+      "description": "Kopiert eine Datei aus einem Ordner, den der Computer freigibt (Deskmate: Files > Shared folders), nach Home Assistant. Das Ziel muss in allowlist_external_dirs liegen.",
+      "fields": {
+        "node_id": {
+          "name": "Knoten-ID",
+          "description": "Welcher Computer. Leer: der einzige gekoppelte."
+        },
+        "path": {
+          "name": "Pfad auf dem Computer",
+          "description": "Zu holende Datei."
+        },
+        "destination": {
+          "name": "Ziel in Home Assistant",
+          "description": "Ordner oder Dateipfad."
+        },
+        "overwrite": {
+          "name": "Vorhandene Datei überschreiben",
+          "description": "Das Ziel ersetzen, falls es existiert."
+        }
+      }
+    },
+    "tv_update": {
+      "name": "DeskmateTV aktualisieren",
+      "description": "Sendet einen neuen DeskmateTV-Build über Deskmate Link an den Fernseher (ADB ist nicht nötig). Lege DeskmateTV-X.Y.Z.apk in /config/deskmate_tv ab. Der Fernseher prüft SHA-256, eine höhere Version und dasselbe Signaturzertifikat und installiert die Datei dann. Eine neuere Datei dort wird auch automatisch gesendet, wenn sich der Fernseher verbindet.",
+      "fields": {
+        "node_id": {
+          "name": "Knoten-ID",
+          "description": "Welcher Fernseher. Leer: der einzige gekoppelte."
+        },
+        "file": {
+          "name": "APK-Datei",
+          "description": "Dateiname in /config/deskmate_tv. Leer: die neueste DeskmateTV-X.Y.Z.apk."
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,181 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "配对 Deskmate 设备",
+        "description": "Home Assistant 将生成一个配对码。请在要配对的电脑上把它粘贴到 Deskmate（首次运行界面，或 Settings -> Deskmate integration）。配对码包含密钥和此 Home Assistant 的地址，无需再输入其他内容。该条目会绑定到第一台用它通过验证的电脑。\n\n如果已有条目在等待配对，将再次显示它的配对码，而不会新建条目。"
+      },
+      "show_key": {
+        "title": "配对码",
+        "description": "将此配对码复制到 Deskmate：\n\n`{code}`\n\n旧版 Deskmate 只接受纯密钥：\n\n`{key}`\n\n请先更新此集成，再更新电脑上的 Deskmate。Deskmate 0.6 只支持协议 v2。"
+      },
+      "new_key": {
+        "title": "新的配对码",
+        "description": "确认后旧密钥立即失效。将新的配对码复制到 Deskmate：\n\n`{code}`\n\n供旧版 Deskmate 使用的纯密钥：\n\n`{key}`"
+      },
+      "unbind": {
+        "title": "解除此条目的绑定",
+        "description": "当前绑定到 `{node_id}`。解除绑定后，该条目会连接到下一台用其配对密钥通过验证的电脑。实体及其历史记录会保留。"
+      },
+      "cascade_on": {
+        "title": "启用级联加密",
+        "description": "增加第二层加密：在 AES-256-GCM 之外再套一层 ChaCha20-Poly1305，并使用独立的密钥。只有当两种算法之一将来被攻破时它才有用。两个密钥保存在相同的位置（这里和 Deskmate 中），所以密钥被盗时它没有帮助。协议 v2 本身已通过临时的 X25519 交换派生新的会话密钥。\n\n两端都必须启用。请把此密钥粘贴到 Deskmate 的 Geeky stuff 中，然后在此确认。在两端一致之前连接会断开。此密钥只显示一次：\n\n`{key}`"
+      },
+      "cascade_off": {
+        "title": "停用级联加密",
+        "description": "流量恢复为单层 AES-256-GCM。请在 Deskmate 中也将其关闭，否则那台电脑将无法重新连接。"
+      },
+      "add_user": {
+        "title": "此电脑的配对码",
+        "description": "请把此配对码粘贴到 `{node_id}` 上的 Deskmate：在那里重新安装 Deskmate 之后，或在同一台电脑的另一个 Windows 账户中。\n\n`{code}`\n\n它会带着原有的设备和实体重新连接到此条目。这里不会有任何变化。有多个 Windows 账户时，只有正在使用的那个保持连接；切换用户时连接会随之转移。\n\n配对码包含此电脑的配对密钥。请勿在此电脑之外分享。若要一次作废所有副本，请改为生成新的配对密钥。"
+      },
+      "reconfigure": {
+        "title": "Deskmate",
+        "description": "要对 `{node_id}` 的条目做什么？",
+        "menu_options": {
+          "add_user": "显示配对码（重新安装了 Deskmate，或另一个 Windows 用户）",
+          "new_key": "生成新的配对密钥（当前密钥将失效）",
+          "unbind": "解除与当前电脑的绑定",
+          "cascade_on": "启用级联加密（第二层）",
+          "cascade_off": "停用级联加密"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "此节点已配对。",
+      "reconfigure_successful": "完成。",
+      "pending_reused": "已有条目在等待配对。已再次显示它的配对码，没有新建任何内容。",
+      "add_user_done": "完成。请把配对码粘贴到另一个 Windows 账户的 Deskmate 中。"
+    }
+  },
+  "issues": {
+    "unknown_node": {
+      "title": "Deskmate：一台未配对的电脑不断尝试连接",
+      "description": "一台自称 `{node}` 的电脑（{ip}）反复在 Deskmate 握手时失败。没有已配对的条目与该名称匹配，或者它的配对密钥不同。\n\n请为它配对（添加集成 -> Deskmate，然后把密钥粘贴到 Deskmate），或者，如果它应使用已有的条目，请打开该条目，选择 重新配置 -> 解除与当前电脑的绑定，让它重新连接。"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "connection": {
+        "name": "连接",
+        "state": {
+          "app": "应用",
+          "service": "服务",
+          "daemon": "守护进程",
+          "connected": "已连接",
+          "sleeping": "睡眠中",
+          "off": "已关机",
+          "disconnected": "已断开"
+        }
+      }
+    }
+  },
+  "services": {
+    "notify": {
+      "name": "通知",
+      "description": "在已配对的电脑上显示一条 Windows 通知。",
+      "fields": {
+        "node_id": {
+          "name": "节点 ID",
+          "description": "哪台电脑。留空：所有已配对的电脑。"
+        },
+        "title": {
+          "name": "标题",
+          "description": "通知标题。"
+        },
+        "message": {
+          "name": "消息",
+          "description": "通知正文。"
+        },
+        "image": {
+          "name": "图片 URL",
+          "description": "可选的图片。其来源必须在 Deskmate 中被允许。"
+        },
+        "image_placement": {
+          "name": "图片位置",
+          "description": "logo（默认）在文字旁显示小图。hero 在通知顶部以整个宽度显示图片，inline 在文字下方显示。需要 Windows 上的 Deskmate 0.9.5；更旧的版本以及 Linux 上的 Deskmate 显示小图。"
+        },
+        "actions": {
+          "name": "操作按钮",
+          "description": "按钮列表，每个按钮有 id 和 title。点击会触发 deskmate_link_notify_action 事件。"
+        },
+        "tag": {
+          "name": "标签",
+          "description": "可选的名称，最多 64 个字母、数字、下划线或连字符。带有相同标签的通知会替换这一条，清除通知会将其移除。需要支持标签的 Deskmate；更旧的版本会显示不带标签的通知。"
+        },
+        "priority": {
+          "name": "优先级",
+          "description": "normal（默认）、high 或 urgent。urgent 请求 Windows 即使在请勿打扰开启时也显示通知，以 Windows 允许的范围为限。需要支持此功能的 Deskmate。"
+        }
+      }
+    },
+    "clear_notification": {
+      "name": "清除通知",
+      "description": "从已配对电脑的屏幕和通知中心移除带有此标签的通知。如果电脑上的 Deskmate 过旧、不支持标签，则会失败。",
+      "fields": {
+        "node_id": {
+          "name": "节点 ID",
+          "description": "哪台电脑。留空：所有已配对的电脑。"
+        },
+        "tag": {
+          "name": "标签",
+          "description": "发送通知时使用的标签。"
+        }
+      }
+    },
+    "send_file": {
+      "name": "发送文件到电脑",
+      "description": "把 Home Assistant 中的文件保存到电脑的收件箱（Deskmate：Files > Receive files）。路径必须在 allowlist_external_dirs 中，例如 /media。电脑上已有的文件绝不会被覆盖。",
+      "fields": {
+        "node_id": {
+          "name": "节点 ID",
+          "description": "哪台电脑。留空：唯一已配对的那台。"
+        },
+        "path": {
+          "name": "Home Assistant 中的路径",
+          "description": "要发送的文件。"
+        },
+        "filename": {
+          "name": "电脑上的文件名",
+          "description": "可选。默认使用文件本身的名称。"
+        }
+      }
+    },
+    "fetch_file": {
+      "name": "从电脑获取文件",
+      "description": "把电脑共享的文件夹（Deskmate：Files > Shared folders）中的文件复制到 Home Assistant。目标位置必须在 allowlist_external_dirs 中。",
+      "fields": {
+        "node_id": {
+          "name": "节点 ID",
+          "description": "哪台电脑。留空：唯一已配对的那台。"
+        },
+        "path": {
+          "name": "电脑上的路径",
+          "description": "要获取的文件。"
+        },
+        "destination": {
+          "name": "Home Assistant 中的目标位置",
+          "description": "文件夹或文件路径。"
+        },
+        "overwrite": {
+          "name": "覆盖已有文件",
+          "description": "如果目标已存在，则替换它。"
+        }
+      }
+    },
+    "tv_update": {
+      "name": "更新 DeskmateTV",
+      "description": "通过 Deskmate Link 把新的 DeskmateTV 版本发送到电视（无需 ADB）。请把 DeskmateTV-X.Y.Z.apk 放到 /config/deskmate_tv。电视会检查 SHA-256、版本是否更高以及签名证书是否相同，然后安装。电视连接时，也会自动发送该文件夹中更新的文件。",
+      "fields": {
+        "node_id": {
+          "name": "节点 ID",
+          "description": "哪台电视。留空：唯一已配对的那台。"
+        },
+        "file": {
+          "name": "APK 文件",
+          "description": "/config/deskmate_tv 中的文件名。留空：最新的 DeskmateTV-X.Y.Z.apk。"
+        }
+      }
+    }
+  }
+}
