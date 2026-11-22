@@ -17,6 +17,7 @@ mod ha_api;
 mod hardware_monitor;
 mod hotkeys;
 mod http_client;
+mod i18n;
 mod keys;
 mod link;
 mod link_files;
@@ -123,6 +124,7 @@ async fn save_config(
     if !config::LANGUAGES.contains(&new_config.language.as_str()) {
         new_config.language = config::SYSTEM_LANGUAGE.into();
     }
+    i18n::set_language(&new_config.language);
     if !matches!(new_config.transport.as_str(), "mqtt" | "link") {
         return Err("transport must be mqtt or link".into());
     }
@@ -274,7 +276,10 @@ async fn save_config(
     config::migrate_node_secrets(&old.node_id, &new_config.node_id)?;
     let branding = new_config.toast_branding;
     config::save(&new_config)?;
+    let tray_config = new_config.clone();
     *state.config.lock().await = new_config;
+    // The tray menu is in the language that was just saved.
+    let _ = rebuild_tray_menu(&app, &tray_config);
     #[cfg(windows)]
     if ha_settings_changed {
         streamdeck::ha_settings_changed(&app);
@@ -561,33 +566,36 @@ pub(crate) fn rebuild_tray_menu(app: &AppHandle, cfg: &AppConfig) -> Result<(), 
     for t in &cfg.tray_actions {
         items.push(mk(&format!("qa_{}", t.id), &t.name).map_err(|e| e.to_string())?);
     }
-    let widgets = mk("widgets", "Show/hide widgets").map_err(|e| e.to_string())?;
+    let widgets = mk("widgets", &i18n::t("Show/hide widgets")).map_err(|e| e.to_string())?;
     let dashboard = dashboard::base_url(cfg)
-        .map(|_| mk("dashboard", "Open Home Assistant"))
+        .map(|_| mk("dashboard", &i18n::t("Open Home Assistant")))
         .transpose()
         .map_err(|e| e.to_string())?;
-    let open = mk("open", "Open Deskmate").map_err(|e| e.to_string())?;
+    let open = mk("open", &i18n::t("Open Deskmate")).map_err(|e| e.to_string())?;
     let connection = cfg
         .configured
         .then(|| {
             mk(
                 "connection",
-                if cfg.connection_paused {
-                    "Connect to Home Assistant"
+                &if cfg.connection_paused {
+                    i18n::t("Connect to Home Assistant")
                 } else {
-                    "Disconnect from Home Assistant"
+                    i18n::t("Disconnect from Home Assistant")
                 },
             )
         })
         .transpose()
         .map_err(|e| e.to_string())?;
-    let quit = mk("quit", "Quit").map_err(|e| e.to_string())?;
+    let quit = mk("quit", &i18n::t("Quit")).map_err(|e| e.to_string())?;
     let sep = PredefinedMenuItem::separator(app).map_err(|e| e.to_string())?;
     let update = updates::available()
         .map(|info| {
             mk(
                 "update",
-                &format!("Update available: Deskmate {}", info.version),
+                &i18n::tf(
+                    "Update available: Deskmate {version}",
+                    &[("version", &info.version)],
+                ),
             )
         })
         .transpose()
@@ -1127,6 +1135,7 @@ pub fn run() {
 
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
     let cfg = config::load();
+    i18n::set_language(&cfg.language);
     #[cfg(windows)]
     let launch_hidden = cfg.launch_hidden
         || std::env::args().any(|arg| arg == family::HIDDEN_ARG)

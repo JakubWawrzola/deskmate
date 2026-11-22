@@ -518,13 +518,16 @@ fn toast(title: &str, message: &str, more_time: MoreTime) {
     let mut actions = Vec::new();
     if more_time != MoreTime::None {
         actions.push(crate::notify::NotifyAction {
-            title: "Ask for more time".into(),
+            title: crate::i18n::t("Ask for more time"),
             action: MORE_TIME_ACTION.into(),
         });
     }
     if more_time == MoreTime::AskOrPassword {
         actions.push(crate::notify::NotifyAction {
-            title: format!("{} min with a password", local_time::GRANT_MIN),
+            title: crate::i18n::tf(
+                "{minutes} min with a password",
+                &[("minutes", &local_time::GRANT_MIN.to_string())],
+            ),
             action: local_time::ACTION.into(),
         });
     }
@@ -571,15 +574,22 @@ fn tick(rt: &mut Runtime, rules: &FamilyConfig) -> HashMap<String, String> {
             if let Some(next) = evaluation.next_stop_min {
                 let warn_at = warnings::in_force(&rules.warn_at_min);
                 if warnings::due(warn_at, next, &mut usage.warned) {
-                    let plural = if next == 1 { "" } else { "s" };
-                    let what = if evaluation.stop_is_bedtime {
-                        format!("Bedtime in {next} minute{plural}")
-                    } else {
-                        format!("{next} minute{plural} of screen time left")
+                    let minutes = next.to_string();
+                    let what = match (evaluation.stop_is_bedtime, next) {
+                        (true, 1) => crate::i18n::t("Bedtime in 1 minute"),
+                        (true, _) => crate::i18n::tf(
+                            "Bedtime in {minutes} minutes",
+                            &[("minutes", &minutes)],
+                        ),
+                        (false, 1) => crate::i18n::t("1 minute of screen time left"),
+                        (false, _) => crate::i18n::tf(
+                            "{minutes} minutes of screen time left",
+                            &[("minutes", &minutes)],
+                        ),
                     };
                     toast(
                         &what,
-                        "Save your work. The computer locks when the time is up.",
+                        &crate::i18n::t("Save your work. The computer locks when the time is up."),
                         MoreTime::None,
                     );
                 }
@@ -613,17 +623,28 @@ fn tick(rt: &mut Runtime, rules: &FamilyConfig) -> HashMap<String, String> {
                 };
                 rt.pending = Some((now, grace));
                 let title = if evaluation.status == Status::TimeUp {
-                    "Screen time is up"
+                    crate::i18n::t("Screen time is up")
                 } else {
-                    "Outside the allowed hours"
+                    crate::i18n::t("Outside the allowed hours")
                 };
-                let action = if sign_out { "signs you out" } else { "locks" };
+                let seconds = grace.as_secs().to_string();
+                let message = if sign_out {
+                    crate::i18n::tf(
+                        "This computer signs you out in {seconds} seconds.",
+                        &[("seconds", &seconds)],
+                    )
+                } else {
+                    crate::i18n::tf(
+                        "This computer locks in {seconds} seconds.",
+                        &[("seconds", &seconds)],
+                    )
+                };
                 let can_add = evaluation.status == Status::TimeUp
                     && !rules.local_extra_off
                     && usage.local_bonus_min < local_time::DAILY_MAX_MIN;
                 toast(
-                    title,
-                    &format!("This computer {action} in {} seconds.", grace.as_secs()),
+                    &title,
+                    &message,
                     if can_add {
                         MoreTime::AskOrPassword
                     } else {
@@ -670,8 +691,8 @@ fn tick(rt: &mut Runtime, rules: &FamilyConfig) -> HashMap<String, String> {
                 if due {
                     rt.blocked_notice.insert(name.clone(), now);
                     toast(
-                        &format!("{name} is blocked"),
-                        "The family rules on this computer block it.",
+                        &crate::i18n::tf("{name} is blocked", &[("name", name)]),
+                        &crate::i18n::t("The family rules on this computer block it."),
                         MoreTime::None,
                     );
                 }
@@ -731,10 +752,16 @@ pub async fn add_local_time(app: &AppHandle) -> Result<(), String> {
     crate::transport::publish_states(app, &values).await;
     let _ = tokio::task::spawn_blocking(move || {
         toast(
-            &format!("{} extra minutes", local_time::GRANT_MIN),
-            &format!(
-                "An administrator added them on this computer: {granted} of {} minutes today.",
-                local_time::DAILY_MAX_MIN
+            &crate::i18n::tf(
+                "{minutes} extra minutes",
+                &[("minutes", &local_time::GRANT_MIN.to_string())],
+            ),
+            &crate::i18n::tf(
+                "An administrator added them on this computer: {added} of {max} minutes today.",
+                &[
+                    ("added", &granted.to_string()),
+                    ("max", &local_time::DAILY_MAX_MIN.to_string()),
+                ],
             ),
             MoreTime::None,
         )
@@ -848,8 +875,11 @@ pub async fn handle_command(app: &AppHandle, key: &str, payload: &str) -> Result
             if minutes > 0 {
                 let _ = tokio::task::spawn_blocking(move || {
                     toast(
-                        &format!("{minutes} extra minutes today"),
-                        "Home Assistant gave this computer more screen time.",
+                        &crate::i18n::tf(
+                            "{minutes} extra minutes today",
+                            &[("minutes", &minutes.to_string())],
+                        ),
+                        &crate::i18n::t("Home Assistant gave this computer more screen time."),
                         MoreTime::None,
                     )
                 })
@@ -882,7 +912,7 @@ async fn lock_with_message(text: &str) -> Result<(), String> {
     }
     crate::security::audit("family_rules", "lock_with_message");
     tokio::task::spawn_blocking(move || {
-        toast("Message from home", &text, MoreTime::None);
+        toast(&crate::i18n::t("Message from home"), &text, MoreTime::None);
         std::thread::sleep(LOCK_MESSAGE_DELAY);
         crate::sys_commands::lock_now()
     })

@@ -96,6 +96,8 @@ features = [
   "Storage_Streams",
   "Win32_Foundation",
   "Win32_UI_WindowsAndMessaging",
+  # the language of the user's Windows (i18n.rs)
+  "Win32_Globalization",
   "Win32_UI_Input_KeyboardAndMouse",
   # game controller input for the idle time sensor (gamepad.rs)
   "Win32_UI_Input_XboxController",

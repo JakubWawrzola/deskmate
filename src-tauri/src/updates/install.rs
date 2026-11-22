@@ -267,8 +267,11 @@ pub async fn settle_last_install(app: &AppHandle) {
         return;
     }
     let toast = NotifyPayload {
-        title: format!("Deskmate was updated to {}", logged(&attempt.to)),
-        message: "Settings and pairing are unchanged.".into(),
+        title: crate::i18n::tf(
+            "Deskmate was updated to {version}",
+            &[("version", &logged(&attempt.to))],
+        ),
+        message: crate::i18n::t("Settings and pairing are unchanged."),
         image: None,
         actions: Vec::new(),
         ..NotifyPayload::default()

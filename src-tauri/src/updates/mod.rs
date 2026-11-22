@@ -290,20 +290,31 @@ async fn announce(app: &AppHandle, info: &UpdateInfo, ask: bool) {
         }
     }
     let message = if ask {
-        "Install it now, or later from the Status page. Settings and pairing are kept."
+        crate::i18n::t(
+            "Install it now, or later from the Status page. Settings and pairing are kept.",
+        )
     } else {
-        "Download it from the tray menu or the Status page. Settings and pairing are kept."
+        crate::i18n::t(
+            "Download it from the tray menu or the Status page. Settings and pairing are kept.",
+        )
     };
     let integration = app
         .state::<AppState>()
         .link_info()
         .map(|hub| hub.integration);
-    let message = match integration_note(integration.as_deref(), &info.version) {
-        Some(note) => format!("{note} {message}"),
-        None => message.to_string(),
+    let message = if integration_is_older(integration.as_deref(), &info.version) {
+        format!(
+            "{} {message}",
+            crate::i18n::t("Update the Deskmate integration in Home Assistant (HACS) first.")
+        )
+    } else {
+        message
     };
     let toast = NotifyPayload {
-        title: format!("Deskmate {} is available", info.version),
+        title: crate::i18n::tf(
+            "Deskmate {version} is available",
+            &[("version", &info.version)],
+        ),
         message,
         image: None,
         actions: Vec::new(),
@@ -312,11 +323,11 @@ async fn announce(app: &AppHandle, info: &UpdateInfo, ask: bool) {
     let buttons = if ask {
         vec![
             OwnButton {
-                title: "Install now".into(),
+                title: crate::i18n::t("Install now"),
                 link: prompt::issue_link(Choice::Install),
             },
             OwnButton {
-                title: "Later".into(),
+                title: crate::i18n::t("Later"),
                 link: prompt::issue_link(Choice::Later),
             },
         ]
@@ -330,14 +341,13 @@ async fn announce(app: &AppHandle, info: &UpdateInfo, ask: bool) {
     }
 }
 
-/// What to say about the integration when Deskmate `offered` is announced.
+/// Whether to mention the integration when Deskmate `offered` is announced.
 /// The integration goes first: it stays compatible with the Deskmate before
 /// it, while a newer Deskmate may use what an older integration lacks. So a
 /// connected integration that is older than the offered Deskmate gets a
 /// reminder; one that is as new, or unknown, gets none.
-fn integration_note(integration: Option<&str>, offered: &str) -> Option<&'static str> {
-    policy::is_newer(integration?, offered)
-        .then_some("Update the Deskmate integration in Home Assistant (HACS) first.")
+fn integration_is_older(integration: Option<&str>, offered: &str) -> bool {
+    integration.is_some_and(|integration| policy::is_newer(integration, offered))
 }
 
 /// "Later": no question and no banner until tomorrow, then both come back.
@@ -579,16 +589,16 @@ mod tests {
 
     #[test]
     fn an_older_integration_is_mentioned_in_the_update_notice() {
-        assert!(integration_note(Some("0.9.0"), "0.9.5").is_some());
-        assert!(integration_note(Some("0.8.5"), "0.9.5").is_some());
+        assert!(integration_is_older(Some("0.9.0"), "0.9.5"));
+        assert!(integration_is_older(Some("0.8.5"), "0.9.5"));
         // As new as the offered Deskmate, or newer: nothing to say.
-        assert_eq!(integration_note(Some("0.9.5"), "0.9.5"), None);
-        assert_eq!(integration_note(Some("0.10.0"), "0.9.5"), None);
+        assert!(!integration_is_older(Some("0.9.5"), "0.9.5"));
+        assert!(!integration_is_older(Some("0.10.0"), "0.9.5"));
         // Not connected over Link, an integration older than `info`, or a
         // version that cannot be read.
-        assert_eq!(integration_note(None, "0.9.5"), None);
-        assert_eq!(integration_note(Some("dev"), "0.9.5"), None);
-        assert_eq!(integration_note(Some(""), "0.9.5"), None);
+        assert!(!integration_is_older(None, "0.9.5"));
+        assert!(!integration_is_older(Some("dev"), "0.9.5"));
+        assert!(!integration_is_older(Some(""), "0.9.5"));
     }
 
     #[test]
