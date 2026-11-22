@@ -15,6 +15,10 @@ notes and asset names are available in `docs/releases/RELEASE-*.md`.
   to seek. On Windows this works with players that report a timeline to
   Windows, on Linux with MPRIS players that have a position. On Windows the
   card also shows the cover of the track, while *Media title* is on.
+- **Any reading of LibreHardwareMonitor as a sensor** (#42): power draw,
+  clock speeds, fans, drive and power supply temperatures. While that
+  program runs, Sensors → *Your sensors* lists what it reads, and each
+  reading you pick becomes a sensor in Home Assistant.
 - **GPU temperature without LibreHardwareMonitor** (#42): the sensor now
   reads what the graphics driver reports to Windows, as Task Manager does.
 - **More hardware sensors without a driver** (#42): *Memory used* in MiB,

@@ -13,6 +13,7 @@ mod family;
 mod farewell;
 mod gamepad;
 mod ha_api;
+mod hardware_monitor;
 mod hotkeys;
 mod http_client;
 mod keys;
@@ -823,6 +824,15 @@ async fn remove_custom_command(
 
 // ---------- custom sensors (Sensors page) ----------
 
+/// The sensors LibreHardwareMonitor offers right now, for the picker on the
+/// Sensors page. Reads only; nothing is sent to Home Assistant.
+#[tauri::command]
+async fn list_monitor_sensors() -> Result<Vec<hardware_monitor::MonitorSensor>, String> {
+    tokio::task::spawn_blocking(hardware_monitor::list)
+        .await
+        .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 async fn add_custom_sensor(
     app: AppHandle,
@@ -838,12 +848,15 @@ async fn add_custom_sensor(
         return Err("name and target are required".into());
     }
     if !custom_sensors::KINDS.contains(&kind.as_str()) {
-        return Err("kind must be process|window|service|powershell".into());
+        return Err("kind must be process|window|service|powershell|monitor".into());
     }
     let mut target = target.trim().to_string();
     if kind == "process" {
         target = processes::normalize_name(&target)
             .ok_or("give the program's name, e.g. steam.exe, not a path")?;
+    }
+    if kind == "monitor" && !hardware_monitor::is_identifier(&target) {
+        return Err("pick a sensor from the list of the monitoring program".into());
     }
     let cfg = {
         let mut cfg = state.config.lock().await;
@@ -1302,6 +1315,7 @@ pub fn run() {
             autostart::get_start_with_windows,
             autostart::set_start_with_windows,
             add_custom_sensor,
+            list_monitor_sensors,
             set_custom_sensor_enabled,
             remove_custom_sensor,
             dashboard::open_dashboard,

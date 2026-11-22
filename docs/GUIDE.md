@@ -204,9 +204,20 @@ Sensors page → *Your sensors* adds sensors of your own:
 | Windows service state | `running`, `stopped`, `paused`, ... | `Spooler` |
 | PowerShell output | the first line a command prints (optional unit) | `(Get-Process chrome -ErrorAction SilentlyContinue).Count` |
 
+| Hardware monitor sensor | one reading of LibreHardwareMonitor, with its unit | CPU package power, a fan, a drive temperature |
+
 PowerShell sensors run in the background on their own interval (30 seconds or
 more), keep their last value if a run fails, and start disabled: enable one
 after checking the command.
+
+A hardware monitor sensor brings what Windows itself does not tell: power
+draw, clock speeds, fan speeds, the temperatures of drives and of the power
+supply, on hardware that
+[LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor)
+can read. Start that program, choose *Hardware monitor sensor*, press *Look
+for sensors* and pick one from the list. Nothing is sent until you add a
+sensor. It has a value while LibreHardwareMonitor runs and keeps the last
+one when it is closed.
 
 ### CPU temperature
 

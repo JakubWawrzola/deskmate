@@ -88,11 +88,13 @@ pub struct CustomSensor {
     /// [a-z0-9_]
     pub id: String,
     pub name: String,
-    /// process | window | service | powershell
+    /// process | window | service | powershell | monitor
     pub kind: String,
-    /// program name | window title text | service name | PowerShell command
+    /// program name | window title text | service name | PowerShell command |
+    /// the identifier of a sensor of LibreHardwareMonitor
     pub target: String,
-    /// optional unit for a PowerShell sensor that prints a number
+    /// optional unit for a PowerShell sensor that prints a number; the unit
+    /// of a monitor sensor
     #[serde(default)]
     pub unit: String,
     /// PowerShell only: seconds between runs (30 or more)

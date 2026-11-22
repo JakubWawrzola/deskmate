@@ -10,6 +10,7 @@ import type {
   FamilyView,
   FileEvent,
   Hotkey,
+  MonitorSensor,
   NotifyRecord,
   PlatformCapabilities,
   ServiceSetupAction,
@@ -89,6 +90,7 @@ export const api = {
       action,
       args: args ?? null,
     }),
+  listMonitorSensors: () => invoke<MonitorSensor[]>("list_monitor_sensors"),
   addCustomSensor: (
     name: string,
     kind: CustomSensorKind,

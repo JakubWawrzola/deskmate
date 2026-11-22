@@ -2,13 +2,21 @@ import { useState } from "react";
 import { api } from "../api";
 import { Button, EmptyState, Field, Panel, Toggle } from "../components";
 import { isLinux, UnavailablePanel, usePlatform } from "../platform";
-import type { AppConfig, CustomSensor, CustomSensorKind, SensorDef, Snapshot } from "../types";
+import type {
+  AppConfig,
+  CustomSensor,
+  CustomSensorKind,
+  MonitorSensor,
+  SensorDef,
+  Snapshot,
+} from "../types";
 
 const KIND_LABEL: Record<CustomSensorKind, string> = {
   process: "program running",
   window: "window open",
   service: "service state",
   powershell: "PowerShell",
+  monitor: "hardware monitor",
 };
 
 const TARGET_LABEL: Record<CustomSensorKind, string> = {
@@ -16,6 +24,7 @@ const TARGET_LABEL: Record<CustomSensorKind, string> = {
   window: "Window title contains",
   service: "Service name",
   powershell: "PowerShell command",
+  monitor: "Sensor",
 };
 
 const TARGET_PLACEHOLDER: Record<CustomSensorKind, string> = {
@@ -23,6 +32,7 @@ const TARGET_PLACEHOLDER: Record<CustomSensorKind, string> = {
   window: "Microsoft Teams",
   service: "Spooler",
   powershell: "(Get-Process chrome -ErrorAction SilentlyContinue).Count",
+  monitor: "",
 };
 
 /** Same keys as custom_sensors.rs: on/off sensors "csb_", the others "cs_". */
@@ -47,6 +57,8 @@ function YourSensors({
   const [unit, setUnit] = useState("");
   const [interval, setIntervalS] = useState("60");
   const [error, setError] = useState<string | null>(null);
+  // null until the user has looked for the sensors of the monitoring program.
+  const [found, setFound] = useState<MonitorSensor[] | null>(null);
   const sensors = config.custom_sensors ?? [];
 
   const run = async (action: () => Promise<void>) => {
@@ -65,7 +77,7 @@ function YourSensors({
         name.trim(),
         kind,
         target.trim(),
-        kind === "powershell" ? unit.trim() : undefined,
+        kind === "powershell" || kind === "monitor" ? unit.trim() : undefined,
         kind === "powershell" ? Math.max(30, parseInt(interval, 10) || 60) : undefined,
       );
       setName("");
@@ -73,13 +85,31 @@ function YourSensors({
       setUnit("");
     });
 
+  const find = async () => {
+    setError(null);
+    try {
+      setFound(await api.listMonitorSensors());
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  const pick = (identifier: string) => {
+    const sensor = found?.find((candidate) => candidate.identifier === identifier);
+    setTarget(identifier);
+    setUnit(sensor?.unit ?? "");
+    if (sensor && !name.trim()) setName(sensor.name);
+  };
+
   return (
     <Panel title="Your sensors">
       <p className="text-[12px] text-muted mb-3 leading-relaxed">
         Extra sensors for Home Assistant: whether a program runs or a window is open (on/off), the
         state of a Windows service, or the first line a PowerShell command prints. PowerShell
         sensors run in the background every interval (30 s or more) and start disabled; enable one
-        after checking the command.
+        after checking the command. A hardware monitor sensor is one of the readings of
+        LibreHardwareMonitor (power, clock speeds, temperatures, fans), picked from its list while
+        that program runs.
       </p>
       {sensors.length === 0 && <EmptyState text="No sensors of your own yet." />}
       {sensors.map((sensor) => {
@@ -115,22 +145,61 @@ function YourSensors({
           <span className="microlabel">Type</span>
           <select
             value={kind}
-            onChange={(e) => setKind(e.target.value as CustomSensorKind)}
+            onChange={(e) => {
+              setKind(e.target.value as CustomSensorKind);
+              setTarget("");
+              setUnit("");
+            }}
             className="mt-1 w-full h-9 px-2 bg-panel border border-hairline-strong rounded text-ink text-[13px] focus-visible:border-ink"
           >
             <option value="process">Program running</option>
             <option value="window">Window open</option>
             <option value="service">Windows service state</option>
             <option value="powershell">PowerShell output</option>
+            <option value="monitor">Hardware monitor sensor</option>
           </select>
         </label>
-        <Field
-          label={TARGET_LABEL[kind]}
-          value={target}
-          onChange={setTarget}
-          placeholder={TARGET_PLACEHOLDER[kind]}
-        />
+        {kind === "monitor" ? (
+          <div className="flex items-end gap-3">
+            <label className="block flex-1 min-w-0">
+              <span className="microlabel">{TARGET_LABEL[kind]}</span>
+              <select
+                value={target}
+                onChange={(e) => pick(e.target.value)}
+                disabled={!found || found.length === 0}
+                className="mt-1 w-full h-9 px-2 bg-panel border border-hairline-strong rounded text-ink text-[13px] focus-visible:border-ink"
+              >
+                <option value="">
+                  {found === null
+                    ? "Look for sensors first"
+                    : found.length === 0
+                      ? "No sensors found"
+                      : "Choose a sensor"}
+                </option>
+                {found?.map((sensor) => (
+                  <option key={sensor.identifier} value={sensor.identifier}>
+                    {sensor.name} ({sensor.value.toFixed(1)}
+                    {sensor.unit ? ` ${sensor.unit}` : ""})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <Button onClick={() => void find()}>Look for sensors</Button>
+          </div>
+        ) : (
+          <Field
+            label={TARGET_LABEL[kind]}
+            value={target}
+            onChange={setTarget}
+            placeholder={TARGET_PLACEHOLDER[kind]}
+          />
+        )}
       </div>
+      {kind === "monitor" && found?.length === 0 && (
+        <p className="mt-2 text-[12px] text-muted">
+          LibreHardwareMonitor is not running, or it reports no sensors. Start it and look again.
+        </p>
+      )}
       <div className="mt-3 grid grid-cols-[150px_170px_1fr_auto] gap-3 items-end">
         {kind === "powershell" ? (
           <>

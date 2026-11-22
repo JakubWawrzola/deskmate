@@ -5,7 +5,9 @@
 //! - service: state of a Windows service (running, stopped, ...);
 //! - powershell: the first line a PowerShell command prints, on its own
 //!   interval (30 s or more) and in the background, so a slow script never
-//!   delays the other sensors. Starts disabled, like custom commands.
+//!   delays the other sensors. Starts disabled, like custom commands;
+//! - monitor: a sensor of LibreHardwareMonitor picked from the list that
+//!   program publishes (hardware_monitor.rs).
 //!
 //! How they are described to Home Assistant (key, component, icon) is in
 //! deskmate-core, next to the entity declarations.
@@ -26,7 +28,7 @@ use deskmate_core::custom_sensors::key;
 
 use crate::config::{AppConfig, CustomSensor};
 
-pub const KINDS: [&str; 4] = ["process", "window", "service", "powershell"];
+pub const KINDS: [&str; 5] = ["process", "window", "service", "powershell", "monitor"];
 const POWERSHELL_TIMEOUT: Duration = Duration::from_secs(20);
 const MAX_VALUE_CHARS: usize = 255;
 
@@ -46,6 +48,11 @@ pub fn collect(cfg: &AppConfig, out: &mut HashMap<String, String>) {
         .any(|s| s.kind == "window")
         .then(win::visible_window_titles)
         .unwrap_or_default();
+    let monitor = enabled
+        .iter()
+        .any(|s| s.kind == "monitor")
+        .then(crate::hardware_monitor::values)
+        .unwrap_or_default();
     for sensor in enabled {
         let value = match sensor.kind.as_str() {
             "process" => Some(on_off(crate::processes::is_running(
@@ -60,6 +67,10 @@ pub fn collect(cfg: &AppConfig, out: &mut HashMap<String, String>) {
             }
             "service" => Some(win::service_state(sensor.target.trim())),
             "powershell" => powershell_value(sensor),
+            // No value while the monitoring program does not run.
+            "monitor" => monitor
+                .get(&sensor.target)
+                .map(|value| crate::hardware_monitor::formatted(*value)),
             _ => None,
         };
         if let Some(value) = value {

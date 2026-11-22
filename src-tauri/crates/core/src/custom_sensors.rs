@@ -31,6 +31,7 @@ pub fn icon(sensor: &CustomSensor) -> &'static str {
         "process" => "mdi:application-cog",
         "window" => "mdi:application-outline",
         "service" => "mdi:cog-outline",
+        "monitor" => "mdi:chip",
         _ => "mdi:console",
     }
 }

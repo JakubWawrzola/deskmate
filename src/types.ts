@@ -1,7 +1,15 @@
 export type CustomKind = "button" | "switch" | "number";
 /** powershell: a script; launch: open a program, file or URL; stop: stop a program by name; keys: press a key combination */
 export type CustomAction = "powershell" | "launch" | "stop" | "keys";
-export type CustomSensorKind = "process" | "window" | "service" | "powershell";
+export type CustomSensorKind = "process" | "window" | "service" | "powershell" | "monitor";
+
+/** A sensor LibreHardwareMonitor offers (hardware_monitor.rs). */
+export interface MonitorSensor {
+  identifier: string;
+  name: string;
+  unit: string;
+  value: number;
+}
 export type ClipboardMode = "off" | "confirm" | "automatic";
 export type MqttTransport = "tls" | "insecure";
 export type TransportKind = "mqtt" | "link";
