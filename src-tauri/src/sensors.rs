@@ -100,7 +100,7 @@ impl Collector {
                 self.screen = None;
             }
             if is_enabled(cfg, "user_state") {
-                if let Some(state) = crate::user_state::current() {
+                if let Some(state) = crate::user_state::current(&cfg.game_programs) {
                     out.insert("user_state".into(), state.into());
                 }
             }
@@ -411,6 +411,37 @@ pub mod win {
                 ),
                 Err(_) => false,
             }
+        }
+    }
+
+    /// The full path of the program whose window is in front, or None when
+    /// there is no such window or Windows does not tell.
+    pub fn foreground_program_path() -> Option<String> {
+        // SAFETY: the buffer and its length are valid for the call that
+        // fills them, the process handle is closed before leaving the block,
+        // and `length` is what the call wrote, so the slice is in bounds.
+        unsafe {
+            let window: HWND = GetForegroundWindow();
+            if window.0.is_null() {
+                return None;
+            }
+            let mut pid = 0u32;
+            GetWindowThreadProcessId(window, Some(&mut pid));
+            if pid == 0 {
+                return None;
+            }
+            let process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid).ok()?;
+            let mut buffer = [0u16; 1024];
+            let mut length = buffer.len() as u32;
+            let read = QueryFullProcessImageNameW(
+                process,
+                PROCESS_NAME_FORMAT(0),
+                windows::core::PWSTR(buffer.as_mut_ptr()),
+                &mut length,
+            );
+            let _ = CloseHandle(process);
+            read.ok()?;
+            Some(String::from_utf16_lossy(&buffer[..length as usize]))
         }
     }
 

@@ -227,6 +227,52 @@ function YourSensors({
   );
 }
 
+/** Which programs the "User state" sensor counts as games (user_state.rs). */
+function GamePrograms({
+  config,
+  onChanged,
+}: {
+  config: AppConfig;
+  onChanged: () => Promise<void>;
+}) {
+  const [programs, setPrograms] = useState((config.game_programs ?? []).join(", "));
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const save = async () => {
+    setMsg(null);
+    try {
+      await api.setGamePrograms(
+        programs
+          .split(/[,;\n]+/)
+          .map((program) => program.trim())
+          .filter(Boolean),
+      );
+      await onChanged();
+      setMsg("Saved.");
+    } catch (e) {
+      setMsg(String(e));
+    }
+  };
+
+  return (
+    <div className="mt-3 pt-3 border-t border-hairline">
+      <div className="flex items-end gap-3">
+        <div className="flex-1">
+          <Field
+            label="Games for User state"
+            value={programs}
+            onChange={setPrograms}
+            placeholder="minecraft, robloxplayerbeta"
+            hint='A game in a borderless window looks like any full-screen program to Windows. Games from Steam, Epic, GOG, Xbox, Riot and EA folders are recognised by themselves; list others here by program name and "User state" shows game for them too.'
+          />
+        </div>
+        <Button onClick={() => void save()}>Save</Button>
+      </div>
+      {msg && <p className="mt-2 text-[12px] text-muted">{msg}</p>}
+    </div>
+  );
+}
+
 function enabledOf(cfg: AppConfig, def: SensorDef): boolean {
   const v = cfg.sensors_enabled[def.id];
   return v === undefined ? def.default_enabled : v;
@@ -383,6 +429,7 @@ export default function SensorsPage({
             onToggle={(v) => void toggle(d.id, v)}
           />
         ))}
+        {!linux && <GamePrograms config={config} onChanged={onChanged} />}
       </Panel>
 
       {linux ? (

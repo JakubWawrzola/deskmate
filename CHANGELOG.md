@@ -41,6 +41,10 @@ notes and asset names are available in `docs/releases/RELEASE-*.md`.
   of leaving it to Windows (about 21 seconds), and an address that cannot be
   reached gives way to the other one at once instead of after two attempts.
   With no fallback address set, the status says how to add one.
+- **User state shows `game` for borderless games**: a game in a window
+  without a border used to count as `fullscreen`, like a film. It is a game
+  now when its program runs from the folder of a game store, or is on the
+  list on the Sensors page.
 - The notification about a new Deskmate says to update the integration first
   when the connected one is older than the version on offer.
 - Section headings in the window are darker and heavier (#46).

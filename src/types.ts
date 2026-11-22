@@ -170,6 +170,8 @@ export interface AppConfig {
   sensors_enabled: Record<string, boolean>;
   custom_commands: CustomCommand[];
   custom_sensors?: CustomSensor[];
+  /** Programs the user state counts as games, such as "eldenring.exe". */
+  game_programs?: string[];
   launch_hidden: boolean;
   allow_input: boolean;
   tts_enabled: boolean;

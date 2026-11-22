@@ -82,6 +82,9 @@ fn default_command_action() -> String {
     "powershell".into()
 }
 
+/// Most programs a user may list in `AppConfig::game_programs`.
+pub const MAX_GAME_PROGRAMS: usize = 40;
+
 /// A sensor added on the Sensors page (custom_sensors.rs).
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CustomSensor {
@@ -272,6 +275,10 @@ pub struct AppConfig {
     pub custom_commands: Vec<CustomCommand>,
     #[serde(default)]
     pub custom_sensors: Vec<CustomSensor>,
+    /// Programs the user state counts as games while they fill the screen,
+    /// as executable names such as "eldenring.exe" (user_state.rs).
+    #[serde(default)]
+    pub game_programs: Vec<String>,
     pub launch_hidden: bool,
     /// opt-in: allow HA to type text / control a presentation (SendInput keystrokes)
     pub allow_input: bool,
@@ -376,6 +383,7 @@ impl Default for AppConfig {
             sensors_enabled: Default::default(),
             custom_commands: Vec::new(),
             custom_sensors: Vec::new(),
+            game_programs: Vec::new(),
             launch_hidden: false,
             allow_input: false,
             tts_enabled: false,

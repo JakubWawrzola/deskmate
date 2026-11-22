@@ -142,7 +142,10 @@ One device per PC, with:
   Windows thinks you are doing: `normal`, `fullscreen` (a full-screen app),
   `game` (a full-screen game), `presentation` (Windows presentation settings
   are on) or `busy` (the screen saver is on, the PC is locked, or another
-  user's session is active).
+  user's session is active). A game in a borderless window looks like any
+  full-screen program to Windows; from 0.9.5 Deskmate reports `game` for it
+  when the program runs from a Steam, Epic, GOG, Xbox, Riot or EA folder, or
+  when you list it under *Games for User state* on the Sensors page.
 - **Screen on** follows the PC's display: off when Windows turned the screen
   off, on when it is on or dimmed.
 - **GPU temperature** needs nothing extra from 0.9.5: Deskmate reads what the

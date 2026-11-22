@@ -634,6 +634,32 @@ async fn set_sensor_enabled(
     Ok(())
 }
 
+/// The programs the user state counts as games (user_state.rs). Names are
+/// reduced to plain executable names; a path or an empty entry is refused.
+#[tauri::command]
+async fn set_game_programs(
+    state: State<'_, AppState>,
+    programs: Vec<String>,
+) -> Result<(), String> {
+    let mut names = Vec::new();
+    for program in programs.iter().filter(|program| !program.trim().is_empty()) {
+        let name = processes::normalize_name(program)
+            .ok_or_else(|| format!("not a program name: {}", program.trim()))?;
+        if !names.contains(&name) {
+            names.push(name);
+        }
+    }
+    if names.len() > config::MAX_GAME_PROGRAMS {
+        return Err(format!("at most {} programs", config::MAX_GAME_PROGRAMS));
+    }
+    let cfg = {
+        let mut cfg = state.config.lock().await;
+        cfg.game_programs = names;
+        cfg.clone()
+    };
+    config::save(&cfg)
+}
+
 /// Several sensors at once ("All on" / "All off" on the Sensors page), with
 /// one declaration to Home Assistant instead of one per sensor.
 #[tauri::command]
@@ -1315,6 +1341,7 @@ pub fn run() {
             autostart::get_start_with_windows,
             autostart::set_start_with_windows,
             add_custom_sensor,
+            set_game_programs,
             list_monitor_sensors,
             set_custom_sensor_enabled,
             remove_custom_sensor,
