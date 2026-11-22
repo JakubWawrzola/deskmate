@@ -268,6 +268,7 @@ mod linux {
         /// reading already has a value. Without it the sensor would appear
         /// one reading after the others, and the computer would declare
         /// its entities twice at every start.
+        #[cfg(target_os = "linux")]
         pub fn primed() -> Self {
             let stats = std::fs::read_to_string(DISKSTATS).unwrap_or_default();
             Self {
