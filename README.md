@@ -161,6 +161,22 @@ hitting: no native ARM64 build, and a handful of entities I wanted
 (camera and mic in use, keep awake as a switch, hotkeys as Home Assistant
 events, a widget panel, files from the phone).
 
+Side by side, as far as I know HASS.Agent; tell me in an issue where this is
+wrong or out of date:
+
+| | Deskmate | HASS.Agent |
+|---|---|---|
+| Runs on | Windows x64 and ARM64, both native; Linux as a preview | Windows x64 |
+| Connects through | its own Home Assistant integration, over one encrypted connection that the PC opens; MQTT if you prefer | an MQTT broker and a Home Assistant token, plus an integration for notifications and the media player |
+| While nobody is signed in | the Deskmate service: sensors and power buttons | the satellite service: sensors and commands |
+| Your own commands | actions you set up in the app, picked by Home Assistant from that list | custom commands and PowerShell, set up in the app |
+| Your own sensors | program, window, Windows service, PowerShell output, LibreHardwareMonitor reading | more kinds, among them WMI queries and performance counters |
+| Screen time and family rules | yes, counted and enforced on the PC | no |
+| Files and clipboard between phone and PC | yes | no |
+| Stream Deck | a plugin that comes with the app | no |
+| Updates | signed, installed from the app | from the app |
+| Around since | 2026 | 2022, with a larger community and more guides |
+
 ## Documentation
 
 - [docs/GUIDE.md](docs/GUIDE.md): the guide, start here
