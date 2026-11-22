@@ -67,12 +67,13 @@ for (const file of sourceFiles(sourceDir)) {
 const placeholders = (text) => (text.match(/\{\w+\}/g) ?? []).sort().join(" ");
 // Some texts are parts of a sentence around a name or a link, and the space
 // at their edge is what keeps the words apart. A part that goes on with
-// punctuation may drop the space in front.
+// punctuation may drop the space in front, or add one where the language
+// writes a space before a colon.
 const edges = (text) => [text.match(/^ */)[0], text.match(/ *$/)[0]];
 function sameEdges(source, translated) {
   const [sourceStart, sourceEnd] = edges(source);
   const [start, end] = edges(translated);
-  return sourceEnd === end && (sourceStart === start || /^[.,:;)]/.test(translated));
+  return sourceEnd === end && (sourceStart === start || /^ *[.,:;)]/.test(translated));
 }
 
 for (const name of readdirSync(i18nDir).filter((file) => file.endsWith(".json"))) {
