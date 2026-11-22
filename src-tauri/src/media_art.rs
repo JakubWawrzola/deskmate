@@ -4,9 +4,10 @@
 //! side, once per track. Everything here blocks (WinRT calls), so callers
 //! run it off the async runtime.
 
-use deskmate_core::link::media::{art_hash, MediaArt, MAX_MEDIA_ART_BYTES};
+use deskmate_core::link::media::MediaArt;
 
 /// Longest side of the picture that is sent, in pixels.
+#[cfg(any(windows, test))]
 const MAX_SIDE_PX: u32 = 512;
 /// Largest thumbnail that is read at all. A player has no reason to hand out
 /// more, and the limit keeps a broken one from filling the memory.
@@ -99,6 +100,7 @@ impl ArtTracker {
 
 /// The size to scale a picture of `width` by `height` to, so that neither
 /// side is longer than `MAX_SIDE_PX`. A smaller picture keeps its size.
+#[cfg(any(windows, test))]
 fn scaled(width: u32, height: u32) -> Option<(u32, u32)> {
     if width == 0 || height == 0 {
         return None;
@@ -136,6 +138,7 @@ pub fn current() -> Option<MediaArt> {
 
 #[cfg(windows)]
 fn read_current() -> windows::core::Result<Option<MediaArt>> {
+    use deskmate_core::link::media::{art_hash, MAX_MEDIA_ART_BYTES};
     use windows::Graphics::Imaging::{
         BitmapAlphaMode, BitmapDecoder, BitmapEncoder, BitmapInterpolationMode, BitmapPixelFormat,
         BitmapTransform, ColorManagementMode, ExifOrientationMode,
@@ -205,6 +208,7 @@ fn read_current() -> windows::core::Result<Option<MediaArt>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use deskmate_core::link::media::art_hash;
 
     fn art(byte: u8) -> MediaArt {
         let jpeg = vec![0xff, 0xd8, 0xff, byte];

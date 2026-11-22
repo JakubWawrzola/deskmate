@@ -11,6 +11,7 @@ use std::time::{Duration, Instant};
 /// free.
 const READ_EVERY: Duration = Duration::from_secs(600);
 /// More drives than this are a storage array, not a desktop.
+#[cfg(windows)]
 const MAX_DRIVES: usize = 16;
 
 /// One drive: its number in Windows (Disk 0, Disk 1) and its health.
