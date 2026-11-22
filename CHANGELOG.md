@@ -39,7 +39,8 @@ notes and asset names are available in `docs/releases/RELEASE-*.md`.
   notifications and the Home Assistant integration are in English, German,
   Spanish, French, Polish, Brazilian Portuguese and Simplified Chinese.
   Deskmate follows the language of the system, and Settings → *Language*
-  picks another one. Entity names stay in English. Most translations were
+  picks another one. The Windows installer follows the language of Windows.
+  Entity names stay in English. Most translations were
   not written by native speakers; CONTRIBUTING.md says how to correct one.
 - **Current user stays right without a signed-in user** (#8): with the
   Deskmate service installed, the sensor shows `none` at the sign-in screen

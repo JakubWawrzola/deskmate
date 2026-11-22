@@ -80,9 +80,9 @@ What people asked for after 0.9.0, on GitHub, Reddit and Facebook.
 - **Clearer headings** in the app window (#46).
 - **Languages** (#48): the app, its installer and the Home Assistant
   integration in English, German, French, Spanish, Portuguese (Brazil),
-  Polish and Simplified Chinese. The installer asks for the language, the
-  app follows it and can switch in Settings. Corrections from native
-  speakers are welcome as pull requests.
+  Polish and Simplified Chinese. The installer and the app follow the
+  language of Windows, and the app can switch in Settings. Corrections from
+  native speakers are welcome as pull requests.
 - **Docs**: a side-by-side comparison with HASS.Agent, the Deskmate service
   explained in plain words, and a step-by-step guide to the family rules.
 - **Under investigation**:

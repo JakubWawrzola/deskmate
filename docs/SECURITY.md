@@ -1,6 +1,6 @@
 # Security
 
-Last reviewed: 2026-11-16. Scope: Deskmate 0.9.0: the Windows app, the
+Last reviewed: 2026-11-22. Scope: Deskmate 0.9.5: the Windows app, the
 [Linux daemon](#the-linux-daemon) and the
 [Linux desktop app](#the-linux-desktop-app), the Home
 Assistant integration (`deskmate_link`), the Deskmate Link connection between

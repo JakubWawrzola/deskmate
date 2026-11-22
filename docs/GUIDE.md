@@ -213,7 +213,6 @@ Sensors page → *Your sensors* adds sensors of your own:
 | Window open | on/off: a visible window whose title contains the text | `Microsoft Teams` |
 | Windows service state | `running`, `stopped`, `paused`, ... | `Spooler` |
 | PowerShell output | the first line a command prints (optional unit) | `(Get-Process chrome -ErrorAction SilentlyContinue).Count` |
-
 | Hardware monitor sensor | one reading of LibreHardwareMonitor, with its unit | CPU package power, a fan, a drive temperature |
 
 PowerShell sensors run in the background on their own interval (30 seconds or
@@ -761,7 +760,8 @@ the order matters.
 Deskmate is in English, German, Spanish, French, Polish, Brazilian Portuguese
 and Simplified Chinese. It follows the language of Windows (on Linux, of the
 session); Settings → **Language** picks another one, and the window, the tray
-menu and Deskmate's own notifications switch at once. The Home Assistant
+menu and Deskmate's own notifications switch at once. The Windows installer
+follows the language of Windows as well. The Home Assistant
 integration follows the language of your Home Assistant profile. Entity names
 stay in English, so automations read the same everywhere; rename an entity in
 Home Assistant if you want it in your language.
