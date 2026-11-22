@@ -129,6 +129,11 @@ pub fn parse(payload: &str) -> NotifyPayload {
                 action.title = action.title.chars().take(80).collect();
                 action.action = action.action.chars().take(128).collect();
             }
+            // This button belongs to Deskmate's own "time is up" notification.
+            // Home Assistant must not be able to put it on one of its own
+            // and raise the administrator prompt.
+            p.actions
+                .retain(|action| action.action != crate::family::LOCAL_TIME_ACTION);
             p
         }
         Err(_) => NotifyPayload {

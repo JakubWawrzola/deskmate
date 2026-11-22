@@ -104,6 +104,8 @@ export interface FamilyConfig {
   time_up_action: string;
   /** Minutes before the stop at which a warning comes; empty = 10, 5, 1. */
   warn_at_min: number[];
+  /** Extra time with an administrator password at the PC is turned off. */
+  local_extra_off: boolean;
 }
 
 export interface FamilyView {
@@ -114,6 +116,11 @@ export interface FamilyView {
   today_min: number;
   left_min: number | null;
   bonus_min: number;
+  /** Minutes an administrator added at the PC today. */
+  local_bonus_min: number;
+  /** What one approval adds, and the most per day. */
+  local_grant_min: number;
+  local_daily_max_min: number;
   /** off | ok | time_up | outside_hours */
   status: string;
 }

@@ -1211,6 +1211,15 @@ pub fn run() {
                 if let Some(mut rx) = rx {
                     tauri::async_runtime::spawn(async move {
                         while let Some(action) = rx.recv().await {
+                            // Deskmate's own button: it asks Windows for an
+                            // administrator, and nothing goes to Home
+                            // Assistant.
+                            if action == family::LOCAL_TIME_ACTION {
+                                if let Err(error) = family::add_local_time(&handle).await {
+                                    log::info!("extra time on this computer: {error}");
+                                }
+                                continue;
+                            }
                             transport::publish_action(&handle, &action).await;
                         }
                     });
@@ -1388,6 +1397,7 @@ pub fn run() {
             family::get_family,
             #[cfg(windows)]
             family::set_family,
+            family::add_local_screen_time,
             #[cfg(windows)]
             family::protect_family_account,
             #[cfg(windows)]

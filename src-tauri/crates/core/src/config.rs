@@ -188,6 +188,10 @@ pub struct FamilyConfig {
     /// Minutes before the stop at which a warning is shown, earliest first.
     /// Empty = the built-in times (family/warnings.rs).
     pub warn_at_min: Vec<u32>,
+    /// Extra time with an administrator password at the computer is turned
+    /// off (family/local_time.rs). Stored the negative way round so that a
+    /// configuration from before the feature has it on.
+    pub local_extra_off: bool,
 }
 
 /// An update install that was started. Written before the installer runs,

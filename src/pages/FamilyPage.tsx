@@ -117,11 +117,31 @@ export default function FamilyPage() {
             </div>
             <div>
               <span className="microlabel">Extra today</span>
-              <p className="mono mt-1">{view.bonus_min} min</p>
+              <p className="mono mt-1">{view.bonus_min + view.local_bonus_min} min</p>
             </div>
             <div>
               <span className="microlabel">Now</span>
               <p className="mt-1">{STATUS_LABEL[view.status] ?? view.status}</p>
+            </div>
+          </div>
+        )}
+        {active && !view.rules.local_extra_off && (
+          <div className="mt-3 pt-3 border-t border-hairline">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-[12px] text-muted leading-relaxed">
+                More time without Home Assistant: an administrator types the Windows password and
+                today's limit grows by {view.local_grant_min} minutes, up to{" "}
+                {view.local_daily_max_min} minutes a day. Added this way today:{" "}
+                {view.local_bonus_min} min.
+              </p>
+              <Button
+                onClick={() =>
+                  void elevated(api.addLocalScreenTime, `${view.local_grant_min} minutes added.`)
+                }
+                disabled={busy || view.local_bonus_min >= view.local_daily_max_min}
+              >
+                +{view.local_grant_min} min
+              </Button>
             </div>
           </div>
         )}
@@ -166,6 +186,16 @@ export default function FamilyPage() {
           <p className="mt-1 text-[12px] text-muted">
             Leave the hours empty for no schedule. "22:00" to "02:00" works across midnight.
           </p>
+          <div className="mt-3 flex items-center justify-between h-9">
+            <span className="text-[13px]">
+              Allow extra time with an administrator password on this computer
+            </span>
+            <Toggle
+              on={!draft.local_extra_off}
+              disabled={locked}
+              onChange={(v) => setDraft({ ...draft, local_extra_off: !v })}
+            />
+          </div>
           <label className="block mt-3">
             <span className="microlabel">When time is up</span>
             <select

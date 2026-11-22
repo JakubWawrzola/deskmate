@@ -623,6 +623,8 @@ The computer's device in Home Assistant then gets:
 | Warnings before the limit | Minutes before the stop at which a notification comes, such as `15, 5, 2`: up to five times between 1 and 120. Empty stands for 10, 5 and 1 |
 | Block apps, Blocked apps | Switch and program names separated by commas (`steam, robloxplayerbeta`); they close as soon as they start |
 | Lock with message | Text shown on the PC, which locks 10 seconds later |
+| Extra time added on the PC | Minutes an administrator added at the computer today |
+| Extra time with an administrator password | Switch: allow that way of adding time |
 
 A *Sign out* button is there on every PC, family rules or not.
 
@@ -632,6 +634,15 @@ When the time is up, a notification with *Ask for
 more time* and one minute to save, then the PC locks (or signs out). Unlocking
 again locks after 20 seconds, until there is time again. Open programs keep
 running behind the lock screen.
+
+**More time without Home Assistant** (from 0.9.5): when Home Assistant
+cannot be reached, or you are standing next to the PC anyway, press *15 min
+with a password* on the "time is up" notification, or *+15 min* on the Family
+page. Windows asks for an administrator password, and the limit of that day
+grows by 15 minutes. It works four times a day, 60 minutes in all, and starts
+again at midnight. Deskmate does not see the password. Home Assistant shows
+the minutes in *Extra time added on the PC*, and the switch *Extra time with
+an administrator password* turns the button off for good.
 
 **Ask for more time** fires `deskmate_link_notify_action` with `action:
 screen_time_more` (over MQTT: the `notify/action` topic). This automation asks

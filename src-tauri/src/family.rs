@@ -24,7 +24,10 @@ use tauri::{AppHandle, Manager};
 use crate::config::{AppConfig, FamilyConfig};
 use crate::state::AppState;
 
+mod local_time;
 mod warnings;
+
+pub use local_time::ACTION as LOCAL_TIME_ACTION;
 
 /// Elevated steps started through UAC from the Family page.
 pub const PROTECT_ARG: &str = "--family-protect";
@@ -78,6 +81,8 @@ pub const ENTITIES: &[(&str, &str)] = &[
     ("sensor", "screen_time_today"),
     ("sensor", "screen_time_left"),
     ("sensor", "screen_time_status"),
+    ("sensor", "screen_time_local_bonus"),
+    ("switch", "local_extra_time"),
     ("switch", "family_rules"),
     ("number", "screen_time_limit"),
     ("number", "screen_time_bonus"),
@@ -100,6 +105,7 @@ const COMMANDS: &[&str] = &[
     "blocked_apps",
     "time_up_action",
     "screen_time_warnings",
+    "local_extra_time",
     "lock_message",
 ];
 
@@ -138,6 +144,12 @@ pub fn link_entities(cfg: &AppConfig) -> Vec<Value> {
                "unit": "min", "device_class": "duration", "icon": "mdi:timer-sand-complete"}),
         json!({"key": "screen_time_status", "kind": "sensor", "name": "Screen time status",
                "icon": "mdi:account-clock"}),
+        json!({"key": "screen_time_local_bonus", "kind": "sensor",
+               "name": "Extra time added on the PC", "unit": "min", "device_class": "duration",
+               "icon": "mdi:timer-lock"}),
+        owned(json!({"key": "local_extra_time", "kind": "switch",
+                     "name": "Extra time with an administrator password",
+                     "icon": "mdi:shield-key"})),
         owned(
             json!({"key": "family_rules", "kind": "switch", "name": "Screen time rules",
                      "icon": "mdi:account-child"}),
@@ -208,6 +220,10 @@ fn rule_values(rules: &FamilyConfig) -> HashMap<String, String> {
         (
             "screen_time_warnings".to_string(),
             warnings::as_text(&rules.warn_at_min),
+        ),
+        (
+            "local_extra_time".to_string(),
+            on_off(!rules.local_extra_off),
         ),
         ("lock_message".to_string(), String::new()),
     ])
@@ -315,6 +331,11 @@ struct Usage {
     seconds: u64,
     /// Extra minutes for today only.
     bonus_min: u32,
+    /// Extra minutes an administrator added at the computer today. Read from
+    /// the registry on every tick (family/local_time.rs) and never written to
+    /// the usage file, which the account itself can edit.
+    #[serde(skip)]
+    local_bonus_min: u32,
     /// Warnings already shown (minutes left).
     warned: Vec<u32>,
 }
@@ -343,7 +364,8 @@ fn schedule(rules: &FamilyConfig) -> Option<(u32, u32)> {
 
 fn evaluate(rules: &FamilyConfig, usage: &Usage, minute_of_day: u32) -> Evaluation {
     let left_secs = (rules.daily_limit_min > 0).then(|| {
-        (u64::from(rules.daily_limit_min + usage.bonus_min) * 60).saturating_sub(usage.seconds)
+        (u64::from(rules.daily_limit_min + usage.bonus_min + usage.local_bonus_min) * 60)
+            .saturating_sub(usage.seconds)
     });
     let left_min = left_secs.map(|secs| secs.div_ceil(60) as u32);
     let (inside, bedtime_in) = match schedule(rules) {
@@ -481,19 +503,36 @@ struct Runtime {
     last_full_publish: Option<Instant>,
 }
 
-fn toast(title: &str, message: &str, ask_for_time: bool) {
+/// The buttons a family notification may carry.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MoreTime {
+    /// No button.
+    None,
+    /// Ask Home Assistant.
+    Ask,
+    /// Ask Home Assistant, or an administrator at the computer.
+    AskOrPassword,
+}
+
+fn toast(title: &str, message: &str, more_time: MoreTime) {
+    let mut actions = Vec::new();
+    if more_time != MoreTime::None {
+        actions.push(crate::notify::NotifyAction {
+            title: "Ask for more time".into(),
+            action: MORE_TIME_ACTION.into(),
+        });
+    }
+    if more_time == MoreTime::AskOrPassword {
+        actions.push(crate::notify::NotifyAction {
+            title: format!("{} min with a password", local_time::GRANT_MIN),
+            action: local_time::ACTION.into(),
+        });
+    }
     let payload = crate::notify::NotifyPayload {
         title: title.into(),
         message: message.into(),
         image: None,
-        actions: if ask_for_time {
-            vec![crate::notify::NotifyAction {
-                title: "Ask for more time".into(),
-                action: MORE_TIME_ACTION.into(),
-            }]
-        } else {
-            Vec::new()
-        },
+        actions,
         ..crate::notify::NotifyPayload::default()
     };
     if let Err(e) = crate::notify::show_toast(&payload) {
@@ -515,7 +554,9 @@ fn tick(rt: &mut Runtime, rules: &FamilyConfig) -> HashMap<String, String> {
     let (locked, active) = in_use();
 
     let save_due = rt.last_saved.is_none_or(|t| now - t >= SAVE_EVERY);
+    let local_bonus_min = local_bonus_today(&clock.date);
     let (usage, evaluation) = with_usage(&clock.date, |usage| {
+        usage.local_bonus_min = local_bonus_min;
         if active {
             rt.carry_ms += elapsed.as_millis();
             usage.seconds += (rt.carry_ms / 1000) as u64;
@@ -539,7 +580,7 @@ fn tick(rt: &mut Runtime, rules: &FamilyConfig) -> HashMap<String, String> {
                     toast(
                         &what,
                         "Save your work. The computer locks when the time is up.",
-                        false,
+                        MoreTime::None,
                     );
                 }
             }
@@ -558,7 +599,9 @@ fn tick(rt: &mut Runtime, rules: &FamilyConfig) -> HashMap<String, String> {
     if !enforcing {
         rt.pending = None;
         rt.enforced_once = false;
-    } else if locked {
+    } else if locked || local_time::is_pending() {
+        // Locked already, or a parent is typing the administrator password:
+        // the countdown starts again afterwards if the time is still up.
         rt.pending = None;
     } else {
         match rt.pending {
@@ -575,10 +618,17 @@ fn tick(rt: &mut Runtime, rules: &FamilyConfig) -> HashMap<String, String> {
                     "Outside the allowed hours"
                 };
                 let action = if sign_out { "signs you out" } else { "locks" };
+                let can_add = evaluation.status == Status::TimeUp
+                    && !rules.local_extra_off
+                    && usage.local_bonus_min < local_time::DAILY_MAX_MIN;
                 toast(
                     title,
                     &format!("This computer {action} in {} seconds.", grace.as_secs()),
-                    true,
+                    if can_add {
+                        MoreTime::AskOrPassword
+                    } else {
+                        MoreTime::Ask
+                    },
                 );
             }
             Some((since, grace)) if now - since >= grace => {
@@ -622,7 +672,7 @@ fn tick(rt: &mut Runtime, rules: &FamilyConfig) -> HashMap<String, String> {
                     toast(
                         &format!("{name} is blocked"),
                         "The family rules on this computer block it.",
-                        false,
+                        MoreTime::None,
                     );
                 }
             }
@@ -643,7 +693,60 @@ fn tick(rt: &mut Runtime, rules: &FamilyConfig) -> HashMap<String, String> {
         evaluation.status.as_str().into(),
     );
     values.insert("screen_time_bonus".into(), usage.bonus_min.to_string());
+    values.insert(
+        "screen_time_local_bonus".into(),
+        usage.local_bonus_min.to_string(),
+    );
     values
+}
+
+/// The minutes an administrator added at the computer today, for this
+/// account.
+fn local_bonus_today(today: &str) -> u32 {
+    protection::current_sid()
+        .map(|sid| local_time::minutes_today(&local_time::read(&sid), today))
+        .unwrap_or(0)
+}
+
+/// Raises the administrator prompt for fifteen more minutes and waits for
+/// the answer. Refused while the rule is off or today's maximum is reached,
+/// so no prompt appears that could not add anything.
+pub async fn add_local_time(app: &AppHandle) -> Result<(), String> {
+    let rules = app.state::<AppState>().config.lock().await.family.clone();
+    if rules.local_extra_off {
+        return Err("extra time with an administrator password is turned off".into());
+    }
+    let granted = tokio::task::spawn_blocking(|| {
+        let sid = protection::current_sid().ok_or("cannot read this Windows account")?;
+        let today = clock().date;
+        // Checked here as well, so that a full day does not raise the prompt.
+        local_time::after_grant(&local_time::read(&sid), &today)?;
+        local_time::request(&sid)?;
+        Ok::<_, String>(local_time::minutes_today(&local_time::read(&sid), &today))
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+    crate::security::audit("family_rules", "local_extra_time");
+    let values = HashMap::from([("screen_time_local_bonus".to_string(), granted.to_string())]);
+    crate::transport::publish_states(app, &values).await;
+    let _ = tokio::task::spawn_blocking(move || {
+        toast(
+            &format!("{} extra minutes", local_time::GRANT_MIN),
+            &format!(
+                "An administrator added them on this computer: {granted} of {} minutes today.",
+                local_time::DAILY_MAX_MIN
+            ),
+            MoreTime::None,
+        )
+    })
+    .await;
+    Ok(())
+}
+
+/// The button on the Family page.
+#[tauri::command]
+pub async fn add_local_screen_time(app: AppHandle) -> Result<(), String> {
+    add_local_time(&app).await
 }
 
 /// Runs for the whole life of the app, with or without a connection.
@@ -729,6 +832,7 @@ pub async fn handle_command(app: &AppHandle, key: &str, payload: &str) -> Result
         "blocked_apps" => rules.blocked_apps = parse_app_list(payload)?,
         "time_up_action" => rules.time_up_action = normalize_action(payload)?,
         "screen_time_warnings" => rules.warn_at_min = warnings::parse(payload)?,
+        "local_extra_time" => rules.local_extra_off = !on,
         "screen_time_bonus" => {
             drop(cfg);
             let minutes = parse_minutes(payload, MAX_BONUS_MIN)?;
@@ -746,7 +850,7 @@ pub async fn handle_command(app: &AppHandle, key: &str, payload: &str) -> Result
                     toast(
                         &format!("{minutes} extra minutes today"),
                         "Home Assistant gave this computer more screen time.",
-                        false,
+                        MoreTime::None,
                     )
                 })
                 .await;
@@ -778,7 +882,7 @@ async fn lock_with_message(text: &str) -> Result<(), String> {
     }
     crate::security::audit("family_rules", "lock_with_message");
     tokio::task::spawn_blocking(move || {
-        toast("Message from home", &text, false);
+        toast("Message from home", &text, MoreTime::None);
         std::thread::sleep(LOCK_MESSAGE_DELAY);
         crate::sys_commands::lock_now()
     })
@@ -799,6 +903,11 @@ pub struct FamilyView {
     pub today_min: u64,
     pub left_min: Option<u32>,
     pub bonus_min: u32,
+    /// Minutes an administrator added at the computer today.
+    pub local_bonus_min: u32,
+    /// What one approval adds, and the most per day.
+    pub local_grant_min: u32,
+    pub local_daily_max_min: u32,
     pub status: String,
 }
 
@@ -807,7 +916,9 @@ pub async fn get_family(app: AppHandle) -> Result<FamilyView, String> {
     let rules = app.state::<AppState>().config.lock().await.family.clone();
     tokio::task::spawn_blocking(move || {
         let clock = clock();
+        let local_bonus_min = local_bonus_today(&clock.date);
         let (seconds, bonus, evaluation) = with_usage(&clock.date, |usage| {
+            usage.local_bonus_min = local_bonus_min;
             (
                 usage.seconds,
                 usage.bonus_min,
@@ -821,6 +932,9 @@ pub async fn get_family(app: AppHandle) -> Result<FamilyView, String> {
             today_min: seconds / 60,
             left_min: evaluation.left_min,
             bonus_min: bonus,
+            local_bonus_min,
+            local_grant_min: local_time::GRANT_MIN,
+            local_daily_max_min: local_time::DAILY_MAX_MIN,
             status: evaluation.status.as_str().into(),
             rules,
         }
@@ -874,19 +988,24 @@ pub async fn unprotect_family_account() -> Result<(), String> {
     .map_err(|e| e.to_string())?
 }
 
-/// Started elevated with PROTECT_ARG / UNPROTECT_ARG: returns the exit code.
+/// Started elevated with PROTECT_ARG, UNPROTECT_ARG or the argument for
+/// extra time: returns the exit code.
 /// The account comes as an argument because with an administrator's password
 /// typed into UAC this process runs as that administrator, not the child.
 pub fn handle_elevated_args() -> Option<i32> {
     let args: Vec<String> = std::env::args().collect();
     let position = args
         .iter()
-        .position(|a| a == PROTECT_ARG || a == UNPROTECT_ARG)?;
+        .position(|a| a == PROTECT_ARG || a == UNPROTECT_ARG || a == local_time::ARG)?;
     let sid = args.get(position + 1).map(String::as_str).unwrap_or("");
     let result = if args[position] == PROTECT_ARG {
         protection::protect(sid)
-    } else {
+    } else if args[position] == UNPROTECT_ARG {
         protection::unprotect(sid)
+    } else {
+        // Only the account comes from the caller: the size of the grant and
+        // the day's maximum are fixed in local_time.rs.
+        local_time::grant_elevated(sid, &clock().date)
     };
     if let Err(e) = &result {
         log::warn!("family protection: {e}");
@@ -907,7 +1026,7 @@ mod protection {
     const WATCHDOG_DIR: &str = "Deskmate watchdog";
     const WATCHDOG_EXE: &str = "deskmate-watchdog.exe";
 
-    fn valid_sid(sid: &str) -> bool {
+    pub(super) fn valid_sid(sid: &str) -> bool {
         sid.starts_with("S-1-5-21-")
             && sid.len() < 100
             && sid
@@ -1278,6 +1397,44 @@ mod tests {
             seconds: minutes * 60,
             ..Default::default()
         }
+    }
+
+    #[test]
+    fn minutes_added_at_the_computer_extend_the_limit() {
+        let mut r = rules();
+        r.daily_limit_min = 60;
+        let mut used = usage(60);
+        assert_eq!(evaluate(&r, &used, 12 * 60).status, Status::TimeUp);
+        used.local_bonus_min = 15;
+        let e = evaluate(&r, &used, 12 * 60);
+        assert_eq!(e.status, Status::Ok);
+        assert_eq!(e.left_min, Some(15));
+        // On top of the minutes Home Assistant gave.
+        used.bonus_min = 10;
+        assert_eq!(evaluate(&r, &used, 12 * 60).left_min, Some(25));
+    }
+
+    /// The account can edit its usage file, so the minutes an administrator
+    /// added must not be read from there.
+    #[test]
+    fn minutes_added_at_the_computer_are_not_kept_in_the_usage_file() {
+        let mut used = usage(30);
+        used.local_bonus_min = 45;
+        let stored = serde_json::to_value(&used).unwrap();
+        assert!(stored.get("local_bonus_min").is_none(), "{stored}");
+        let read: Usage =
+            serde_json::from_value(json!({"seconds": 60, "local_bonus_min": 45})).unwrap();
+        assert_eq!(read.local_bonus_min, 0);
+    }
+
+    #[test]
+    fn the_switch_for_extra_time_at_the_computer_is_on_by_default() {
+        let values = rule_values(&rules());
+        assert_eq!(values["local_extra_time"], "ON");
+        let mut off = rules();
+        off.local_extra_off = true;
+        assert_eq!(rule_values(&off)["local_extra_time"], "OFF");
+        assert!(is_command("local_extra_time"));
     }
 
     #[test]

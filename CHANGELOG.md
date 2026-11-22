@@ -10,6 +10,11 @@ notes and asset names are available in `docs/releases/RELEASE-*.md`.
 - **A big picture in a notification** (#43): `image_placement: hero` on the
   notify action shows the picture across the top of the notification, and
   `inline` under the text. Without the field the picture stays small.
+- **More screen time without Home Assistant**: a parent at the computer
+  types an administrator password into the Windows prompt and the child gets
+  15 more minutes, up to 60 a day. The button is on the "time is up"
+  notification and on the Family page; Home Assistant shows the minutes and
+  can turn the feature off.
 - **Volume of single programs** (#44): the programs you list on the Sensors
   page each get a volume slider and a mute switch in Home Assistant, like
   their rows in the Windows volume mixer. Deskmate integration only, not

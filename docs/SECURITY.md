@@ -496,6 +496,26 @@ edit `config.json`. Protection is the administrator's part:
   values and sends them back when the PC reports a different one (at most
   every 30 seconds). Over MQTT that last part is missing.
 
+Extra time without Home Assistant goes the same way. The button on the
+Family page, and the one on the "time is up" notification, start
+deskmate.exe through UAC with `--family-extra-time` and the account's SID.
+Windows asks for an administrator password on its secure desktop; Deskmate
+never sees it. The elevated copy adds 15 minutes for that account and that
+day under `HKLM\SOFTWARE\Deskmate\Family\LocalTime`, which a standard account
+can read but not write, and refuses more than 60 minutes a day. Both numbers
+are constants of the program, so the caller has no amount to pass and a
+child none to change. The minutes are read from the registry on every tick
+and are never written to the usage file. Home Assistant sees them in a
+sensor of their own and cannot give or take them; it can turn the feature
+off with *Extra time with an administrator password*. A notification from
+Home Assistant cannot carry the button.
+
+One thing to know: a UAC prompt names the program, not what it is about to
+do. Whoever types the password approves whatever started the prompt, and the
+same prompt appears for removing the protection. Type it only into a prompt
+you raised yourself, or open *Show more details* in it: the command line ends
+in `--family-extra-time` for extra time.
+
 What it does not cover: an administrator account, another Windows account,
 another operating system, a PC kept offline after its settings file was edited
 (the rules come back with the connection), or ending the task every minute by

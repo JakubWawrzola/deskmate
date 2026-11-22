@@ -64,6 +64,7 @@ export const api = {
   removeStreamdeckPlugin: () => invoke<void>("remove_streamdeck_plugin"),
   getFamily: () => invoke<FamilyView>("get_family"),
   setFamily: (rules: FamilyConfig) => invoke<void>("set_family", { rules }),
+  addLocalScreenTime: () => invoke<void>("add_local_screen_time"),
   protectFamilyAccount: () => invoke<void>("protect_family_account"),
   unprotectFamilyAccount: () => invoke<void>("unprotect_family_account"),
   setStartWithWindows: (enabled: boolean) => invoke<void>("set_start_with_windows", { enabled }),

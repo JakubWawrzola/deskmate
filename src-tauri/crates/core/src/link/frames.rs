@@ -32,7 +32,12 @@ fn typed_states(values: &HashMap<String, String>) -> Value {
                 .unwrap_or_else(|| Value::String(value.clone())),
             _ if matches!(
                 key.as_str(),
-                "keep_awake" | "audio_mute" | "mic_mute" | "family_rules" | "block_apps"
+                "keep_awake"
+                    | "audio_mute"
+                    | "mic_mute"
+                    | "family_rules"
+                    | "block_apps"
+                    | "local_extra_time"
             ) =>
             {
                 Value::Bool(value.eq_ignore_ascii_case("ON"))
