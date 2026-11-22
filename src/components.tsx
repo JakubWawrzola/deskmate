@@ -15,7 +15,7 @@ export function Panel({
   return (
     <section className="bg-panel border border-hairline rounded-md">
       <header className="flex items-center justify-between px-4 h-10 border-b border-hairline">
-        <h2 className="microlabel">{title}</h2>
+        <h2 className="section-title">{title}</h2>
         {!unavailable && action}
       </header>
       <div className="p-4">

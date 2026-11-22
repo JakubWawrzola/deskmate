@@ -72,6 +72,16 @@ textarea {
   font-weight: 600;
 }
 
+/* section heading: the same face as a label, but in the text colour, so it
+   stands out from the descriptions under it */
+.section-title {
+  font-size: 11px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--color-ink);
+  font-weight: 700;
+}
+
 .mono {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
