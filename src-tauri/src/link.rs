@@ -473,6 +473,7 @@ async fn handle_incoming(app: &AppHandle, tx: &mpsc::UnboundedSender<Value>, pay
             let mut parsed = crate::notify::parse(&notification.to_string());
             parsed.tag = extras.tag;
             parsed.priority = extras.priority;
+            parsed.image_placement = extras.image_placement;
             crate::transport::show_notification(app, parsed).await;
             let _ = tx.send(json!({"t": "ack", "id": id, "ok": true}));
         }

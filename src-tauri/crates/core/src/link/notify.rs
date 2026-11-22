@@ -1,7 +1,7 @@
-//! `tag` and `priority` on a `notify` frame and the `notify_clear` frame
-//! (docs/LINK.md, "Notification tags"). Both are values from Home Assistant
-//! that end up in the notification system and the app's window, so they are
-//! checked against a strict pattern first.
+//! `tag`, `priority` and `image_placement` on a `notify` frame and the
+//! `notify_clear` frame (docs/LINK.md, "Notification tags"). They are values
+//! from Home Assistant that end up in the notification system and the app's
+//! window, so they are checked against a strict pattern first.
 
 use serde::Serialize;
 use serde_json::Value;
@@ -30,13 +30,37 @@ impl NotifyPriority {
     }
 }
 
-/// The optional fields of a `notify` frame that the `notify_tag` feature
-/// adds.
+/// Where the picture of a notification is shown.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ImagePlacement {
+    /// Small, next to the text.
+    #[default]
+    Logo,
+    /// Across the top of the notification.
+    Hero,
+    /// Under the text, at full width.
+    Inline,
+}
+
+impl ImagePlacement {
+    fn parse(text: &str) -> Option<Self> {
+        match text {
+            "logo" => Some(Self::Logo),
+            "hero" => Some(Self::Hero),
+            "inline" => Some(Self::Inline),
+            _ => None,
+        }
+    }
+}
+
+/// The optional fields of a `notify` frame: the two that the `notify_tag`
+/// feature adds, and the placement of the picture.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct NotifyExtras {
     /// A notification with a tag replaces the earlier one with the same tag.
     pub tag: Option<String>,
     pub priority: NotifyPriority,
+    pub image_placement: ImagePlacement,
 }
 
 /// Why a frame was refused. The message goes back to Home Assistant in the
@@ -45,6 +69,7 @@ pub struct NotifyExtras {
 pub enum NotifyFieldError {
     Tag,
     Priority,
+    ImagePlacement,
 }
 
 impl NotifyFieldError {
@@ -52,6 +77,7 @@ impl NotifyFieldError {
         match self {
             Self::Tag => "invalid notification tag",
             Self::Priority => "invalid notification priority",
+            Self::ImagePlacement => "invalid notification image placement",
         }
     }
 }
@@ -64,9 +90,10 @@ pub fn is_notify_tag(text: &str) -> bool {
             .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
 }
 
-/// Reads `tag` and `priority` of a `notify` frame. A missing field, or one
-/// that is null, takes its default: no tag and normal priority. Any other
-/// value that is not in the expected form refuses the whole notification.
+/// Reads `tag`, `priority` and `image_placement` of a `notify` frame. A
+/// missing field, or one that is null, takes its default: no tag, normal
+/// priority and the small picture. Any other value that is not in the
+/// expected form refuses the whole notification.
 pub fn parse_notify_extras(frame: &Value) -> Result<NotifyExtras, NotifyFieldError> {
     let tag = match frame.get("tag") {
         None | Some(Value::Null) => None,
@@ -85,7 +112,18 @@ pub fn parse_notify_extras(frame: &Value) -> Result<NotifyExtras, NotifyFieldErr
             .and_then(NotifyPriority::parse)
             .ok_or(NotifyFieldError::Priority)?,
     };
-    Ok(NotifyExtras { tag, priority })
+    let image_placement = match frame.get("image_placement") {
+        None | Some(Value::Null) => ImagePlacement::Logo,
+        Some(value) => value
+            .as_str()
+            .and_then(ImagePlacement::parse)
+            .ok_or(NotifyFieldError::ImagePlacement)?,
+    };
+    Ok(NotifyExtras {
+        tag,
+        priority,
+        image_placement,
+    })
 }
 
 /// The tag of a `notify_clear` frame, which must carry one.
@@ -112,6 +150,42 @@ mod tests {
     }
 
     #[test]
+    fn reads_the_image_placement() {
+        for (text, placement) in [
+            ("logo", ImagePlacement::Logo),
+            ("hero", ImagePlacement::Hero),
+            ("inline", ImagePlacement::Inline),
+        ] {
+            let frame = json!({"image": "https://ha.example/a.jpg", "image_placement": text});
+            assert_eq!(
+                parse_notify_extras(&frame).unwrap().image_placement,
+                placement
+            );
+        }
+    }
+
+    #[test]
+    fn an_unknown_image_placement_refuses_the_notification() {
+        for bad in [
+            json!("Hero"),
+            json!("banner"),
+            json!(""),
+            json!(1),
+            json!(["hero"]),
+        ] {
+            let frame = json!({"image_placement": bad});
+            assert_eq!(
+                parse_notify_extras(&frame),
+                Err(NotifyFieldError::ImagePlacement)
+            );
+        }
+        assert_eq!(
+            NotifyFieldError::ImagePlacement.message(),
+            "invalid notification image placement"
+        );
+    }
+
+    #[test]
     fn reads_tag_and_priority() {
         let long = "a".repeat(64);
         for tag in ["door", "Door_1", "washer-done", "0", long.as_str()] {
@@ -121,6 +195,7 @@ mod tests {
                 Ok(NotifyExtras {
                     tag: Some(tag.to_string()),
                     priority: NotifyPriority::High,
+                    ..NotifyExtras::default()
                 })
             );
         }

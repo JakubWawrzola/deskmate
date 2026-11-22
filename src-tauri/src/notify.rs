@@ -12,7 +12,7 @@
     )
 )]
 
-use deskmate_core::link::notify::NotifyPriority;
+use deskmate_core::link::notify::{ImagePlacement, NotifyPriority};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -88,6 +88,9 @@ pub struct NotifyPayload {
     pub tag: Option<String>,
     #[serde(skip)]
     pub priority: NotifyPriority,
+    /// Set from a checked Link `notify` frame only, like the two above.
+    #[serde(skip)]
+    pub image_placement: ImagePlacement,
 }
 
 /// A button on a notification Deskmate shows about itself. `link` is a
@@ -583,9 +586,16 @@ fn toast_xml(
     img: Option<&std::path::Path>,
     own_buttons: &[OwnButton],
 ) -> String {
+    // An image without a placement is the inline one: Windows shows it under
+    // the text at the full width of the notification.
+    let placement = match p.image_placement {
+        ImagePlacement::Logo => " placement=\"appLogoOverride\"",
+        ImagePlacement::Hero => " placement=\"hero\"",
+        ImagePlacement::Inline => "",
+    };
     let image_xml = match img {
         Some(path) => format!(
-            "<image placement=\"appLogoOverride\" src=\"{}\"/>",
+            "<image{placement} src=\"{}\"/>",
             xml_escape(&path.to_string_lossy())
         ),
         None => String::new(),
@@ -700,4 +710,41 @@ pub fn show_toast_with(p: &NotifyPayload, own_buttons: &[OwnButton]) -> Result<(
         schedule_image_removal(path.clone());
     }
     crate::linux::notify::show(p, img.as_deref(), own_buttons)
+}
+
+#[cfg(all(test, windows))]
+mod tests {
+    use super::*;
+
+    fn toast(placement: ImagePlacement, image: Option<&str>) -> String {
+        let payload = NotifyPayload {
+            title: "Door".into(),
+            message: "Someone is here".into(),
+            image_placement: placement,
+            ..NotifyPayload::default()
+        };
+        toast_xml(&payload, image.map(std::path::Path::new), &[])
+    }
+
+    #[test]
+    fn the_picture_goes_where_the_notification_asks() {
+        let path = r"C:\Temp\door.jpg";
+        assert!(toast(ImagePlacement::Logo, Some(path))
+            .contains(r#"<image placement="appLogoOverride" src="C:\Temp\door.jpg"/>"#));
+        assert!(toast(ImagePlacement::Hero, Some(path))
+            .contains(r#"<image placement="hero" src="C:\Temp\door.jpg"/>"#));
+        assert!(toast(ImagePlacement::Inline, Some(path))
+            .contains(r#"<image src="C:\Temp\door.jpg"/>"#));
+    }
+
+    #[test]
+    fn a_placement_without_a_picture_adds_nothing() {
+        for placement in [
+            ImagePlacement::Logo,
+            ImagePlacement::Hero,
+            ImagePlacement::Inline,
+        ] {
+            assert!(!toast(placement, None).contains("<image"));
+        }
+    }
 }
