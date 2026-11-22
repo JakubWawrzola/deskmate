@@ -1214,6 +1214,7 @@ pub fn run() {
                             // Deskmate's own button: it asks Windows for an
                             // administrator, and nothing goes to Home
                             // Assistant.
+                            #[cfg(windows)]
                             if action == family::LOCAL_TIME_ACTION {
                                 if let Err(error) = family::add_local_time(&handle).await {
                                     log::info!("extra time on this computer: {error}");
@@ -1397,6 +1398,7 @@ pub fn run() {
             family::get_family,
             #[cfg(windows)]
             family::set_family,
+            #[cfg(windows)]
             family::add_local_screen_time,
             #[cfg(windows)]
             family::protect_family_account,
