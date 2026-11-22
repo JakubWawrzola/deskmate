@@ -3,7 +3,7 @@
 All notable changes to Deskmate are documented here. Release-specific upgrade
 notes and asset names are available in `docs/releases/RELEASE-*.md`.
 
-## 0.9.5 - unreleased
+## 0.9.5 - 2026-11-23
 
 ### Added
 

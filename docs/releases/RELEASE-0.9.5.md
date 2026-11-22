@@ -116,3 +116,20 @@ speakers: corrections are welcome, and
 - Windows 10 or 11, x64 or ARM64. Linux: see [LINUX.md](../LINUX.md).
 - Home Assistant with the Deskmate integration 0.9.5 from HACS, or an MQTT
   broker.
+
+## Assets
+
+| File | For |
+|---|---|
+| `Deskmate_0.9.5_x64-setup.exe` | Windows 10 and 11, x64 |
+| `Deskmate_0.9.5_arm64-setup.exe` | Windows 10 and 11, ARM64 |
+| `deskmate-daemon_0.9.5_amd64.deb`, `deskmate-daemon_0.9.5_arm64.deb` | The Linux daemon on Debian, Ubuntu and their relatives |
+| `deskmate-daemon-0.9.5-x86_64-linux.tar.gz`, `deskmate-daemon-0.9.5-aarch64-linux.tar.gz` | The Linux daemon on other distributions |
+| `Deskmate_0.9.5_amd64.deb`, `Deskmate_0.9.5_arm64.deb` | The Linux desktop app on Debian, Ubuntu and their relatives |
+| `Deskmate_0.9.5_amd64.AppImage`, `Deskmate_0.9.5_aarch64.AppImage` | The Linux desktop app on other distributions |
+| `SHA256SUMS.txt` | The SHA-256 checksums of the files above |
+
+`latest.json`, `Deskmate_0.9.5_x64-setup.exe.sig` and
+`Deskmate_0.9.5_arm64-setup.exe.sig` are for the app's updater: Deskmate reads
+them to find the update and check its signature. You do not need to download
+them.
