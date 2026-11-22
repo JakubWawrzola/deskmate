@@ -15,9 +15,9 @@ use tauri::{AppHandle, Manager};
 use crate::config::AppConfig;
 use crate::state::AppState;
 
-/// The state object last sent in this session. Cleared when a send fails, so
-/// the next session gets the state again.
-static LAST_SENT: Mutex<Option<Value>> = Mutex::new(None);
+/// The state last sent in this session. Cleared when a send fails, so the
+/// next session gets the state again.
+static LAST_SENT: Mutex<Option<MediaPlayerState>> = Mutex::new(None);
 
 /// Reads what the media player shows. Blocking: the media session and the
 /// sound device are COM and WinRT calls.
@@ -26,7 +26,9 @@ fn read(cfg: &AppConfig) -> MediaPlayerState {
         status: info.status,
         title: info.title,
         artist: info.artist,
+        album: info.album,
         app: info.app,
+        timeline: info.timeline,
     });
     MediaPlayerState::new(
         cfg,
@@ -52,13 +54,16 @@ pub async fn publish(app: &AppHandle, force: bool) {
             return;
         }
     };
-    let value = reading.to_value();
     {
         let mut last = LAST_SENT.lock().unwrap_or_else(|e| e.into_inner());
-        if !force && last.as_ref() == Some(&value) {
+        if !force
+            && last
+                .as_ref()
+                .is_some_and(|sent| !reading.differs_from(sent))
+        {
             return;
         }
-        *last = Some(value);
+        *last = Some(reading.clone());
     }
     if !crate::link::send(app, media_state_frame(&reading)).await {
         *LAST_SENT.lock().unwrap_or_else(|e| e.into_inner()) = None;
@@ -120,5 +125,6 @@ fn run(op: MediaOp) -> Result<(), String> {
             crate::sys_commands::run_builtin("volume", &(volume * 100.0).to_string())
         }
         MediaOp::Mute(muted) => crate::sys_commands::set_audio_muted(muted),
+        MediaOp::Seek(position_secs) => crate::media::seek(position_secs),
     }
 }

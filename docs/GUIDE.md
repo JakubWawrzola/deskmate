@@ -164,9 +164,12 @@ One device per PC, with:
   what the PC is playing and has play/pause, next, previous, volume and mute
   controls that work in any media card. It appears once you turn on *Media
   status* in Deskmate, because it reveals what you play. It shows the title,
-  artist and app only while their own sensors are on, and the volume while
-  the *Volume* sensor is on; the separate media sensors and buttons stay as
-  they are.
+  artist and app only while their own sensors are on (the album goes with the
+  title), and the volume while the *Volume* sensor is on; the separate media
+  sensors and buttons stay as they are. From 0.9.5 the card also has a
+  progress bar that you can drag, with players that tell Windows how long the
+  track is and where it is: Spotify and the browsers do, some players do
+  not, and the bar is then simply missing.
 - **Connection**: a diagnostic sensor that Home Assistant adds itself. It says
   what is connected for this PC (*App*, *Service*, *Daemon*, or *Connected*
   for a Deskmate that does not say what it is) and, when nothing is, whether

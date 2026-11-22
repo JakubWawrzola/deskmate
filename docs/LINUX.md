@@ -280,7 +280,7 @@ running. *Start when I sign in* in Settings writes
 | Window, setup wizard, pairing, Link and MQTT | Yes | Yes |
 | Machine sensors, Sleep, Hibernate, Shutdown, Restart | Yes | Yes |
 | Idle time, locked, Lock (logind) | Yes | Yes |
-| Media sensors and keys, the media player (MPRIS) | Yes | Yes |
+| Media sensors and keys, the media player with its progress bar and seeking (MPRIS) | Yes | Yes |
 | Volume and mute (`wpctl` or `pactl`) | Yes | Yes |
 | Notifications, with buttons where the notification service has them | Yes | Yes |
 | Open URL (`xdg-open`), Link Files | Yes | Yes |

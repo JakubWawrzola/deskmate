@@ -12,6 +12,11 @@ use crate::config::AppConfig;
 pub const MEDIA_KEY: &str = "media";
 /// Home Assistant drops a text longer than this from the state object.
 pub const MAX_MEDIA_TEXT_CHARS: usize = 256;
+/// Longest track and furthest position Home Assistant accepts, in seconds.
+pub const MAX_MEDIA_SECONDS: f64 = 604_800.0;
+/// How far a reported position may be from where playback would have got to
+/// by itself before it counts as a jump worth sending.
+const POSITION_TOLERANCE_SECONDS: f64 = 2.0;
 /// The media sensors. The media player shows the part of each one only
 /// while its switch is on.
 pub const MEDIA_SENSORS: [&str; 4] = ["media_title", "media_artist", "media_app", "media_status"];
@@ -68,15 +73,62 @@ impl PlaybackState {
     }
 }
 
+/// Where a track is: its length, and a position with the moment it was read.
+/// Home Assistant works out the current position from the two, so a new one
+/// is worth sending only when playback jumped.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Timeline {
+    pub duration_secs: f64,
+    pub position_secs: f64,
+    /// Unix time, in seconds, at which `position_secs` was true.
+    pub position_at: f64,
+}
+
+impl Timeline {
+    /// A timeline Home Assistant would accept, or none. A player that reports
+    /// no length (a live stream, or an app that does not fill the timeline
+    /// in) has no timeline at all.
+    pub fn checked(duration_secs: f64, position_secs: f64, position_at: f64) -> Option<Self> {
+        let valid = duration_secs.is_finite()
+            && position_secs.is_finite()
+            && position_at.is_finite()
+            && duration_secs > 0.0
+            && duration_secs <= MAX_MEDIA_SECONDS
+            && position_at > 0.0;
+        valid.then(|| Self {
+            duration_secs,
+            // A player may report a position a moment past the end.
+            position_secs: position_secs.clamp(0.0, duration_secs),
+            position_at,
+        })
+    }
+
+    /// Whether `self` says the same as `earlier` once the time between the
+    /// two readings is taken into account. While playing, the position is
+    /// expected to have moved on by that time; otherwise to have stayed.
+    pub fn continues(&self, earlier: &Timeline, playing: bool) -> bool {
+        let elapsed = if playing {
+            self.position_at - earlier.position_at
+        } else {
+            0.0
+        };
+        self.duration_secs == earlier.duration_secs
+            && (self.position_secs - (earlier.position_secs + elapsed)).abs()
+                <= POSITION_TOLERANCE_SECONDS
+    }
+}
+
 /// What the client read from the current media session.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct MediaSession {
     /// As the media status sensor reports it, such as "playing".
     pub status: String,
     pub title: String,
     pub artist: String,
+    pub album: String,
     /// The app that owns the session.
     pub app: String,
+    pub timeline: Option<Timeline>,
 }
 
 /// The state object of the media player.
@@ -85,15 +137,18 @@ pub struct MediaPlayerState {
     pub state: PlaybackState,
     pub title: Option<String>,
     pub artist: Option<String>,
+    pub album: Option<String>,
     pub app: Option<String>,
     /// 0 to 1.
     pub volume: Option<f64>,
     pub muted: Option<bool>,
+    pub timeline: Option<Timeline>,
 }
 
 impl MediaPlayerState {
     /// The state for what the client read. A text whose media sensor the user
-    /// left off stays out, and so does an empty one. The volume stays out
+    /// left off stays out, and so does an empty one; the album follows the
+    /// title's switch, as both say what is playing. The volume stays out
     /// while the volume sensor is off; the mute state is always there, like
     /// the mute switch's.
     pub fn new(
@@ -113,24 +168,55 @@ impl MediaPlayerState {
             state: PlaybackState::from_status(session.map(|session| session.status.as_str())),
             title: text("media_title", |session| &session.title),
             artist: text("media_artist", |session| &session.artist),
+            album: text("media_title", |session| &session.album),
             app: text("media_app", |session| &session.app),
             volume: volume_percent
                 .filter(|_| crate::sensors::is_enabled(cfg, VOLUME_SENSOR))
                 .map(|percent| f64::from(percent.min(100)) / 100.0),
             muted,
+            timeline: session.and_then(|session| session.timeline),
         }
     }
 
     pub fn to_value(&self) -> Value {
+        let timeline = self.timeline.as_ref();
         json!({
             "state": self.state.as_str(),
             "title": self.title,
             "artist": self.artist,
+            "album": self.album,
             "app": self.app,
             "volume": self.volume,
             "muted": self.muted,
+            "duration": timeline.map(|timeline| tenths(timeline.duration_secs)),
+            "position": timeline.map(|timeline| tenths(timeline.position_secs)),
+            "position_at": timeline.map(|timeline| tenths(timeline.position_at)),
         })
     }
+
+    /// Whether `self` is worth sending after `sent`. Everything counts but a
+    /// position that only moved on with the clock: the reading differs on
+    /// every tick then, and Home Assistant already knows where the track is.
+    pub fn differs_from(&self, sent: &MediaPlayerState) -> bool {
+        let same_timeline = match (&self.timeline, &sent.timeline) {
+            (None, None) => true,
+            (Some(now), Some(earlier)) => {
+                now.continues(earlier, self.state == PlaybackState::Playing)
+            }
+            _ => false,
+        };
+        let rest = |state: &MediaPlayerState| MediaPlayerState {
+            timeline: None,
+            ..state.clone()
+        };
+        !same_timeline || rest(self) != rest(sent)
+    }
+}
+
+/// A number of seconds to one decimal place: more would only make every
+/// frame look different.
+fn tenths(seconds: f64) -> f64 {
+    (seconds * 10.0).round() / 10.0
 }
 
 /// A `state` frame that carries only the media player.
@@ -149,6 +235,8 @@ pub enum MediaOp {
     /// 0 to 1.
     SetVolume(f64),
     Mute(bool),
+    /// Seconds into the track.
+    Seek(f64),
 }
 
 /// Reads the `action` and `value` of a `cmd` for the media player. Anything
@@ -183,6 +271,12 @@ pub fn parse_media_command(action: &str, value: Option<&Value>) -> Result<MediaO
             .and_then(Value::as_bool)
             .map(MediaOp::Mute)
             .ok_or_else(|| "media: muted must be true or false".into()),
+        "seek" => value
+            .get("position")
+            .and_then(Value::as_f64)
+            .filter(|position| (0.0..=MAX_MEDIA_SECONDS).contains(position))
+            .map(MediaOp::Seek)
+            .ok_or_else(|| "media: position must be a number of seconds from 0".into()),
         _ => Err("media: unknown op".into()),
     }
 }
@@ -211,7 +305,9 @@ mod tests {
             status: "playing".into(),
             title: "Song".into(),
             artist: "Band".into(),
+            album: "Record".into(),
             app: "Player.exe".into(),
+            timeline: Timeline::checked(241.52, 63.21, 1_795_348_800.0),
         }
     }
 
@@ -274,11 +370,103 @@ mod tests {
                 "state": "playing",
                 "title": "Song",
                 "artist": "Band",
+                "album": "Record",
                 "app": "Player.exe",
                 "volume": 0.4,
                 "muted": false,
+                "duration": 241.5,
+                "position": 63.2,
+                "position_at": 1_795_348_800.0,
             }}})
         );
+    }
+
+    #[test]
+    fn a_session_without_a_timeline_sends_nulls_for_it() {
+        let cfg = with_sensors(&MEDIA_SENSORS);
+        let live = MediaSession {
+            timeline: None,
+            ..session()
+        };
+        let value = MediaPlayerState::new(&cfg, Some(&live), None, None).to_value();
+        for field in ["duration", "position", "position_at"] {
+            assert_eq!(value[field], Value::Null, "{field}");
+        }
+        assert_eq!(value["album"], "Record");
+    }
+
+    #[test]
+    fn only_a_usable_timeline_is_kept() {
+        let at = 1_795_348_800.0;
+        assert!(Timeline::checked(240.0, 10.0, at).is_some());
+        // No length: a live stream, or a player that does not say.
+        assert_eq!(Timeline::checked(0.0, 0.0, at), None);
+        assert_eq!(Timeline::checked(-1.0, 0.0, at), None);
+        assert_eq!(Timeline::checked(MAX_MEDIA_SECONDS + 1.0, 0.0, at), None);
+        assert_eq!(Timeline::checked(f64::NAN, 0.0, at), None);
+        assert_eq!(Timeline::checked(240.0, f64::INFINITY, at), None);
+        // The player never set the time of its reading.
+        assert_eq!(Timeline::checked(240.0, 10.0, 0.0), None);
+        // A position outside the track is brought back into it.
+        let past = Timeline::checked(240.0, 240.4, at).unwrap();
+        assert_eq!(past.position_secs, 240.0);
+        let before = Timeline::checked(240.0, -0.2, at).unwrap();
+        assert_eq!(before.position_secs, 0.0);
+    }
+
+    #[test]
+    fn the_album_follows_the_title_switch() {
+        let cfg = with_sensors(&["media_status", "media_artist"]);
+        let state = MediaPlayerState::new(&cfg, Some(&session()), None, None);
+        assert_eq!(state.album, None);
+        let cfg = with_sensors(&["media_status", "media_title"]);
+        let state = MediaPlayerState::new(&cfg, Some(&session()), None, None);
+        assert_eq!(state.album.as_deref(), Some("Record"));
+    }
+
+    fn at(position_secs: f64, position_at: f64, status: &str) -> MediaPlayerState {
+        let cfg = with_sensors(&MEDIA_SENSORS);
+        let session = MediaSession {
+            status: status.into(),
+            timeline: Timeline::checked(240.0, position_secs, position_at),
+            ..session()
+        };
+        MediaPlayerState::new(&cfg, Some(&session), Some(40), Some(false))
+    }
+
+    #[test]
+    fn a_position_that_moved_on_with_the_clock_is_not_sent_again() {
+        let start = 1_795_348_800.0;
+        let sent = at(10.0, start, "playing");
+        // Ten seconds later the player reports ten seconds more.
+        assert!(!at(20.0, start + 10.0, "playing").differs_from(&sent));
+        assert!(!at(21.5, start + 10.0, "playing").differs_from(&sent));
+        // The same reading again.
+        assert!(!at(10.0, start, "playing").differs_from(&sent));
+    }
+
+    #[test]
+    fn a_jump_a_pause_or_another_track_is_sent() {
+        let start = 1_795_348_800.0;
+        let sent = at(10.0, start, "playing");
+        // A seek: the position is not where playback would have got to.
+        assert!(at(120.0, start + 10.0, "playing").differs_from(&sent));
+        assert!(at(10.0, start + 10.0, "playing").differs_from(&sent));
+        // Paused: the state itself changed.
+        assert!(at(20.0, start + 10.0, "paused").differs_from(&sent));
+        // While paused the position stays; a move is a seek.
+        let paused = at(20.0, start, "paused");
+        assert!(!at(20.0, start + 30.0, "paused").differs_from(&paused));
+        assert!(at(50.0, start + 30.0, "paused").differs_from(&paused));
+        // The timeline went away or came back.
+        let mut without = sent.clone();
+        without.timeline = None;
+        assert!(without.differs_from(&sent));
+        assert!(sent.differs_from(&without));
+        // Any other field.
+        let mut louder = sent.clone();
+        louder.volume = Some(0.9);
+        assert!(louder.differs_from(&sent));
     }
 
     #[test]
@@ -357,6 +545,14 @@ mod tests {
             parse(json!({"op": "mute", "muted": true})),
             Ok(MediaOp::Mute(true))
         );
+        assert_eq!(
+            parse(json!({"op": "seek", "position": 120})),
+            Ok(MediaOp::Seek(120.0))
+        );
+        assert_eq!(
+            parse(json!({"op": "seek", "position": 0.5})),
+            Ok(MediaOp::Seek(0.5))
+        );
     }
 
     #[test]
@@ -379,6 +575,10 @@ mod tests {
             json!({"op": "mute"}),
             json!({"op": "mute", "muted": "true"}),
             json!({"op": "mute", "muted": 1}),
+            json!({"op": "seek"}),
+            json!({"op": "seek", "position": "12"}),
+            json!({"op": "seek", "position": -1}),
+            json!({"op": "seek", "position": 604_801}),
         ];
         for value in refused {
             assert!(parse_media_command("set", Some(&value)).is_err(), "{value}");

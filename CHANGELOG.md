@@ -10,6 +10,10 @@ notes and asset names are available in `docs/releases/RELEASE-*.md`.
 - **A big picture in a notification** (#43): `image_placement: hero` on the
   notify action shows the picture across the top of the notification, and
   `inline` under the text. Without the field the picture stays small.
+- **Media player with a progress bar** (#41): the *Media* entity shows the
+  album, the length of the track and where it is, and the bar can be dragged
+  to seek. On Windows this works with players that report a timeline to
+  Windows, on Linux with MPRIS players that have a position.
 - **Current user stays right without a signed-in user** (#8): with the
   Deskmate service installed, the sensor shows `none` at the sign-in screen
   instead of the name it had last.

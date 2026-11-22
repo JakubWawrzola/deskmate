@@ -534,15 +534,26 @@ object follows at once. The player's `state` is what that sensor reports, so
 the other media sensors alone do not add it. An answer that arrives after
 the 3 seconds brings a new full declaration with the media player. Deskmate
 reads the object on every publish interval and sends it in a `state` frame
-of its own when any field has changed, and again right after each command:
+of its own when it has changed, and again right after each command:
 
 ```json
 {"t": "state", "s": {"media": {"state": "playing", "title": "Song",
-  "artist": "Band", "app": "Spotify.exe", "volume": 0.4, "muted": false}}}
+  "artist": "Band", "album": "Record", "app": "Spotify.exe", "volume": 0.4,
+  "muted": false, "duration": 241.5, "position": 63.2,
+  "position_at": 1795348800.0}}}
 ```
 
 - `title`, `artist` and `app` are null while their media sensor is off, and
-  when the text is empty. A longer text is cut to 256 characters.
+  when the text is empty. `album` follows the switch of the title. A longer
+  text is cut to 256 characters.
+- `duration`, `position` and `position_at` come from the media session's
+  timeline, in seconds to one decimal place; `position_at` is the time the
+  player last updated its timeline. All three are null for a session without
+  a length, such as a live stream or a player that does not fill the
+  timeline in. A position that only moved on with the clock is not a change:
+  the object is sent again when the position is more than two seconds away
+  from where playback would have got to by itself, which is what a seek, a
+  new track or a pause looks like.
 - `state` comes from the Windows media session: `playing` and `paused` as
   they are, `idle` for a session that is stopped, opening or changing tracks,
   `off` for a closed session or none at all.
@@ -551,12 +562,15 @@ of its own when any field has changed, and again right after each command:
   *Volume* sensor is off; `muted` is always sent, as the switch's state is.
 
 A `cmd` for `media` must have the action `set` and a `value` object whose
-`op` is one of the seven names. `set_volume` needs a `volume` from 0 to 1,
-`mute` a boolean `muted`; other fields are ignored. Anything else, and any
+`op` is one of the eight names. `set_volume` needs a `volume` from 0 to 1,
+`mute` a boolean `muted`, `seek` a `position` in seconds from 0 to 604800;
+other fields are ignored. Anything else, and any
 command while the media player is not declared, gets `ok: false`. `play` and
-`pause` use the media session's own play and pause, `play_pause`, `next` and
-`previous` the same actions as the media buttons, `set_volume` and `mute`
-those of the volume control and the mute switch, whose states are sent again
+`pause` use the media session's own play and pause, `seek` its change of
+the playback position (a player that refuses it gets `ok: false`),
+`play_pause`, `next` and `previous` the same actions as the media buttons,
+`set_volume` and `mute` those of the volume control and the mute switch,
+whose states are sent again
 too.
 
 **Notification tags.** Deskmate reads `tag` and `priority` on every
