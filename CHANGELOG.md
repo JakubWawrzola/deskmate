@@ -18,7 +18,9 @@ notes and asset names are available in `docs/releases/RELEASE-*.md`.
 - **GPU temperature without LibreHardwareMonitor** (#42): the sensor now
   reads what the graphics driver reports to Windows, as Task Manager does.
 - **More hardware sensors without a driver** (#42): *Memory used* in MiB,
-  *CPU speed* in MHz and *Disk activity* in percent, on Windows and Linux.
+  *CPU speed* in MHz and *Disk activity* in percent, on Windows and Linux,
+  and on Windows the health of each physical drive (`Healthy`, `Warning`,
+  `Unhealthy`).
   They appear by themselves and can be switched off on the Sensors page.
 - **Current user stays right without a signed-in user** (#8): with the
   Deskmate service installed, the sensor shows `none` at the sign-in screen

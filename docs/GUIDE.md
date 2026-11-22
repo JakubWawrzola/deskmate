@@ -131,8 +131,10 @@ One device per PC, with:
   also GPU load and temperature, VRAM, per-drive usage and speed. From 0.9.5
   also *Memory used* in MiB, *CPU speed* in MHz (the speed the processor runs
   at right now, as Task Manager shows it) and *Disk activity*, the share of
-  the time the busiest drive was working. Sensors a PC cannot read are simply
-  not created.
+  the time the busiest drive was working, and on Windows *Disk 0 health*
+  (one per physical drive): `Healthy`, `Warning` or `Unhealthy`, the verdict
+  Windows builds on the drive's own failure prediction. Sensors a PC cannot
+  read are simply not created.
 - **Idle time** counts game controllers as well as the keyboard and mouse:
   someone playing with an Xbox-style controller is not idle. Sticks that
   drift a little at rest do not count.

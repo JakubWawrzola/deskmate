@@ -23,6 +23,7 @@ pub struct HardwareCollector {
     gpu_total_mib: Option<f64>,
     temperatures: TemperatureCache,
     load: crate::load::LoadCounters,
+    disk_health: crate::disk_health::DiskHealth,
     /// Every definition seen so far, with the number of ticks it has been
     /// missing. A single failed PDH or WMI read used to drop the definition,
     /// which deleted the entity in Home Assistant and recreated it on the next
@@ -43,6 +44,7 @@ impl HardwareCollector {
             gpu_total_mib: total_vram_mib(),
             temperatures: TemperatureCache::default(),
             load: crate::load::LoadCounters::new(),
+            disk_health: crate::disk_health::DiskHealth::default(),
             known: HashMap::new(),
         }
     }
@@ -182,6 +184,17 @@ impl HardwareCollector {
                 reading.icon,
             ));
             values.insert(reading.id.into(), reading.value);
+        }
+
+        for drive in self.disk_health.read() {
+            let id = format!("disk_{}_health", drive.number);
+            defs.push(sensor(
+                &id,
+                &format!("Disk {} health", drive.number),
+                None,
+                "mdi:harddisk",
+            ));
+            values.insert(id, drive.health.into());
         }
 
         let defs = self.stabilize(defs);

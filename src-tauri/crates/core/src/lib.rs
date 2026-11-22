@@ -9,6 +9,7 @@ pub mod consts;
 pub mod cpu_temperature;
 pub mod custom_sensors;
 pub mod discovery;
+pub mod disk_health;
 pub mod gpu_perf;
 pub mod hardware;
 pub mod link;
@@ -23,3 +24,5 @@ pub mod sensors;
 pub mod sys_commands;
 #[cfg(all(test, unix))]
 mod test_tree;
+#[cfg(windows)]
+pub mod wmi;
