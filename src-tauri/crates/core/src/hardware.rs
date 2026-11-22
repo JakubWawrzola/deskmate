@@ -348,9 +348,16 @@ fn total_vram_mib() -> Option<f64> {
     crate::linux::gpu::read(std::path::Path::new(crate::linux::SYS)).memory_total_mib
 }
 
+/// LibreHardwareMonitor and OpenHardwareMonitor read the sensor chips
+/// themselves, so their values come first. Without them the GPU temperature
+/// is what the graphics driver reports to Windows.
 #[cfg(windows)]
 fn read_temperatures() -> Temperatures {
-    wmi_temperatures()
+    let mut temperatures = wmi_temperatures();
+    if temperatures.gpu.is_none() {
+        temperatures.gpu = crate::gpu_perf::temperature_celsius();
+    }
+    temperatures
 }
 
 #[cfg(target_os = "linux")]

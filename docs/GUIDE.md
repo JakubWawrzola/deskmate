@@ -143,6 +143,10 @@ One device per PC, with:
   user's session is active).
 - **Screen on** follows the PC's display: off when Windows turned the screen
   off, on when it is on or dimmed.
+- **GPU temperature** needs nothing extra from 0.9.5: Deskmate reads what the
+  graphics driver reports to Windows, the number Task Manager shows. A card
+  whose driver reports none has no such sensor. While LibreHardwareMonitor
+  runs, its reading is used instead.
 - **CPU temperature**: Windows only lets programs with administrator rights
   read it. Settings → *CPU temperature* sets up a small helper for that, see
   [below](#cpu-temperature). Running LibreHardwareMonitor works too.

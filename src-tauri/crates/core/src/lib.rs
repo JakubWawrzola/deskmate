@@ -9,6 +9,7 @@ pub mod consts;
 pub mod cpu_temperature;
 pub mod custom_sensors;
 pub mod discovery;
+pub mod gpu_perf;
 pub mod hardware;
 pub mod link;
 #[cfg(target_os = "linux")]

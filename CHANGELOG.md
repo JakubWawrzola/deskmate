@@ -15,6 +15,8 @@ notes and asset names are available in `docs/releases/RELEASE-*.md`.
   to seek. On Windows this works with players that report a timeline to
   Windows, on Linux with MPRIS players that have a position. On Windows the
   card also shows the cover of the track, while *Media title* is on.
+- **GPU temperature without LibreHardwareMonitor** (#42): the sensor now
+  reads what the graphics driver reports to Windows, as Task Manager does.
 - **More hardware sensors without a driver** (#42): *Memory used* in MiB,
   *CPU speed* in MHz and *Disk activity* in percent, on Windows and Linux.
   They appear by themselves and can be switched off on the Sensors page.

@@ -88,6 +88,8 @@ features = [
   "Win32_System_Wmi",
   "Win32_System_Performance",
   "Win32_Graphics_Dxgi",
+  # the GPU temperature the graphics driver reports (gpu_perf.rs)
+  "Wdk_Graphics_Direct3D",
 ]
 
 # The user's keyring behind `SecretStore::Keyring` (secrets.rs). Windows:
