@@ -34,7 +34,7 @@ impl LoadCounters {
             #[cfg(windows)]
             counters: win::Counters::open(),
             #[cfg(target_os = "linux")]
-            disks: linux::BusyTime::default(),
+            disks: linux::BusyTime::primed(),
         }
     }
 
@@ -264,6 +264,17 @@ mod linux {
     }
 
     impl BusyTime {
+        /// Starts from the drives' I/O time as it is now, so the first
+        /// reading already has a value. Without it the sensor would appear
+        /// one reading after the others, and the computer would declare
+        /// its entities twice at every start.
+        pub fn primed() -> Self {
+            let stats = std::fs::read_to_string(DISKSTATS).unwrap_or_default();
+            Self {
+                io_millis: whole_disks(&stats),
+            }
+        }
+
         /// The share of `elapsed_secs` that the busiest drive spent doing
         /// I/O. None at the first reading and when no drive is listed.
         pub fn busy_percent(&mut self, diskstats: &str, elapsed_secs: f64) -> Option<f64> {
