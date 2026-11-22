@@ -64,6 +64,7 @@ from .declare_scope import (
     merge_machine_declaration,
 )
 from .device_compat import async_entry_device, async_hand_device_over
+from .media_art import MediaArt, is_media_art_removal, parse_media_art
 from .notify_tag import (
     NO_ANSWER_TO_CLEAR_ERROR,
     NOT_CONNECTED_TO_CLEAR_ERROR,
@@ -115,6 +116,9 @@ class DeskmateHub:
         # The known features that the client listed in `info`; empty when it
         # listed none, sent no `info`, and when there is no session.
         self.session_features: frozenset[str] = frozenset()
+        # The cover of what the computer plays, as the client of the current
+        # session sent it. Kept in memory only, one picture per computer.
+        self.media_art: MediaArt | None = None
 
         self._ws: web.WebSocketResponse | None = None
         self._tx: FrameCodec | None = None  # s2c
@@ -441,6 +445,7 @@ class DeskmateHub:
         self.session_platform = None
         self.session_app = None
         self.session_features = frozenset()
+        self.media_art = None
 
     def _fail_pending(self, reason: str) -> None:
         for fut in self._pending.values():
@@ -498,6 +503,18 @@ class DeskmateHub:
                 self.hass.bus.async_fire(
                     EVENT_TRIGGER,
                     {"node_id": self.node_id, "key": key, "event": event_type},
+                )
+        elif mtype == "media_art":
+            art = parse_media_art(msg)
+            if art is None and not is_media_art_removal(msg):
+                # Only the fact is logged, never what was received.
+                _LOGGER.warning(
+                    "Deskmate %s sent a media picture that was refused", self.node_id
+                )
+            if art != self.media_art:
+                self.media_art = art
+                async_dispatcher_send(
+                    self.hass, f"{SIGNAL_STATE}_{self.entry.entry_id}"
                 )
         elif mtype == "ping":
             await self._send({"t": "pong"})

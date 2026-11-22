@@ -25,7 +25,14 @@ INFO = {"t": "info", "role": "app", "platform": "windows", "app": "0.9.0"}
 ANSWER = {
     "t": "info",
     "integration": json.loads(MANIFEST.read_text(encoding="utf-8"))["version"],
-    "caps": ["info", "scoped_declare", "bye", "media_player", "notify_tag"],
+    "caps": [
+        "info",
+        "scoped_declare",
+        "bye",
+        "media_player",
+        "notify_tag",
+        "media_art",
+    ],
 }
 NO_INFO = (None, None, None)
 HUB_LOGGER = "custom_components.deskmate_link.hub"

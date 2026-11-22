@@ -92,6 +92,18 @@ class DeskmateMediaPlayer(DeskmateEntity, MediaPlayerEntity):
         return None if media is None else media.position_at
 
     @property
+    def media_image_hash(self) -> str | None:
+        # Home Assistant fetches the picture again when this changes.
+        art = self.hub.media_art
+        return None if art is None or self._media is None else art.digest
+
+    async def async_get_media_image(self) -> tuple[bytes | None, str | None]:
+        art = self.hub.media_art
+        if art is None or self._media is None:
+            return None, None
+        return art.content, art.content_type
+
+    @property
     def app_name(self) -> str | None:
         media = self._media
         return None if media is None else media.app
