@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
@@ -16,6 +17,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.deskmate_link.const import DOMAIN
 from custom_components.deskmate_link.media_state import (
+    MEDIA_MAX_SECONDS,
     MEDIA_TEXT_MAX_CHARS,
     MediaState,
     media_command,
@@ -402,3 +404,171 @@ async def test_volume_out_of_range_sends_nothing(
 
     # sync() fails if the hub sent a command anyway.
     await client.sync()
+
+
+# ── album, duration, position and seeking (0.9.5) ────────────────
+
+# 2026-11-22 12:00:00 UTC
+POSITION_AT = 1_795_348_800
+TIMELINE = {
+    **PLAYING,
+    "album": "Record",
+    "duration": 241.5,
+    "position": 63.2,
+    "position_at": POSITION_AT,
+}
+
+
+def test_timeline_fields_are_read() -> None:
+    media = parse_media_state(TIMELINE)
+
+    assert media is not None
+    assert media.album == "Record"
+    assert media.duration == 241.5
+    assert media.position == 63.2
+    assert media.position_at == datetime.fromtimestamp(POSITION_AT, UTC)
+    assert media.seekable
+
+
+def test_state_without_timeline_fields_is_what_it_was() -> None:
+    media = parse_media_state(PLAYING)
+
+    assert media is not None
+    assert (media.album, media.duration, media.position, media.position_at) == (
+        None,
+        None,
+        None,
+        None,
+    )
+    assert not media.seekable
+
+
+@pytest.mark.parametrize(
+    "value",
+    [-1, MEDIA_MAX_SECONDS + 1, float("nan"), float("inf"), "241", True, None, [241]],
+)
+def test_invalid_duration_is_dropped_alone(value: Any) -> None:
+    media = parse_media_state({**TIMELINE, "duration": value})
+
+    assert media is not None
+    assert media.duration is None
+    assert media.title == "Song"
+    # Without a length there is nothing to seek along.
+    assert not media.seekable
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [
+        {"position": -0.5},
+        {"position": "63"},
+        {"position": True},
+        {"position": float("nan")},
+        # Past the end of the track.
+        {"position": 300},
+        # A position without the time it was read at cannot be extrapolated.
+        {"position_at": None},
+        {"position_at": "2026-11-22T12:00:00Z"},
+        {"position_at": 0},
+        {"position_at": 99_999_999_999},
+        {"position_at": float("inf")},
+    ],
+)
+def test_position_and_its_time_are_dropped_together(fields: dict[str, Any]) -> None:
+    media = parse_media_state({**TIMELINE, **fields})
+
+    assert media is not None
+    assert media.position is None
+    assert media.position_at is None
+    assert media.duration == 241.5
+    assert not media.seekable
+
+
+def test_position_without_a_duration_is_kept_but_not_seekable() -> None:
+    media = parse_media_state({**TIMELINE, "duration": None})
+
+    assert media is not None
+    assert media.position == 63.2
+    assert not media.seekable
+
+
+@pytest.mark.parametrize("position", [0, 12.5, MEDIA_MAX_SECONDS])
+def test_seek_carries_the_position(position: float) -> None:
+    assert media_command("seek", position=position) == {
+        "op": "seek",
+        "position": float(position),
+    }
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        {},
+        {"position": -1},
+        {"position": MEDIA_MAX_SECONDS + 1},
+        {"position": float("nan")},
+        {"position": True},
+        {"position": "12"},
+    ],
+)
+def test_invalid_seek_is_refused(arguments: dict[str, Any]) -> None:
+    with pytest.raises(HomeAssistantError):
+        media_command("seek", **arguments)
+
+
+async def test_timeline_reaches_the_entity_and_adds_seeking(
+    hass: HomeAssistant, entry: MockConfigEntry, connect: Connect
+) -> None:
+    client = await connect()
+    await declare_media(hass, client)
+
+    await report(hass, client, TIMELINE)
+
+    state = hass.states.get(media_entity_id(hass, entry))
+    assert state.attributes["media_album_name"] == "Record"
+    assert state.attributes["media_duration"] == 242
+    assert state.attributes["media_position"] == 63
+    assert state.attributes["media_position_updated_at"] == datetime.fromtimestamp(
+        POSITION_AT, UTC
+    )
+    assert (
+        state.attributes["supported_features"]
+        == SUPPORTED | MediaPlayerEntityFeature.SEEK
+    )
+
+
+async def test_seeking_is_not_offered_without_a_timeline(
+    hass: HomeAssistant, entry: MockConfigEntry, connect: Connect
+) -> None:
+    client = await connect()
+    await declare_media(hass, client)
+
+    # What a Deskmate older than 0.9.5 reports.
+    await report(hass, client, PLAYING)
+
+    state = hass.states.get(media_entity_id(hass, entry))
+    assert state.attributes["supported_features"] == SUPPORTED
+    assert "media_duration" not in state.attributes
+    assert "media_position" not in state.attributes
+
+
+async def test_seek_service_sends_the_position(
+    hass: HomeAssistant, entry: MockConfigEntry, connect: Connect
+) -> None:
+    client = await connect()
+    await declare_media(hass, client)
+    await report(hass, client, TIMELINE)
+
+    call = hass.async_create_task(
+        hass.services.async_call(
+            "media_player",
+            "media_seek",
+            {"entity_id": media_entity_id(hass, entry), "seek_position": 120},
+            blocking=True,
+        )
+    )
+    command = await client.receive()
+    await client.send({"t": "ack", "id": command["id"], "ok": True})
+    await call
+
+    assert command["value"] == {"op": "seek", "position": 120.0}
