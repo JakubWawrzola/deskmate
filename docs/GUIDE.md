@@ -100,6 +100,8 @@ Network*), the code has none and you type it into Deskmate yourself:
 | Over Tailscale or another VPN | `ws://100.x.x.x:8123` |
 
 A second, fallback address can be added for when you are away from home.
+Deskmate waits five seconds for an address to answer and then tries the other
+one, so a laptop that left the house is back within about ten seconds.
 Plain `ws://` is accepted only for local and VPN addresses.
 
 Two things worth doing right away:
@@ -223,6 +225,12 @@ data:
     - id: ignore
       title: Ignore
 ```
+
+The picture is small, next to the text. For a camera snapshot, add
+`image_placement: hero` to show it across the top of the notification, or
+`image_placement: inline` to show it under the text. This needs Deskmate
+0.9.5 on Windows and the integration of the same version; on Linux the
+desktop decides where a picture goes.
 
 Leave out `node_id` to notify every paired PC, or set it to one PC's node id
 (shown in Deskmate under Settings). A PC that is off, or that nobody is
@@ -525,7 +533,9 @@ computer sleeps, `off` after a shutdown, `disconnected` otherwise. While the
 service is connected, the sensors that need a user (active window, media,
 volume and so on) and the controls that act in a session are unavailable; the
 processor, memory, system drive, network, uptime and battery sensors and the
-Sleep, Hibernate, Shut down and Restart buttons keep working. When you sign in
+Sleep, Hibernate, Shut down and Restart buttons keep working. *Current user*
+keeps working too: it shows the account that is signed in, or `none` at the
+sign-in screen. When you sign in
 or out, the connection moves between the app and the service within a few
 seconds, and Home Assistant keeps the computer available meanwhile. For five
 minutes after the computer starts or wakes up, the service refuses the power
@@ -576,13 +586,15 @@ The computer's device in Home Assistant then gets:
 | Extra time today | Minutes on top of the limit, back to 0 at midnight |
 | Allowed from, Allowed until | `HH:MM`, empty for no schedule; `22:00` to `02:00` works across midnight |
 | When time is up | *Lock* or *Sign out* |
+| Warnings before the limit | Minutes before the stop at which a notification comes, such as `15, 5, 2`: up to five times between 1 and 120. Empty stands for 10, 5 and 1 |
 | Block apps, Blocked apps | Switch and program names separated by commas (`steam, robloxplayerbeta`); they close as soon as they start |
 | Lock with message | Text shown on the PC, which locks 10 seconds later |
 
 A *Sign out* button is there on every PC, family rules or not.
 
 What the child sees: a notification 10, 5 and 1 minute before the limit or the
-end of the allowed hours. When the time is up, a notification with *Ask for
+end of the allowed hours, or at the times set in *Warnings before the limit*.
+When the time is up, a notification with *Ask for
 more time* and one minute to save, then the PC locks (or signs out). Unlocking
 again locks after 20 seconds, until there is time again. Open programs keep
 running behind the lock screen.

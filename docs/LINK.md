@@ -435,15 +435,25 @@ kind:
 Its value in a `state` frame is an object:
 
 ```json
-{"t": "state", "s": {"media": {"state": "playing", "title": "Song", "artist": "Band", "app": "Spotify", "volume": 0.5, "muted": false}}}
+{"t": "state", "s": {"media": {"state": "playing", "title": "Song", "artist": "Band", "album": "Record", "app": "Spotify", "volume": 0.5, "muted": false, "duration": 241.5, "position": 63.2, "position_at": 1795348800}}}
 ```
 
 | Field | Value |
 |---|---|
 | `state` | `playing`, `paused`, `idle` or `off` |
-| `title`, `artist`, `app` | a text of at most 256 characters, or `null` |
+| `title`, `artist`, `album`, `app` | a text of at most 256 characters, or `null` |
 | `volume` | a number from 0 to 1, or `null` |
 | `muted` | `true`, `false` or `null` |
+| `duration` | length of the track in seconds, from 0 to 604800 (a week), or `null` |
+| `position` | seconds into the track at the moment `position_at`, from 0 to `duration`, or `null` |
+| `position_at` | Unix time in seconds at which `position` was read, or `null` |
+
+`album`, `duration`, `position` and `position_at` are new in 0.9.5. A client
+sends `position` when it changes for a reason other than time passing: a new
+track, play, pause, a seek. Home Assistant works out the current position
+from the two values, so nothing is sent every second. `position` and
+`position_at` count only together: when either is missing or fails its check,
+both are dropped.
 
 Home Assistant checks each field. A field that fails, such as a longer text,
 a text with control characters or a volume outside 0 to 1, is dropped and
@@ -452,7 +462,10 @@ valid `state`, or a value that is not an object, makes the entity's state
 unknown. Fields other than these are ignored.
 
 The entity offers play, pause, play/pause, next track, previous track, volume
-and mute. Each is a `cmd` with the action `set` and an object as its value:
+and mute, and seeking while the state holds a `duration` and a `position`. A
+client that never reports the two, such as Deskmate older than 0.9.5, is
+therefore never sent a `seek`. Each is a `cmd` with the action `set` and an
+object as its value:
 
 ```json
 {"t": "cmd", "id": 7, "key": "media", "action": "set", "value": {"op": "set_volume", "volume": 0.3}}
@@ -463,6 +476,7 @@ and mute. Each is a `cmd` with the action `set` and an object as its value:
 | `play_pause`, `play`, `pause`, `next`, `previous` | none |
 | `set_volume` | `volume`, a number from 0 to 1 |
 | `mute` | `muted`, `true` or `false` |
+| `seek` | `position`, seconds from 0 to 604800 |
 
 The client checks the op and its field, and answers with the usual `ack`.
 
@@ -551,6 +565,14 @@ that does not match `^[A-Za-z0-9_-]{1,64}$`, or a priority other than
 `normal`, `high` or `urgent`, refuses the whole notification with
 `{"ok": false, "error": "invalid notification tag"}` (or `priority`), and
 nothing is shown.
+
+`image_placement` is read the same way: missing or null means `logo`, and a
+value other than `logo`, `hero` or `inline` refuses the notification with
+`invalid notification image placement`. `logo` is the toast's
+`appLogoOverride` image, `hero` its hero image, and `inline` an image without
+a placement, which Windows shows under the text. Deskmate on Linux shows the
+picture the way the desktop's notification service does, whatever the field
+says.
 
 - A tag becomes the toast's Tag, with the Group `home_assistant`, so Windows
   replaces the earlier toast with that tag. The Notifications page of the

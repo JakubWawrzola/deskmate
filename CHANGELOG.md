@@ -3,6 +3,37 @@
 All notable changes to Deskmate are documented here. Release-specific upgrade
 notes and asset names are available in `docs/releases/RELEASE-*.md`.
 
+## 0.9.5 - unreleased
+
+### Added
+
+- **A big picture in a notification** (#43): `image_placement: hero` on the
+  notify action shows the picture across the top of the notification, and
+  `inline` under the text. Without the field the picture stays small.
+- **Current user stays right without a signed-in user** (#8): with the
+  Deskmate service installed, the sensor shows `none` at the sign-in screen
+  instead of the name it had last.
+- **Screen time warnings you choose**: a *Warnings before the limit* text
+  entity and a field on the Family page set when the "time is almost up"
+  notifications come, for example `15, 5, 2`. Up to five times between 1 and
+  120 minutes; empty keeps 10, 5 and 1.
+
+### Changed
+
+- **Away from home, the fallback address is tried within seconds.** Deskmate
+  and the Deskmate service wait five seconds for an address to answer instead
+  of leaving it to Windows (about 21 seconds), and an address that cannot be
+  reached gives way to the other one at once instead of after two attempts.
+  With no fallback address set, the status says how to add one.
+- Section headings in the window are darker and heavier (#46).
+
+### Fixed
+
+- **Session locked on the clock screen** (#45): the sensor turned on only
+  once the password prompt was showing. It now turns on as soon as the
+  session locks. The same check guards key presses, typed text, received
+  files and system commands, so those are refused on the clock screen too.
+
 ## 0.9.0 - 2026-11-16
 
 With the optional Deskmate service, the computer stays in Home Assistant
