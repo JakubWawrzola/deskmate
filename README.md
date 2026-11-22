@@ -129,6 +129,9 @@ The list describes the Windows app. On Linux the preview covers part of it;
 **Everyday**
 
 - Light and dark theme, and it starts when you sign in.
+- In English, German, Spanish, French, Polish, Brazilian Portuguese and
+  Simplified Chinese. Deskmate follows the language of the system; Settings →
+  *Language* picks another one.
 - On Windows, Deskmate installs updates after you say yes. Settings →
   *Updates* can make it install them on its own, or only tell you.
 - Several computers, and several Windows users on one computer; see the

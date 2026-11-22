@@ -756,6 +756,20 @@ unticked; the Deskmate service then stays installed.
 Update the Home Assistant integration through HACS; the release notes say when
 the order matters.
 
+### Language
+
+Deskmate is in English, German, Spanish, French, Polish, Brazilian Portuguese
+and Simplified Chinese. It follows the language of Windows (on Linux, of the
+session); Settings → **Language** picks another one, and the window, the tray
+menu and Deskmate's own notifications switch at once. The Home Assistant
+integration follows the language of your Home Assistant profile. Entity names
+stay in English, so automations read the same everywhere; rename an entity in
+Home Assistant if you want it in your language.
+
+Most translations were not written by native speakers. If a text reads wrong,
+[CONTRIBUTING.md](../CONTRIBUTING.md#improving-a-translation) says which file
+to correct.
+
 ## 14. Troubleshooting
 
 **The Status page shows a rejection or a clock mismatch.** The message says

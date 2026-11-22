@@ -35,6 +35,12 @@ notes and asset names are available in `docs/releases/RELEASE-*.md`.
   and on Windows the health of each physical drive (`Healthy`, `Warning`,
   `Unhealthy`).
   They appear by themselves and can be switched off on the Sensors page.
+- **Seven languages** (#48): the window, the tray menu, Deskmate's own
+  notifications and the Home Assistant integration are in English, German,
+  Spanish, French, Polish, Brazilian Portuguese and Simplified Chinese.
+  Deskmate follows the language of the system, and Settings → *Language*
+  picks another one. Entity names stay in English. Most translations were
+  not written by native speakers; CONTRIBUTING.md says how to correct one.
 - **Current user stays right without a signed-in user** (#8): with the
   Deskmate service installed, the sensor shows `none` at the sign-in screen
   instead of the name it had last.
