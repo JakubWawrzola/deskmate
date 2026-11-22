@@ -1,6 +1,7 @@
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { api } from "../api";
 import { Button, Panel } from "../components";
+import { t } from "../i18n";
 import type { ServiceSetupAction, ServiceView } from "../types";
 
 /** How often the panel looks at the service while it is open. */
@@ -12,31 +13,40 @@ const AFTER_STEP_MS = 2_500;
 function describeService(view: ServiceView): string {
   switch (view.phase) {
     case "not_installed":
-      return "Not installed.";
+      return t("Not installed.");
     case "not_answering":
     case "error":
-      return `Error: ${view.detail}`;
+      return t("Error: {detail}", { detail: view.detail ?? "" });
     case "integration_too_old":
-      return "The Deskmate integration in Home Assistant is too old for the service. Update it in HACS; the service checks again within an hour.";
+      return t(
+        "The Deskmate integration in Home Assistant is too old for the service. Update it in HACS; the service checks again within an hour.",
+      );
     case "needs_update":
-      return `Needs update: version ${view.running_version ?? "unknown"} runs, this Deskmate brings ${view.bundled_version}.`;
+      return t("Needs update: version {running} runs, this Deskmate brings {bundled}.", {
+        running: view.running_version ?? t("unknown"),
+        bundled: view.bundled_version,
+      });
     case "settings_differ":
-      return "Settings differ: the service has other settings than this app, or none yet. Apply gives it the current ones.";
+      return t(
+        "Settings differ: the service has other settings than this app, or none yet. Apply gives it the current ones.",
+      );
     case "running":
       break;
   }
   if (view.paused_by_user) {
-    return "Running, waiting: you pressed Disconnect, so neither Deskmate nor the service connects while Deskmate runs. If you quit Deskmate or sign out, the service connects. Press Connect on the Status page to connect again.";
+    return t(
+      "Running, waiting: you pressed Disconnect, so neither Deskmate nor the service connects while Deskmate runs. If you quit Deskmate or sign out, the service connects. Press Connect on the Status page to connect again.",
+    );
   }
   switch (view.activity) {
     case "connected":
-      return "Running: connected to Home Assistant.";
+      return t("Running: connected to Home Assistant.");
     case "connecting":
-      return "Running: connecting to Home Assistant.";
+      return t("Running: connecting to Home Assistant.");
     case "waiting":
-      return "Running: waiting while the Deskmate app holds the connection.";
+      return t("Running: waiting while the Deskmate app holds the connection.");
     default:
-      return "Running.";
+      return t("Running.");
   }
 }
 
@@ -105,7 +115,7 @@ export default function ServicePanel() {
   if (view?.phase === "not_installed") {
     steps = (
       <Step
-        label="Install"
+        label={t("Install")}
         primary
         blocked={view.install_blocked}
         busy={busy}
@@ -119,7 +129,7 @@ export default function ServicePanel() {
       <>
         {offerUpdate && (
           <Step
-            label="Update"
+            label={t("Update")}
             primary
             blocked={view.update_blocked}
             busy={busy}
@@ -128,7 +138,7 @@ export default function ServicePanel() {
         )}
         {view.settings_differ && (
           <Step
-            label="Apply"
+            label={t("Apply")}
             primary={!offerUpdate}
             blocked={view.apply_blocked}
             busy={busy}
@@ -136,23 +146,23 @@ export default function ServicePanel() {
           />
         )}
         <Button disabled={busy} onClick={() => void run(api.removeService)}>
-          Remove
+          {t("Remove")}
         </Button>
       </>
     );
     if (offerUpdate && view.update_blocked) reasons.push(view.update_blocked);
     if (view.settings_differ && view.apply_blocked) reasons.push(view.apply_blocked);
     if (offerUpdate && view.settings_differ && !view.apply_blocked) {
-      reasons.push("Apply also updates the service.");
+      reasons.push(t("Apply also updates the service."));
     }
   }
 
   return (
-    <Panel title="Deskmate service">
+    <Panel title={t("Deskmate service")}>
       <p className="text-[12px] text-muted mb-3 leading-relaxed">
-        The service keeps this computer's sensors and power buttons in Home Assistant while nobody
-        is signed in. It never shows notifications, receives files or sees anything from your
-        session.
+        {t(
+          "The service keeps this computer's sensors and power buttons in Home Assistant while nobody is signed in. It never shows notifications, receives files or sees anything from your session.",
+        )}
       </p>
       {view && (
         <div className="space-y-2 text-[13px]">
@@ -162,7 +172,8 @@ export default function ServicePanel() {
           </div>
           {view.running_version && (
             <p className="text-[12px] text-muted">
-              Version <span className="mono">{view.running_version}</span>
+              {t("Version ")}
+              <span className="mono">{view.running_version}</span>
             </p>
           )}
           {reasons.map((reason) => (
@@ -171,8 +182,9 @@ export default function ServicePanel() {
             </p>
           ))}
           <p className="text-[12px] text-muted">
-            Install, Update, Apply and Remove each ask Windows for administrator approval once.
-            Uninstalling Deskmate removes the service too.
+            {t(
+              "Install, Update, Apply and Remove each ask Windows for administrator approval once. Uninstalling Deskmate removes the service too.",
+            )}
           </p>
         </div>
       )}

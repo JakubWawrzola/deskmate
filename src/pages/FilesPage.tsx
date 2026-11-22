@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { Button, EmptyState, Field, Panel } from "../components";
+import { t, tn } from "../i18n";
 import { isLinux, PlatformNote, usePlatform } from "../platform";
 import type { AppConfig, ClipboardMode, FileEvent } from "../types";
 
 const KIND_LABEL: Record<string, string> = {
-  received: "Received",
-  read: "Read by Home Assistant",
-  cancelled: "Cancelled",
+  received: tn("Received"),
+  read: tn("Read by Home Assistant"),
+  cancelled: tn("Cancelled"),
 };
 
 function when(seconds: number): string {
@@ -57,7 +58,7 @@ export default function FilesPage({
         link_inbox_dir: inboxDir.trim(),
         link_files_max_mb: Math.min(4096, Math.max(1, parseInt(filesMaxMb, 10) || 256)),
       });
-      setMsg("Saved. Reconnecting...");
+      setMsg(t("Saved. Reconnecting..."));
       await onSaved();
     } catch (e) {
       setMsg(String(e));
@@ -70,32 +71,33 @@ export default function FilesPage({
 
   return (
     <>
-      <Panel title="Receive files">
+      <Panel title={t("Receive files")}>
         <p className="text-[12px] text-muted mb-3 leading-relaxed">
-          Send files from your phone or laptop to this computer through the Deskmate page in the
-          Home Assistant sidebar. Files only ever land in the folder below. Home Assistant cannot
-          overwrite, rename, delete or read anything through it; a name that already exists gets a
-          number.
+          {t(
+            "Send files from your phone or laptop to this computer through the Deskmate page in the Home Assistant sidebar. Files only ever land in the folder below. Home Assistant cannot overwrite, rename, delete or read anything through it; a name that already exists gets a number.",
+          )}
           {!linux &&
-            " Received files are marked as downloaded from another computer, so Windows treats them like browser downloads."}
+            t(
+              " Received files are marked as downloaded from another computer, so Windows treats them like browser downloads.",
+            )}
         </p>
         <div className="grid grid-cols-[1fr_120px] gap-3">
           <label className="block">
-            <span className="microlabel">Files from Home Assistant</span>
+            <span className="microlabel">{t("Files from Home Assistant")}</span>
             <select
               value={inboxMode}
               onChange={(e) => setInboxMode(e.target.value as ClipboardMode)}
               className="mt-1 w-full h-9 px-2 bg-panel border border-hairline-strong rounded text-ink text-[13px] focus-visible:border-ink"
             >
-              <option value="off">Off</option>
+              <option value="off">{t("Off")}</option>
               <option value="confirm" disabled={linux}>
-                Ask on this computer for every file
+                {t("Ask on this computer for every file")}
               </option>
-              <option value="automatic">Accept automatically</option>
+              <option value="automatic">{t("Accept automatically")}</option>
             </select>
           </label>
           <Field
-            label="Max size (MB)"
+            label={t("Max size (MB)")}
             value={filesMaxMb}
             onChange={setFilesMaxMb}
             placeholder="256"
@@ -103,62 +105,73 @@ export default function FilesPage({
         </div>
         <div className="mt-3">
           <Field
-            label="Save to folder"
+            label={t("Save to folder")}
             value={inboxDir}
             onChange={setInboxDir}
-            placeholder={linux ? "Downloads/Deskmate (default)" : "Downloads\\Deskmate (default)"}
+            placeholder={
+              linux ? t("Downloads/Deskmate (default)") : t("Downloads\\Deskmate (default)")
+            }
             hint={
               linux
-                ? "Leave empty for Deskmate in your download folder. An absolute local path; it is created if missing."
-                : "Leave empty for Downloads\\Deskmate. Local folder only; it is created if missing."
+                ? t(
+                    "Leave empty for Deskmate in your download folder. An absolute local path; it is created if missing.",
+                  )
+                : t(
+                    "Leave empty for Downloads\\Deskmate. Local folder only; it is created if missing.",
+                  )
             }
           />
         </div>
         {linux && (
           <div className="mt-2">
             <PlatformNote>
-              The Linux preview cannot ask on this computer yet: choose Off or Accept automatically.
+              {t(
+                "The Linux preview cannot ask on this computer yet: choose Off or Accept automatically.",
+              )}
             </PlatformNote>
           </div>
         )}
         {inboxMode === "confirm" && !linux && (
           <p className="mt-2 text-[12px] text-muted">
-            While Windows is locked nobody can accept, so transfers are refused.
+            {t("While Windows is locked nobody can accept, so transfers are refused.")}
           </p>
         )}
         {inboxMode === "automatic" && (
           <p className="mt-2 text-[12px] border border-hairline-strong rounded p-2">
-            Anyone with an admin account in Home Assistant can put files on this computer without
-            asking.
+            {t(
+              "Anyone with an admin account in Home Assistant can put files on this computer without asking.",
+            )}
           </p>
         )}
         <p className="mt-2 text-[12px] text-muted">
-          The size limit also applies to files Home Assistant reads from the folders below.
+          {t("The size limit also applies to files Home Assistant reads from the folders below.")}
         </p>
       </Panel>
 
-      <Panel title="Shared folders (read-only)">
+      <Panel title={t("Shared folders (read-only)")}>
         <p className="text-[12px] border border-hairline-strong rounded p-2 mb-3 leading-relaxed">
-          Home Assistant can list, inspect and download files inside the folders below, never change
-          them. Leave the list empty to keep this off. Never add a folder with secrets you do not
-          want in Home Assistant.
+          {t(
+            "Home Assistant can list, inspect and download files inside the folders below, never change them. Leave the list empty to keep this off. Never add a folder with secrets you do not want in Home Assistant.",
+          )}
         </p>
         <div className="flex items-end gap-2">
           <div className="flex-1">
             <Field
-              label="Allowed local folder"
+              label={t("Allowed local folder")}
               value={fileRootDraft}
               onChange={setFileRootDraft}
               placeholder="C:\\Users\\Kuba\\Documents"
-              hint="Absolute local path only. UNC shares, symbolic links and alternate data streams are rejected."
+              hint={t(
+                "Absolute local path only. UNC shares, symbolic links and alternate data streams are rejected.",
+              )}
             />
           </div>
           <Button onClick={addFileRoot} disabled={!fileRootDraft.trim()}>
-            Add folder
+            {t("Add folder")}
           </Button>
         </div>
         {fileRoots.length === 0 ? (
-          <p className="mt-3 text-[12px] text-muted">Off: no folders are shared.</p>
+          <p className="mt-3 text-[12px] text-muted">{t("Off: no folders are shared.")}</p>
         ) : (
           <div className="mt-3 space-y-2">
             {fileRoots.map((root) => (
@@ -171,7 +184,7 @@ export default function FilesPage({
                   kind="danger"
                   onClick={() => setFileRoots((items) => items.filter((item) => item !== root))}
                 >
-                  Remove
+                  {t("Remove")}
                 </Button>
               </div>
             ))}
@@ -181,14 +194,14 @@ export default function FilesPage({
 
       <div className="flex items-center gap-3">
         <Button kind="primary" onClick={save} disabled={saving}>
-          {saving ? "Saving..." : "Save"}
+          {saving ? t("Saving...") : t("Save")}
         </Button>
         {msg && <span className="text-[12px] text-muted">{msg}</span>}
       </div>
 
-      <Panel title="Recent transfers">
-        {events === null && <p className="text-[12px] text-muted">Loading...</p>}
-        {events?.length === 0 && <EmptyState text="Nothing sent or read yet." />}
+      <Panel title={t("Recent transfers")}>
+        {events === null && <p className="text-[12px] text-muted">{t("Loading...")}</p>}
+        {events?.length === 0 && <EmptyState text={t("Nothing sent or read yet.")} />}
         {events && events.length > 0 && (
           <div>
             {events.map((event, index) => (
@@ -197,7 +210,7 @@ export default function FilesPage({
                 className="flex items-baseline gap-3 py-1.5 border-b border-hairline last:border-b-0 text-[12px]"
               >
                 <span className="w-36 shrink-0 text-muted">{when(event.time)}</span>
-                <span className="w-40 shrink-0">{KIND_LABEL[event.kind] ?? event.kind}</span>
+                <span className="w-40 shrink-0">{t(KIND_LABEL[event.kind] ?? event.kind)}</span>
                 <span className="flex-1 mono break-all">{event.path}</span>
                 {event.result !== "ok" && <span className="text-muted">{event.result}</span>}
               </div>
@@ -205,7 +218,7 @@ export default function FilesPage({
           </div>
         )}
         <p className="mt-2 text-[12px] text-muted">
-          From the local security log. File contents are never logged.
+          {t("From the local security log. File contents are never logged.")}
         </p>
       </Panel>
     </>

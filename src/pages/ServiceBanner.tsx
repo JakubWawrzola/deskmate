@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api";
 import { Button } from "../components";
+import { t } from "../i18n";
 import type { ServiceView } from "../types";
 
 /** How often the Status page looks at the service. */
@@ -33,8 +34,11 @@ export default function ServiceBanner() {
   const update = view.needs_update;
   const blocked = update ? view.update_blocked : view.apply_blocked;
   const text = update
-    ? `The Deskmate service runs version ${view.running_version ?? "unknown"}; this Deskmate brings ${view.bundled_version}.`
-    : "The Deskmate service has other settings than this app.";
+    ? t("The Deskmate service runs version {running}; this Deskmate brings {bundled}.", {
+        running: view.running_version ?? t("unknown"),
+        bundled: view.bundled_version,
+      })
+    : t("The Deskmate service has other settings than this app.");
 
   const run = async () => {
     setBusy(true);
@@ -57,7 +61,7 @@ export default function ServiceBanner() {
         </p>
         {(view.needs_update || view.settings_differ) && (
           <Button disabled={busy || blocked !== null} onClick={() => void run()}>
-            {update ? "Update" : "Apply"}
+            {update ? t("Update") : t("Apply")}
           </Button>
         )}
       </div>

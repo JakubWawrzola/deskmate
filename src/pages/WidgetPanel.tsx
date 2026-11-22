@@ -1,6 +1,7 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
+import { t } from "../i18n";
 import type { WidgetState } from "../types";
 
 const POLL_MS = 3000;
@@ -26,8 +27,8 @@ export default function WidgetPanel() {
 
   useEffect(() => {
     void refresh();
-    const t = setInterval(() => void refresh(), POLL_MS);
-    return () => clearInterval(t);
+    const timer = setInterval(() => void refresh(), POLL_MS);
+    return () => clearInterval(timer);
   }, []);
 
   const toggle = async (s: WidgetState) => {
@@ -36,7 +37,7 @@ export default function WidgetPanel() {
     setStates((prev) =>
       prev
         ? prev.map((p) =>
-            p.entity_id === s.entity_id ? { ...p, state: p.state === "on" ? "off" : "on" } : p,
+            p.entity_id === s.entity_id ? { ...p, state: p.state === "on" ? "off" : t("on") } : p,
           )
         : prev,
     );
@@ -56,11 +57,11 @@ export default function WidgetPanel() {
         className="h-8 shrink-0 flex items-center justify-between px-3 bg-panel border-b border-hairline cursor-move"
       >
         <span data-tauri-drag-region className="microlabel pointer-events-none">
-          Deskmate
+          {"Deskmate"}
         </span>
         <button
           type="button"
-          aria-label="Hide widgets"
+          aria-label={t("Hide widgets")}
           onClick={() => void getCurrentWindow().hide()}
           className="text-muted hover:text-ink text-[14px] leading-none px-1"
         >
@@ -72,13 +73,15 @@ export default function WidgetPanel() {
         {error && (
           <p className="text-[11px] text-muted leading-snug p-2">
             {error.includes("not configured")
-              ? "Configure the Home Assistant API (URL + token) in Deskmate Settings, then add tiles on the Widgets page."
+              ? t(
+                  "Configure the Home Assistant API (URL + token) in Deskmate Settings, then add tiles on the Widgets page.",
+                )
               : error}
           </p>
         )}
         {!error && states !== null && states.length === 0 && (
           <p className="text-[11px] text-muted leading-snug p-2">
-            No tiles. Add entities on the Widgets page in Deskmate.
+            {t("No tiles. Add entities on the Widgets page in Deskmate.")}
           </p>
         )}
         {states?.map((s) => {

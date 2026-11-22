@@ -1,6 +1,7 @@
 import { createContext, type ReactNode, useContext, useEffect, useState } from "react";
 import { api } from "./api";
 import { Panel } from "./components";
+import { t } from "./i18n";
 import type { PlatformCapabilities } from "./types";
 
 /** What the window assumes until the backend has answered: Windows, as before. */
@@ -45,7 +46,7 @@ export function isLinux(capabilities: PlatformCapabilities): boolean {
 
 /** "Follow Windows" and the like, in the words of the platform. */
 export function systemName(capabilities: PlatformCapabilities): string {
-  return isLinux(capabilities) ? "the system" : "Windows";
+  return isLinux(capabilities) ? t("the system") : "Windows";
 }
 
 /** One line where a feature would be, saying why it is not there. */

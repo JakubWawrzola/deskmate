@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api } from "../api";
 import { Button, Panel, StatusDot } from "../components";
+import { t } from "../i18n";
 import { isLinux, usePlatform } from "../platform";
 import type { AppConfig, Snapshot } from "../types";
 import ServiceBanner from "./ServiceBanner";
@@ -51,68 +52,70 @@ export default function StatusPage({
       {snapshot.update && <UpdateBanner update={snapshot.update} />}
       {!linux && <ServiceBanner />}
       <div className="grid grid-cols-3 gap-3">
-        <Readout label="CPU" value={num("cpu")} unit="%" />
-        <Readout label="Memory" value={num("memory")} unit="%" />
-        <Readout label="Disk" value={num("disk")} unit="%" />
+        <Readout label={"CPU"} value={num("cpu")} unit="%" />
+        <Readout label={t("Memory")} value={num("memory")} unit="%" />
+        <Readout label={t("Disk")} value={num("disk")} unit="%" />
       </div>
 
       <Panel
-        title="Connection"
+        title={t("Connection")}
         action={
           paused ? (
             <Button kind="primary" disabled={busy} onClick={() => void setPaused(false)}>
-              Connect
+              {t("Connect")}
             </Button>
           ) : (
             <div className="flex items-center gap-2">
               <Button disabled={busy} onClick={() => void api.restartConnection()}>
-                Reconnect
+                {t("Reconnect")}
               </Button>
               <Button disabled={busy} onClick={() => void setPaused(true)}>
-                Disconnect
+                {t("Disconnect")}
               </Button>
             </div>
           )
         }
       >
         <dl className="grid grid-cols-[140px_1fr] gap-y-2 text-[13px]">
-          <dt className="text-muted">Status</dt>
+          <dt className="text-muted">{t("Status")}</dt>
           <dd className="flex items-center gap-2">
             <StatusDot on={snapshot.status.connected} />
             {snapshot.status.detail}
           </dd>
-          <dt className="text-muted">Transport</dt>
-          <dd>{config.transport === "link" ? "Deskmate integration" : "MQTT"}</dd>
+          <dt className="text-muted">{t("Transport")}</dt>
+          <dd>{config.transport === "link" ? t("Deskmate integration") : "MQTT"}</dd>
           {snapshot.status.integration && (
             <>
-              <dt className="text-muted">Integration</dt>
+              <dt className="text-muted">{t("Integration")}</dt>
               <dd className="mono">{snapshot.status.integration}</dd>
             </>
           )}
-          <dt className="text-muted">Endpoint</dt>
+          <dt className="text-muted">{t("Endpoint")}</dt>
           <dd className="mono">
             {config.transport === "link"
               ? config.link_url
               : `${config.broker_host}:${config.broker_port}`}
           </dd>
-          <dt className="text-muted">Device</dt>
+          <dt className="text-muted">{t("Device")}</dt>
           <dd>{config.device_name}</dd>
-          <dt className="text-muted">Node ID</dt>
+          <dt className="text-muted">{t("Node ID")}</dt>
           <dd className="mono">{config.node_id}</dd>
-          <dt className="text-muted">Messages published</dt>
+          <dt className="text-muted">{t("Messages published")}</dt>
           <dd className="mono">{snapshot.published_count}</dd>
-          <dt className="text-muted">Interval</dt>
+          <dt className="text-muted">{t("Interval")}</dt>
           <dd className="mono">{config.publish_interval_secs}s</dd>
         </dl>
       </Panel>
 
-      <Panel title="In Home Assistant">
+      <Panel title={t("In Home Assistant")}>
         <p className="text-[13px] text-muted leading-relaxed">
-          This computer is registered through{" "}
-          {config.transport === "link" ? "the Deskmate integration" : "MQTT discovery"} as device{" "}
-          <span className="mono text-ink">{config.device_name}</span>. Find it under Settings &gt;
-          Devices &amp; services &gt; {config.transport === "link" ? "Deskmate" : "MQTT"}. Entity
-          ids follow the device name, for example{" "}
+          {t("This computer is registered through ")}
+          {config.transport === "link" ? t("the Deskmate integration") : t("MQTT discovery")}
+          {t(" as device ")}
+          <span className="mono text-ink">{config.device_name}</span>
+          {t(". Find it under Settings > Devices & services > ")}
+          {config.transport === "link" ? "Deskmate" : "MQTT"}
+          {t(". Entity ids follow the device name, for example ")}
           <span className="mono text-ink">
             sensor.{config.device_name.toLowerCase().replace(/[^a-z0-9]+/g, "_")}_cpu_usage
           </span>

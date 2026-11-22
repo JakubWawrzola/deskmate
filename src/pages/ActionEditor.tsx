@@ -1,12 +1,13 @@
+import { t } from "../i18n";
 import type { ActionKind, ActionSpec, CommandDef, CustomCommand } from "../types";
 
 const KINDS: { value: ActionKind; label: string; needsApi: boolean }[] = [
-  { value: "toggle", label: "Toggle HA entity", needsApi: true },
-  { value: "service", label: "Call HA service", needsApi: true },
-  { value: "command", label: "Local command", needsApi: false },
-  { value: "widget", label: "Show/hide widgets", needsApi: false },
-  { value: "dashboard", label: "Open HA dashboard", needsApi: false },
-  { value: "mqtt", label: "HA event trigger (MQTT / Link)", needsApi: false },
+  { value: "toggle", label: t("Toggle HA entity"), needsApi: true },
+  { value: "service", label: t("Call HA service"), needsApi: true },
+  { value: "command", label: t("Local command"), needsApi: false },
+  { value: "widget", label: t("Show/hide widgets"), needsApi: false },
+  { value: "dashboard", label: t("Open HA dashboard"), needsApi: false },
+  { value: "mqtt", label: t("HA event trigger (MQTT / Link)"), needsApi: false },
 ];
 
 /** Edytor ActionSpec - wspolny dla hotkeyow i tray quick actions. */
@@ -37,7 +38,7 @@ export default function ActionEditor({
         {KINDS.map((k) => (
           <option key={k.value} value={k.value}>
             {k.label}
-            {k.needsApi && !haConfigured ? " (configure HA API first)" : ""}
+            {k.needsApi && !haConfigured ? t(" (configure HA API first)") : ""}
           </option>
         ))}
       </select>
@@ -80,7 +81,7 @@ export default function ActionEditor({
           onChange={(e) => set({ command_id: e.target.value })}
           className="h-8 px-2 bg-panel border border-hairline-strong rounded text-[12px] w-full"
         >
-          <option value="">choose a command...</option>
+          <option value="">{t("choose a command...")}</option>
           {commandDefs.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}
@@ -107,8 +108,9 @@ export default function ActionEditor({
 
       {value.kind === "mqtt" && (
         <p className="text-[12px] text-muted leading-relaxed">
-          Publishes an event through the selected transport. With MQTT it is a device trigger; with
-          Link it is an event entity and a deskmate_link_trigger bus event.
+          {t(
+            "Publishes an event through the selected transport. With MQTT it is a device trigger; with Link it is an event entity and a deskmate_link_trigger bus event.",
+          )}
         </p>
       )}
     </div>

@@ -196,6 +196,8 @@ export interface AppConfig {
   update_mode?: UpdateMode;
   update_state?: UpdateState;
   theme?: ThemeMode;
+  /** "system" follows the computer, or a language code (src/i18n). */
+  language?: string;
   dashboard_path?: string;
   dashboard_on_top?: boolean;
   start_with_windows?: boolean | null;

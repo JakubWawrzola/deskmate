@@ -320,6 +320,10 @@ pub struct AppConfig {
     /// App colours: system (follow Windows) | light | dark.
     #[serde(default = "default_theme")]
     pub theme: String,
+    /// The language of the window and of Deskmate's own notifications:
+    /// "system" follows the computer, or one of `LANGUAGES`.
+    #[serde(default = "default_language")]
+    pub language: String,
     /// Daily check for a newer release on GitHub. Off: Deskmate never looks
     /// for, downloads or installs an update by itself.
     #[serde(default = "default_true")]
@@ -365,6 +369,16 @@ fn default_theme() -> String {
     "system".into()
 }
 
+/// The languages Deskmate is translated into, as the configuration names
+/// them. English is the source.
+pub const LANGUAGES: [&str; 7] = ["en", "de", "es", "fr", "pl", "pt-BR", "zh-Hans"];
+/// The setting that follows the language of the computer.
+pub const SYSTEM_LANGUAGE: &str = "system";
+
+fn default_language() -> String {
+    SYSTEM_LANGUAGE.into()
+}
+
 impl Default for AppConfig {
     fn default() -> Self {
         let host = hostname();
@@ -403,6 +417,7 @@ impl Default for AppConfig {
             update_check: true,
             start_with_windows: None,
             theme: default_theme(),
+            language: default_language(),
             dashboard_path: String::new(),
             dashboard_on_top: false,
             update_mode: default_update_mode(),

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { Button, Field, Panel, Toggle } from "../components";
+import { LANGUAGES, t } from "../i18n";
 import { parsePairingCode } from "../pairing";
 import { isLinux, PlatformNote, systemName, UnavailablePanel, usePlatform } from "../platform";
 import { applyTheme } from "../theme";
@@ -19,29 +20,41 @@ import StreamDeckPanel from "./StreamDeckPanel";
 const UPDATE_MODES: { value: UpdateMode; label: string; hint: string }[] = [
   {
     value: "auto",
-    label: "Install automatically",
-    hint: "Deskmate downloads the new version and installs it once the computer has not been used for five minutes.",
+    label: t("Install automatically"),
+    hint: t(
+      "Deskmate downloads the new version and installs it once the computer has not been used for five minutes.",
+    ),
   },
   {
     value: "ask",
-    label: "Ask first",
-    hint: "A notification and the Status page offer Install now and Later. Later asks again the next day.",
+    label: t("Ask first"),
+    hint: t(
+      "A notification and the Status page offer Install now and Later. Later asks again the next day.",
+    ),
   },
   {
     value: "notify",
-    label: "Only tell me",
-    hint: "Deskmate says that a new version is out and links to its download page. Nothing is downloaded.",
+    label: t("Only tell me"),
+    hint: t(
+      "Deskmate says that a new version is out and links to its download page. Nothing is downloaded.",
+    ),
   },
 ];
 
 /** Where notifications go on Linux: Windows has its toast settings instead. */
 function linuxNotifications(platform: PlatformCapabilities): string {
   if (!platform.notifications) {
-    return "No notification service answers in this session, so notifications from Home Assistant cannot be shown.";
+    return t(
+      "No notification service answers in this session, so notifications from Home Assistant cannot be shown.",
+    );
   }
   return platform.notification_buttons
-    ? "Notifications from Home Assistant go to the desktop's notification service, with their buttons."
-    : "Notifications from Home Assistant go to the desktop's notification service. It shows no buttons, so they are left out.";
+    ? t(
+        "Notifications from Home Assistant go to the desktop's notification service, with their buttons.",
+      )
+    : t(
+        "Notifications from Home Assistant go to the desktop's notification service. It shows no buttons, so they are left out.",
+      );
 }
 
 export default function SettingsPage({
@@ -58,7 +71,7 @@ export default function SettingsPage({
   const platform = usePlatform();
   const linux = isLinux(platform);
   // Where the secrets go, in the words of the platform.
-  const vault = linux ? "the keyring" : "Credential Manager";
+  const vault = linux ? t("the keyring") : t("Credential Manager");
   const [host, setHost] = useState(config.broker_host);
   const [transport, setTransport] = useState<TransportKind>(config.transport);
   const [hostRemote, setHostRemote] = useState(config.broker_host_remote);
@@ -88,6 +101,7 @@ export default function SettingsPage({
   const [interval, setIntervalS] = useState(String(config.publish_interval_secs));
   const [launchHidden, setLaunchHidden] = useState(config.launch_hidden);
   const [theme, setTheme] = useState<ThemeMode>(config.theme ?? "system");
+  const [language, setLanguageSetting] = useState(config.language ?? "system");
   const [dashboardPath, setDashboardPath] = useState(config.dashboard_path ?? "");
   const [dashboardOnTop, setDashboardOnTop] = useState(config.dashboard_on_top ?? false);
   const [dashboardMsg, setDashboardMsg] = useState<string | null>(null);
@@ -111,14 +125,16 @@ export default function SettingsPage({
     }
   };
   const checkUpdates = async () => {
-    setUpdateMsg("Checking...");
+    setUpdateMsg(t("Checking..."));
     try {
       const found = await api.checkUpdatesNow();
       setUpdateMsg(
-        found ? `Deskmate ${found.version} is available.` : "You have the latest version.",
+        found
+          ? t("Deskmate {version} is available.", { version: found.version })
+          : t("You have the latest version."),
       );
     } catch (e) {
-      setUpdateMsg(`Could not check: ${String(e)}`);
+      setUpdateMsg(t("Could not check: {error}", { error: String(e) }));
     }
   };
   const [autostart, setAutostart] = useState(false);
@@ -136,9 +152,9 @@ export default function SettingsPage({
       setHaToken("");
       if (thenPing) {
         const r = await api.haPing();
-        setHaMsg(`Connected: ${r}`);
+        setHaMsg(t("Connected: {answer}", { answer: r }));
       } else {
-        setHaMsg("Saved.");
+        setHaMsg(t("Saved."));
       }
       await onSaved();
     } catch (e) {
@@ -203,6 +219,7 @@ export default function SettingsPage({
           toast_branding: branding,
           update_check: updateCheck,
           theme,
+          language,
           dashboard_path: dashboardPath.trim(),
           dashboard_on_top: dashboardOnTop,
         },
@@ -214,7 +231,7 @@ export default function SettingsPage({
       setLinkKey("");
       setPairedNode(null);
       setPairedCascade(null);
-      setMsg("Saved. Reconnecting...");
+      setMsg(t("Saved. Reconnecting..."));
       await onSaved();
     } catch (e) {
       setMsg(String(e));
@@ -235,25 +252,25 @@ export default function SettingsPage({
 
   return (
     <>
-      <Panel title="Home Assistant transport">
+      <Panel title={t("Home Assistant transport")}>
         <label className="block">
-          <span className="microlabel">Active transport</span>
+          <span className="microlabel">{t("Active transport")}</span>
           <select
             value={transport}
             onChange={(event) => setTransport(event.target.value as TransportKind)}
             className="mt-1 w-full h-9 px-2 bg-panel border border-hairline-strong rounded text-ink text-[13px] focus-visible:border-ink"
           >
-            <option value="link">Deskmate integration (recommended)</option>
-            <option value="mqtt">MQTT broker</option>
+            <option value="link">{t("Deskmate integration (recommended)")}</option>
+            <option value="mqtt">{t("MQTT broker")}</option>
           </select>
         </label>
       </Panel>
 
       {transport === "mqtt" && (
-        <Panel title="MQTT broker">
+        <Panel title={t("MQTT broker")}>
           <div className="space-y-3">
             <label className="block">
-              <span className="microlabel">Transport</span>
+              <span className="microlabel">{t("Transport")}</span>
               <select
                 value={mqttTransport}
                 onChange={(e) => {
@@ -264,136 +281,166 @@ export default function SettingsPage({
                 }}
                 className="mt-1 w-full h-9 px-2 bg-panel border border-hairline-strong rounded text-ink text-[13px] focus-visible:border-ink"
               >
-                <option value="tls">TLS — verify certificate (recommended)</option>
-                <option value="insecure">Plain MQTT — trusted LAN only</option>
+                <option value="tls">{t("TLS — verify certificate (recommended)")}</option>
+                <option value="insecure">{t("Plain MQTT — trusted LAN only")}</option>
               </select>
             </label>
             {mqttTransport === "insecure" && (
               <p className="text-[12px] border border-hairline-strong rounded p-2">
-                Plain MQTT exposes credentials, sensor values and commands to anyone able to observe
-                this network.
+                {t(
+                  "Plain MQTT exposes credentials, sensor values and commands to anyone able to observe this network.",
+                )}
               </p>
             )}
             <div className="grid grid-cols-[1fr_92px] gap-3">
-              <Field label="Broker address (local)" value={host} onChange={setHost} />
-              <Field label="Port" value={port} onChange={setPort} />
+              <Field label={t("Broker address (local)")} value={host} onChange={setHost} />
+              <Field label={t("Port")} value={port} onChange={setPort} />
             </div>
             <Field
-              label="Fallback address (outside home)"
+              label={t("Fallback address (outside home)")}
               value={hostRemote}
               onChange={setHostRemote}
-              hint="Optional. If the local address fails, Deskmate tries this one (e.g. a Tailscale IP or public host). Leave empty to use just the local address."
+              hint={t(
+                "Optional. If the local address fails, Deskmate tries this one (e.g. a Tailscale IP or public host). Leave empty to use just the local address.",
+              )}
             />
             {mqttTransport === "tls" && (
               <Field
-                label="Custom CA certificate (PEM path)"
+                label={t("Custom CA certificate (PEM path)")}
                 value={mqttCaPath}
                 onChange={setMqttCaPath}
                 placeholder={
                   linux
-                    ? "Leave empty to use the system's trusted certificates"
-                    : "Leave empty to use Windows trusted certificates"
+                    ? t("Leave empty to use the system's trusted certificates")
+                    : t("Leave empty to use Windows trusted certificates")
                 }
-                hint="For a private/self-signed broker CA. Certificate verification cannot be disabled in TLS mode."
+                hint={t(
+                  "For a private/self-signed broker CA. Certificate verification cannot be disabled in TLS mode.",
+                )}
               />
             )}
-            <Field label="Username" value={username} onChange={setUsername} />
+            <Field label={t("Username")} value={username} onChange={setUsername} />
             <Field
-              label="Password"
+              label={t("Password")}
               value={password}
               onChange={setPassword}
               type="password"
-              placeholder={hasPassword ? `unchanged (stored in ${vault})` : "none"}
+              placeholder={hasPassword ? t("unchanged (stored in {vault})", { vault }) : t("none")}
             />
           </div>
         </Panel>
       )}
 
       {transport === "link" && (
-        <Panel title="Deskmate integration">
+        <Panel title={t("Deskmate integration")}>
           <div className="space-y-3">
             <Field
-              label="Home Assistant WebSocket URL (local)"
+              label={t("Home Assistant WebSocket URL (local)")}
               value={linkUrl}
               onChange={setLinkUrl}
               placeholder="ws://homeassistant.local:8123"
-              hint="The /api/deskmate_link/ws path is added automatically."
+              hint={t("The /api/deskmate_link/ws path is added automatically.")}
             />
             <Field
-              label="Fallback WebSocket URL"
+              label={t("Fallback WebSocket URL")}
               value={linkUrlRemote}
               onChange={setLinkUrlRemote}
               placeholder="wss://ha.example.com"
             />
             <Field
-              label="Pairing code or key"
+              label={t("Pairing code or key")}
               value={linkKey}
               onChange={onPairingInput}
               type="password"
               placeholder={
-                hasLinkKey ? `unchanged (stored in ${vault})` : "DMP1... code from Home Assistant"
+                hasLinkKey
+                  ? t("unchanged (stored in {vault})", { vault })
+                  : t("DMP1... code from Home Assistant")
               }
-              hint="Pasting the pairing code fills in the addresses as well."
+              hint={t("Pasting the pairing code fills in the addresses as well.")}
             />
             {platform.keyring_problem && <PlatformNote>{platform.keyring_problem}</PlatformNote>}
             {pairedNode && pairedNode !== config.node_id && (
               <p className="text-[12px] text-muted leading-relaxed">
-                This code is for a computer that is already paired. After saving, this Windows
-                account joins it as <span className="mono text-ink">{pairedNode}</span>.
+                {t(
+                  "This code is for a computer that is already paired. After saving, this Windows account joins it as ",
+                )}
+                <span className="mono text-ink">{pairedNode}</span>.
               </p>
             )}
             <p className="text-[12px] text-muted leading-relaxed">
-              This computer identifies itself as{" "}
-              <span className="mono text-ink">{config.node_id}</span>. In Home Assistant add the
-              Deskmate integration, paste the pairing code here and save. The entry binds itself to
-              this computer on the first successful connection. Reinstalled Deskmate, or another
-              Windows account on this computer: in Home Assistant open the Deskmate entry, choose
-              Reconfigure, then Show the pairing code.
+              {t("This computer identifies itself as ")}
+              <span className="mono text-ink">{config.node_id}</span>
+              {t(
+                ". In Home Assistant add the Deskmate integration, paste the pairing code here and save. The entry binds itself to this computer on the first successful connection. Reinstalled Deskmate, or another Windows account on this computer: in Home Assistant open the Deskmate entry, choose Reconfigure, then Show the pairing code.",
+              )}
             </p>
             <p className="text-[12px] text-muted leading-relaxed">
-              The connection is encrypted end to end (Deskmate Link protocol). MQTT settings remain
-              saved and can be selected again at any time.
+              {t(
+                "The connection is encrypted end to end (Deskmate Link protocol). MQTT settings remain saved and can be selected again at any time.",
+              )}
             </p>
           </div>
         </Panel>
       )}
 
-      <Panel title="Device">
+      <Panel title={t("Device")}>
         <div className="space-y-3">
           <Field
-            label="Device name"
+            label={t("Device name")}
             value={deviceName}
             onChange={setDeviceName}
-            hint="Shown in Home Assistant. Entity ids keep the original node id."
+            hint={t("Shown in Home Assistant. Entity ids keep the original node id.")}
           />
-          <Field label="Publish interval (seconds)" value={interval} onChange={setIntervalS} />
+          <Field label={t("Publish interval (seconds)")} value={interval} onChange={setIntervalS} />
           <div className="flex items-center justify-between h-9">
             <span className="text-[13px]">
-              {linux ? "Start when I sign in" : "Start with Windows"}
+              {linux ? t("Start when I sign in") : t("Start with Windows")}
             </span>
             <Toggle
               on={autostart}
               onChange={(v) => void toggleAutostart(v)}
-              label={linux ? "Start when I sign in" : "Start with Windows"}
+              label={linux ? t("Start when I sign in") : t("Start with Windows")}
             />
           </div>
           <div className="flex items-center justify-between h-9">
-            <span className="text-[13px]">Start minimized to tray</span>
+            <span className="text-[13px]">{t("Start minimized to tray")}</span>
             <Toggle
               on={launchHidden && platform.tray}
               disabled={!platform.tray}
               onChange={(v) => void toggleFeature("launch_hidden", v, setLaunchHidden)}
-              label="Start minimized to tray"
+              label={t("Start minimized to tray")}
             />
           </div>
           {!platform.tray && (
             <PlatformNote>
-              This desktop shows no tray icons, so the window stays open and closing it quits
-              Deskmate. On GNOME the AppIndicator extension adds a tray.
+              {t(
+                "This desktop shows no tray icons, so the window stays open and closing it quits Deskmate. On GNOME the AppIndicator extension adds a tray.",
+              )}
             </PlatformNote>
           )}
           <label className="block">
-            <span className="microlabel">Appearance</span>
+            <span className="microlabel">{t("Language")}</span>
+            <select
+              value={language}
+              onChange={(e) => setLanguageSetting(e.target.value)}
+              className="mt-1 w-full h-9 px-2 bg-panel border border-hairline-strong rounded text-ink text-[13px] focus-visible:border-ink"
+            >
+              <option value="system">
+                {t("Follow {system}", { system: systemName(platform) })}
+              </option>
+              {LANGUAGES.map((entry) => (
+                <option key={entry.code} value={entry.code}>
+                  {entry.name}
+                </option>
+              ))}
+            </select>
+            <span className="mt-1 block text-[12px] text-muted">
+              {t("Applied after Save. Entity names in Home Assistant stay in English.")}
+            </span>
+          </label>
+          <label className="block">
+            <span className="microlabel">{t("Appearance")}</span>
             <select
               value={theme}
               onChange={(e) => {
@@ -403,23 +450,24 @@ export default function SettingsPage({
               }}
               className="mt-1 w-full h-9 px-2 bg-panel border border-hairline-strong rounded text-ink text-[13px] focus-visible:border-ink"
             >
-              <option value="system">Follow {systemName(platform)}</option>
-              <option value="light">Light</option>
-              <option value="dark">Dark</option>
+              <option value="system">
+                {t("Follow {system}", { system: systemName(platform) })}
+              </option>
+              <option value="light">{t("Light")}</option>
+              <option value="dark">{t("Dark")}</option>
             </select>
             <span className="block mt-1 text-[12px] text-muted">
-              Applied right away; kept after Save.
+              {t("Applied right away; kept after Save.")}
             </span>
           </label>
         </div>
       </Panel>
 
       {linux ? (
-        <UnavailablePanel title="Windows only">
-          The CPU temperature helper and Stream Deck are not part of the Linux preview. The Deskmate
-          service has a Linux counterpart, the Deskmate daemon: installed as its own package, it
-          keeps the computer connected while nobody is signed in and hands over to this app when you
-          sign in.
+        <UnavailablePanel title={t("Windows only")}>
+          {t(
+            "The CPU temperature helper and Stream Deck are not part of the Linux preview. The Deskmate service has a Linux counterpart, the Deskmate daemon: installed as its own package, it keeps the computer connected while nobody is signed in and hands over to this app when you sign in.",
+          )}
         </UnavailablePanel>
       ) : (
         <>
@@ -430,21 +478,21 @@ export default function SettingsPage({
         </>
       )}
 
-      <Panel title="Home Assistant dashboard">
+      <Panel title={t("Home Assistant dashboard")}>
         <p className="text-[12px] text-muted mb-2 leading-relaxed">
-          Opens a Home Assistant dashboard in a Deskmate window, from the tray menu, a hotkey or a
-          tray quick action. Log in to Home Assistant there once; the session is kept. The page has
-          no access to Deskmate itself.
+          {t(
+            "Opens a Home Assistant dashboard in a Deskmate window, from the tray menu, a hotkey or a tray quick action. Log in to Home Assistant there once; the session is kept. The page has no access to Deskmate itself.",
+          )}
         </p>
         <div className="space-y-3">
           <Field
-            label="Dashboard path"
+            label={t("Dashboard path")}
             value={dashboardPath}
             onChange={setDashboardPath}
             placeholder="empty: your default dashboard, or e.g. lovelace/0"
           />
           <div className="flex items-center justify-between h-9">
-            <span className="text-[13px]">Keep the dashboard window on top</span>
+            <span className="text-[13px]">{t("Keep the dashboard window on top")}</span>
             <Toggle on={dashboardOnTop} onChange={setDashboardOnTop} />
           </div>
           <div className="flex items-center gap-3">
@@ -458,68 +506,70 @@ export default function SettingsPage({
                 }
               }}
             >
-              Open now
+              {t("Open now")}
             </Button>
             <span className="text-[12px] text-muted">
-              {dashboardMsg ?? "Path and on-top are kept after Save."}
+              {dashboardMsg ?? t("Path and on-top are kept after Save.")}
             </span>
           </div>
         </div>
       </Panel>
 
-      <Panel title="Home Assistant API (hotkeys, widgets, tray)">
+      <Panel title={t("Home Assistant API (hotkeys, widgets, tray)")}>
         <p className="text-[12px] text-muted mb-2 leading-relaxed">
-          Optional, and separate from the connection above: only hotkeys, the widget panel and tray
-          quick actions use it. Create a long-lived access token in HA (your profile → Security →
-          Long-lived access tokens). The token is stored in{" "}
-          {linux ? "your keyring" : "Windows Credential Manager"}, never in a file.
+          {t(
+            "Optional, and separate from the connection above: only hotkeys, the widget panel and tray quick actions use it. Create a long-lived access token in HA (your profile → Security → Long-lived access tokens). The token is stored in {vault}, never in a file.",
+            { vault: linux ? t("your keyring") : t("Windows Credential Manager") },
+          )}
         </p>
         <div className="space-y-3">
           <Field
-            label="HA URL (local)"
+            label={t("HA URL (local)")}
             value={haUrl}
             onChange={setHaUrl}
             placeholder="http://192.168.1.10:8123"
           />
           <Field
-            label="HA URL fallback (outside home)"
+            label={t("HA URL fallback (outside home)")}
             value={haUrlRemote}
             onChange={setHaUrlRemote}
             placeholder="https://ha.example.com — optional, HTTPS required"
           />
           <Field
-            label="Long-lived access token"
+            label={t("Long-lived access token")}
             value={haToken}
             onChange={setHaToken}
             type="password"
-            placeholder={`paste token (kept in ${vault})`}
-            hint='Leave empty to keep the current token. Enter "-" to remove it.'
+            placeholder={t("paste token (kept in {vault})", { vault })}
+            hint={t('Leave empty to keep the current token. Enter "-" to remove it.')}
           />
           <div className="flex items-center gap-3">
             <Button kind="primary" onClick={() => void saveHa(false)}>
-              Save
+              {t("Save")}
             </Button>
-            <Button onClick={() => void saveHa(true)}>Save &amp; test API</Button>
+            <Button onClick={() => void saveHa(true)}>{t("Save & test API")}</Button>
             {haMsg && <span className="text-[12px] text-muted">{haMsg}</span>}
           </div>
         </div>
       </Panel>
 
-      <Panel title="Remote input (opt-in)">
+      <Panel title={t("Remote input (opt-in)")}>
         <p className="text-[12px] text-muted mb-2 leading-relaxed">
-          These let Home Assistant act on this computer. Off by default and applied immediately (the
-          entities appear in HA right away). Anyone who can reach your broker can trigger them, so
-          enable only on a trusted network.
+          {t(
+            "These let Home Assistant act on this computer. Off by default and applied immediately (the entities appear in HA right away). Anyone who can reach your broker can trigger them, so enable only on a trusted network.",
+          )}
         </p>
         <div className="flex items-center justify-between h-9">
           <div>
             <span className="text-[13px]">
-              {linux ? "Open web addresses" : "Type text & presentation control"}
+              {linux ? t("Open web addresses") : t("Type text & presentation control")}
             </span>
             <p className="text-[12px] text-muted">
               {linux
-                ? "HA opens a web address from the list below in your browser."
-                : "HA sends keystrokes to the active window (text, slide next/prev) and can wake the screen."}
+                ? t("HA opens a web address from the list below in your browser.")
+                : t(
+                    "HA sends keystrokes to the active window (text, slide next/prev) and can wake the screen.",
+                  )}
             </p>
           </div>
           <Toggle
@@ -529,13 +579,17 @@ export default function SettingsPage({
         </div>
         {linux ? (
           <PlatformNote>
-            Typing text, presentation keys and text-to-speech are not part of the Linux preview.
+            {t(
+              "Typing text, presentation keys and text-to-speech are not part of the Linux preview.",
+            )}
           </PlatformNote>
         ) : (
           <div className="flex items-center justify-between h-9 mt-2">
             <div>
-              <span className="text-[13px]">Text-to-speech</span>
-              <p className="text-[12px] text-muted">HA sends text and this PC speaks it aloud.</p>
+              <span className="text-[13px]">{t("Text-to-speech")}</span>
+              <p className="text-[12px] text-muted">
+                {t("HA sends text and this PC speaks it aloud.")}
+              </p>
             </div>
             <Toggle
               on={ttsEnabled}
@@ -544,7 +598,7 @@ export default function SettingsPage({
           </div>
         )}
         <label className="block mt-3">
-          <span className="microlabel">Allowed URL origins</span>
+          <span className="microlabel">{t("Allowed URL origins")}</span>
           <textarea
             value={allowedOrigins}
             onChange={(e) => setAllowedOrigins(e.target.value)}
@@ -553,19 +607,21 @@ export default function SettingsPage({
             className="mt-1 w-full px-3 py-2 bg-panel border border-hairline-strong rounded text-ink mono text-[13px] placeholder:text-faint focus-visible:border-ink"
           />
           <span className="block mt-1 text-[12px] text-muted">
-            Exact scheme + host + port only. Applies to open_url and notification images. Configured
-            HA API origins are allowed automatically.
+            {t(
+              "Exact scheme + host + port only. Applies to open_url and notification images. Configured HA API origins are allowed automatically.",
+            )}
           </span>
         </label>
       </Panel>
 
-      <Panel title="Notifications" unavailable={linux && linuxNotifications(platform)}>
+      <Panel title={t("Notifications")} unavailable={linux && linuxNotifications(platform)}>
         <div className="flex items-center justify-between h-9">
           <div>
-            <span className="text-[13px]">Branded toasts (show as “Deskmate”)</span>
+            <span className="text-[13px]">{t("Branded toasts (show as “Deskmate”)")}</span>
             <p className="text-[12px] text-muted">
-              On = notifications show as “Deskmate”. Off = they show as “Windows PowerShell”. No
-              PowerShell is started either way. If toasts stop appearing, turn this off.
+              {t(
+                "On = notifications show as “Deskmate”. Off = they show as “Windows PowerShell”. No PowerShell is started either way. If toasts stop appearing, turn this off.",
+              )}
             </p>
           </div>
           <Toggle
@@ -575,12 +631,12 @@ export default function SettingsPage({
         </div>
       </Panel>
 
-      <Panel title="Updates">
+      <Panel title={t("Updates")}>
         <div className="flex items-center justify-between h-9">
           <div>
-            <span className="text-[13px]">Check for updates once a day</span>
+            <span className="text-[13px]">{t("Check for updates once a day")}</span>
             <p className="text-[12px] text-muted">
-              Off: Deskmate never looks for a new version by itself.
+              {t("Off: Deskmate never looks for a new version by itself.")}
             </p>
           </div>
           <Toggle
@@ -591,13 +647,14 @@ export default function SettingsPage({
         {linux && (
           <div className="mt-3">
             <PlatformNote>
-              On Linux a new version comes as a new package: Deskmate tells you when one is out and
-              links to its page. It never installs anything itself.
+              {t(
+                "On Linux a new version comes as a new package: Deskmate tells you when one is out and links to its page. It never installs anything itself.",
+              )}
             </PlatformNote>
           </div>
         )}
         <fieldset className={linux ? "hidden" : "mt-4"}>
-          <legend className="microlabel">When a new version is out</legend>
+          <legend className="microlabel">{t("When a new version is out")}</legend>
           {UPDATE_MODES.map((mode) => (
             <label key={mode.value} className="mt-2 flex items-start gap-3">
               <input
@@ -616,18 +673,19 @@ export default function SettingsPage({
           ))}
         </fieldset>
         <p className="mt-3 text-[12px] text-muted leading-relaxed">
-          An installer runs only when it carries Deskmate's signature. Home Assistant cannot start
-          an update.
+          {t(
+            "An installer runs only when it carries Deskmate's signature. Home Assistant cannot start an update.",
+          )}
         </p>
         <div className="mt-3 flex items-center gap-3">
-          <Button onClick={() => void checkUpdates()}>Check now</Button>
+          <Button onClick={() => void checkUpdates()}>{t("Check now")}</Button>
           {updateMsg && <span className="text-[13px] text-muted">{updateMsg}</span>}
         </div>
       </Panel>
 
       <div className="flex items-center gap-3">
         <Button kind="primary" onClick={() => void save()} disabled={saving}>
-          {saving ? "Saving..." : "Save & reconnect"}
+          {saving ? t("Saving...") : t("Save & reconnect")}
         </Button>
         {msg && <span className="text-[13px] text-muted">{msg}</span>}
       </div>

@@ -11,7 +11,7 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "typecheck": "tsc --noEmit",
-    "lint": "biome ci src vite.config.ts",
+    "lint": "biome ci src vite.config.ts && node scripts/check-i18n.mjs",
     "format": "biome check --write --linter-enabled=false src vite.config.ts"
   },
   "dependencies": {

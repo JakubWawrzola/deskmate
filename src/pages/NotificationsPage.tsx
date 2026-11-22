@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api } from "../api";
 import { Button, EmptyState, Panel } from "../components";
+import { t } from "../i18n";
 import { isLinux, PlatformNote, usePlatform } from "../platform";
 import type { AppConfig, Snapshot } from "../types";
 
@@ -41,27 +42,34 @@ export default function NotificationsPage({
     <>
       <Panel
         title={
-          linux ? "Notifications from Home Assistant" : "Windows notifications from Home Assistant"
+          linux
+            ? t("Notifications from Home Assistant")
+            : t("Windows notifications from Home Assistant")
         }
-        action={<Button onClick={() => void handleTest()}>Send test toast</Button>}
+        action={<Button onClick={() => void handleTest()}>{t("Send test toast")}</Button>}
       >
         <p className="text-[13px] text-muted leading-relaxed">
-          Publish a JSON payload to <span className="mono text-ink">{topic}</span> and it shows up
+          {t("Publish a JSON payload to ")}
+          <span className="mono text-ink">{topic}</span>
+          {t(" and it shows up")}
           {linux
-            ? " as a desktop notification, with an optional image and action buttons."
-            : " as a Windows toast, with an optional image and action buttons."}
+            ? t(" as a desktop notification, with an optional image and action buttons.")
+            : t(" as a Windows toast, with an optional image and action buttons.")}
         </p>
         {linux && !platform.notifications && (
-          <PlatformNote>No notification service answers in this desktop session.</PlatformNote>
+          <PlatformNote>
+            {t("No notification service answers in this desktop session.")}
+          </PlatformNote>
         )}
         {linux && platform.notifications && !platform.notification_buttons && (
-          <PlatformNote>This desktop's notification service shows no buttons.</PlatformNote>
+          <PlatformNote>{t("This desktop's notification service shows no buttons.")}</PlatformNote>
         )}
         {testResult === "ok" && !linux && (
           <p className="text-[12px] text-muted mt-2 leading-relaxed">
-            Toast sent. If nothing appeared, Windows is suppressing it — check{" "}
-            <span className="text-ink">Settings → System → Notifications</span> (turn them on, and
-            turn off <span className="text-ink">Do not disturb / Focus</span>).
+            {t("Toast sent. If nothing appeared, Windows is suppressing it — check ")}
+            <span className="text-ink">{t("Settings → System → Notifications")}</span>
+            {t(" (turn them on, and turn off ")}
+            <span className="text-ink">{t("Do not disturb / Focus")}</span>).
           </p>
         )}
         {testResult && testResult !== "ok" && (
@@ -73,14 +81,15 @@ export default function NotificationsPage({
           {example}
         </pre>
         <p className="text-[12px] text-muted mt-2 leading-relaxed">
-          Clicking a button publishes <span className="mono text-ink">{`{"action":"done"}`}</span>{" "}
-          to <span className="mono text-ink">{actionTopic}</span> — catch it with an automation in
-          HA. See docs/HA-SETUP.md for a ready-made script.
+          {t("Clicking a button publishes ")}
+          <span className="mono text-ink">{`{"action":"done"}`}</span> to{" "}
+          <span className="mono text-ink">{actionTopic}</span>
+          {t(" — catch it with an automation in HA. See docs/HA-SETUP.md for a ready-made script.")}
         </p>
       </Panel>
 
-      <Panel title="History (this session)">
-        {snapshot.notifications.length === 0 && <EmptyState text="Nothing received yet." />}
+      <Panel title={t("History (this session)")}>
+        {snapshot.notifications.length === 0 && <EmptyState text={t("Nothing received yet.")} />}
         {snapshot.notifications.map((n, i) => (
           <div key={i} className="py-2 border-b border-hairline last:border-b-0">
             <div className="flex items-baseline justify-between gap-3">
@@ -91,7 +100,10 @@ export default function NotificationsPage({
             {n.image && <p className="mono text-[11px] text-faint truncate">{n.image}</p>}
             {(n.tag !== null || n.priority !== "normal") && (
               <p className="mono text-[11px] text-faint">
-                {[n.tag !== null && `tag ${n.tag}`, n.priority !== "normal" && n.priority]
+                {[
+                  n.tag !== null && t("tag {tag}", { tag: n.tag }),
+                  n.priority !== "normal" && n.priority,
+                ]
                   .filter(Boolean)
                   .join(" · ")}
               </p>

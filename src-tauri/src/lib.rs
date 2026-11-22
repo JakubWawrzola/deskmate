@@ -120,6 +120,9 @@ async fn save_config(
     if !matches!(new_config.theme.as_str(), "system" | "light" | "dark") {
         new_config.theme = "system".into();
     }
+    if !config::LANGUAGES.contains(&new_config.language.as_str()) {
+        new_config.language = config::SYSTEM_LANGUAGE.into();
+    }
     if !matches!(new_config.transport.as_str(), "mqtt" | "link") {
         return Err("transport must be mqtt or link".into());
     }

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api } from "../api";
 import { Button, EmptyState, Field, Panel, Toggle } from "../components";
+import { t, tn } from "../i18n";
 import { isLinux, UnavailablePanel, usePlatform } from "../platform";
 import type {
   AppConfig,
@@ -12,26 +13,26 @@ import type {
 } from "../types";
 
 const KIND_LABEL: Record<CustomSensorKind, string> = {
-  process: "program running",
-  window: "window open",
-  service: "service state",
+  process: tn("program running"),
+  window: tn("window open"),
+  service: tn("service state"),
   powershell: "PowerShell",
-  monitor: "hardware monitor",
+  monitor: tn("hardware monitor"),
 };
 
 const TARGET_LABEL: Record<CustomSensorKind, string> = {
-  process: "Program name",
-  window: "Window title contains",
-  service: "Service name",
-  powershell: "PowerShell command",
-  monitor: "Sensor",
+  process: tn("Program name"),
+  window: tn("Window title contains"),
+  service: tn("Service name"),
+  powershell: tn("PowerShell command"),
+  monitor: tn("Sensor"),
 };
 
 const TARGET_PLACEHOLDER: Record<CustomSensorKind, string> = {
   process: "steam.exe",
   window: "Microsoft Teams",
   service: "Spooler",
-  powershell: "(Get-Process chrome -ErrorAction SilentlyContinue).Count",
+  powershell: t("(Get-Process chrome -ErrorAction SilentlyContinue).Count"),
   monitor: "",
 };
 
@@ -102,16 +103,13 @@ function YourSensors({
   };
 
   return (
-    <Panel title="Your sensors">
+    <Panel title={t("Your sensors")}>
       <p className="text-[12px] text-muted mb-3 leading-relaxed">
-        Extra sensors for Home Assistant: whether a program runs or a window is open (on/off), the
-        state of a Windows service, or the first line a PowerShell command prints. PowerShell
-        sensors run in the background every interval (30 s or more) and start disabled; enable one
-        after checking the command. A hardware monitor sensor is one of the readings of
-        LibreHardwareMonitor (power, clock speeds, temperatures, fans), picked from its list while
-        that program runs.
+        {t(
+          "Extra sensors for Home Assistant: whether a program runs or a window is open (on/off), the state of a Windows service, or the first line a PowerShell command prints. PowerShell sensors run in the background every interval (30 s or more) and start disabled; enable one after checking the command. A hardware monitor sensor is one of the readings of LibreHardwareMonitor (power, clock speeds, temperatures, fans), picked from its list while that program runs.",
+        )}
       </p>
-      {sensors.length === 0 && <EmptyState text="No sensors of your own yet." />}
+      {sensors.length === 0 && <EmptyState text={t("No sensors of your own yet.")} />}
       {sensors.map((sensor) => {
         const value = snapshot.sensor_values[sensorKey(sensor)];
         return (
@@ -121,7 +119,7 @@ function YourSensors({
           >
             <span className="text-[13px] font-medium truncate">{sensor.name}</span>
             <span className="microlabel border border-hairline-strong rounded px-1.5 py-0.5 justify-self-start">
-              {KIND_LABEL[sensor.kind]}
+              {t(KIND_LABEL[sensor.kind])}
             </span>
             <span className="mono text-[12px] text-muted truncate">{sensor.target}</span>
             <span className="mono text-[13px] truncate">
@@ -133,16 +131,16 @@ function YourSensors({
               onChange={(on) => void run(() => api.setCustomSensorEnabled(sensor.id, on))}
             />
             <Button kind="danger" onClick={() => void run(() => api.removeCustomSensor(sensor.id))}>
-              Remove
+              {t("Remove")}
             </Button>
           </div>
         );
       })}
 
       <div className="mt-4 grid grid-cols-[150px_170px_1fr] gap-3 items-end">
-        <Field label="Name" value={name} onChange={setName} placeholder="Steam running" />
+        <Field label={t("Name")} value={name} onChange={setName} placeholder="Steam running" />
         <label className="block">
-          <span className="microlabel">Type</span>
+          <span className="microlabel">{t("Type")}</span>
           <select
             value={kind}
             onChange={(e) => {
@@ -152,17 +150,17 @@ function YourSensors({
             }}
             className="mt-1 w-full h-9 px-2 bg-panel border border-hairline-strong rounded text-ink text-[13px] focus-visible:border-ink"
           >
-            <option value="process">Program running</option>
-            <option value="window">Window open</option>
-            <option value="service">Windows service state</option>
-            <option value="powershell">PowerShell output</option>
-            <option value="monitor">Hardware monitor sensor</option>
+            <option value="process">{t("Program running")}</option>
+            <option value="window">{t("Window open")}</option>
+            <option value="service">{t("Windows service state")}</option>
+            <option value="powershell">{t("PowerShell output")}</option>
+            <option value="monitor">{t("Hardware monitor sensor")}</option>
           </select>
         </label>
         {kind === "monitor" ? (
           <div className="flex items-end gap-3">
             <label className="block flex-1 min-w-0">
-              <span className="microlabel">{TARGET_LABEL[kind]}</span>
+              <span className="microlabel">{t(TARGET_LABEL[kind])}</span>
               <select
                 value={target}
                 onChange={(e) => pick(e.target.value)}
@@ -171,10 +169,10 @@ function YourSensors({
               >
                 <option value="">
                   {found === null
-                    ? "Look for sensors first"
+                    ? t("Look for sensors first")
                     : found.length === 0
-                      ? "No sensors found"
-                      : "Choose a sensor"}
+                      ? t("No sensors found")
+                      : t("Choose a sensor")}
                 </option>
                 {found?.map((sensor) => (
                   <option key={sensor.identifier} value={sensor.identifier}>
@@ -184,11 +182,11 @@ function YourSensors({
                 ))}
               </select>
             </label>
-            <Button onClick={() => void find()}>Look for sensors</Button>
+            <Button onClick={() => void find()}>{t("Look for sensors")}</Button>
           </div>
         ) : (
           <Field
-            label={TARGET_LABEL[kind]}
+            label={t(TARGET_LABEL[kind])}
             value={target}
             onChange={setTarget}
             placeholder={TARGET_PLACEHOLDER[kind]}
@@ -197,15 +195,22 @@ function YourSensors({
       </div>
       {kind === "monitor" && found?.length === 0 && (
         <p className="mt-2 text-[12px] text-muted">
-          LibreHardwareMonitor is not running, or it reports no sensors. Start it and look again.
+          {t(
+            "LibreHardwareMonitor is not running, or it reports no sensors. Start it and look again.",
+          )}
         </p>
       )}
       <div className="mt-3 grid grid-cols-[150px_170px_1fr_auto] gap-3 items-end">
         {kind === "powershell" ? (
           <>
-            <Field label="Unit (optional)" value={unit} onChange={setUnit} placeholder="tabs" />
             <Field
-              label="Every (seconds)"
+              label={t("Unit (optional)")}
+              value={unit}
+              onChange={setUnit}
+              placeholder="tabs"
+            />
+            <Field
+              label={t("Every (seconds)")}
               value={interval}
               onChange={setIntervalS}
               placeholder="60"
@@ -219,7 +224,7 @@ function YourSensors({
         )}
         <span />
         <Button kind="primary" onClick={() => void add()} disabled={!name.trim() || !target.trim()}>
-          Add
+          {t("Add")}
         </Button>
       </div>
       {error && <p className="mt-2 text-[13px]">{error}</p>}
@@ -248,7 +253,7 @@ function AppVolumePrograms({
           .filter(Boolean),
       );
       await onChanged();
-      setMsg("Saved.");
+      setMsg(t("Saved."));
     } catch (e) {
       setMsg(String(e));
     }
@@ -259,14 +264,16 @@ function AppVolumePrograms({
       <div className="flex items-end gap-3">
         <div className="flex-1">
           <Field
-            label="Volume of single programs"
+            label={t("Volume of single programs")}
             value={programs}
             onChange={setPrograms}
             placeholder="discord, spotify, chrome"
-            hint="Each program listed here gets a volume slider and a mute switch in Home Assistant, like its row in the Windows volume mixer. They have a value while the program plays sound. Program names separated by commas; Task Manager shows the names."
+            hint={t(
+              "Each program listed here gets a volume slider and a mute switch in Home Assistant, like its row in the Windows volume mixer. They have a value while the program plays sound. Program names separated by commas; Task Manager shows the names.",
+            )}
           />
         </div>
-        <Button onClick={() => void save()}>Save</Button>
+        <Button onClick={() => void save()}>{t("Save")}</Button>
       </div>
       {msg && <p className="mt-2 text-[12px] text-muted">{msg}</p>}
     </div>
@@ -294,7 +301,7 @@ function GamePrograms({
           .filter(Boolean),
       );
       await onChanged();
-      setMsg("Saved.");
+      setMsg(t("Saved."));
     } catch (e) {
       setMsg(String(e));
     }
@@ -305,14 +312,16 @@ function GamePrograms({
       <div className="flex items-end gap-3">
         <div className="flex-1">
           <Field
-            label="Games for User state"
+            label={t("Games for User state")}
             value={programs}
             onChange={setPrograms}
             placeholder="minecraft, robloxplayerbeta"
-            hint='A game in a borderless window looks like any full-screen program to Windows. Games from Steam, Epic, GOG, Xbox, Riot and EA folders are recognised by themselves; list others here by program name and "User state" shows game for them too.'
+            hint={t(
+              'A game in a borderless window looks like any full-screen program to Windows. Games from Steam, Epic, GOG, Xbox, Riot and EA folders are recognised by themselves; list others here by program name and "User state" shows game for them too.',
+            )}
           />
         </div>
-        <Button onClick={() => void save()}>Save</Button>
+        <Button onClick={() => void save()}>{t("Save")}</Button>
       </div>
       {msg && <p className="mt-2 text-[12px] text-muted">{msg}</p>}
     </div>
@@ -385,8 +394,8 @@ export default function SensorsPage({
 
   return (
     <>
-      <Panel title="System sensors">
-        {std.length === 0 && <EmptyState text="No sensors." />}
+      <Panel title={t("System sensors")}>
+        {std.length === 0 && <EmptyState text={t("No sensors.")} />}
         {std.map((d) => (
           <Row
             key={d.id}
@@ -399,7 +408,7 @@ export default function SensorsPage({
       </Panel>
 
       <Panel
-        title="Hardware"
+        title={t("Hardware")}
         action={
           hardware.length > 0 ? (
             <div className="flex items-center gap-2">
@@ -411,7 +420,7 @@ export default function SensorsPage({
                   )
                 }
               >
-                All on
+                {t("All on")}
               </Button>
               <Button
                 onClick={() =>
@@ -421,18 +430,18 @@ export default function SensorsPage({
                   )
                 }
               >
-                All off
+                {t("All off")}
               </Button>
             </div>
           ) : undefined
         }
       >
         <p className="text-[12px] text-muted mb-2 leading-relaxed">
-          Found on this computer: every drive, the GPU and temperatures. Each one is its own entity
-          in Home Assistant; switch off what you do not need and it disappears there. "Disk usage"
-          above is the system drive only.
+          {t(
+            'Found on this computer: every drive, the GPU and temperatures. Each one is its own entity in Home Assistant; switch off what you do not need and it disappears there. "Disk usage" above is the system drive only.',
+          )}
         </p>
-        {hardware.length === 0 && <EmptyState text="Looking for drives and sensors..." />}
+        {hardware.length === 0 && <EmptyState text={t("Looking for drives and sensors...")} />}
         {hardware.map((d) => (
           <Row
             key={d.id}
@@ -444,7 +453,7 @@ export default function SensorsPage({
         ))}
       </Panel>
 
-      <Panel title="Sound">
+      <Panel title={t("Sound")}>
         <p className="text-[12px] text-muted mb-2 leading-relaxed">
           {linux
             ? 'The volume of the default playback device, through PipeWire or PulseAudio. The "Mute audio" switch comes with it. The microphone and the choice of sound devices are not part of the Linux preview.'
@@ -462,10 +471,11 @@ export default function SensorsPage({
         {!linux && <AppVolumePrograms config={config} onChanged={onChanged} />}
       </Panel>
 
-      <Panel title="Privacy-sensitive sensors">
+      <Panel title={t("Privacy-sensitive sensors")}>
         <p className="text-[12px] text-muted mb-2 leading-relaxed">
-          These expose what you are doing on this computer (window titles, playing media, network
-          name) to Home Assistant. They stay off until you enable them here.
+          {t(
+            "These expose what you are doing on this computer (window titles, playing media, network name) to Home Assistant. They stay off until you enable them here.",
+          )}
         </p>
         {priv.map((d) => (
           <Row
@@ -480,9 +490,10 @@ export default function SensorsPage({
       </Panel>
 
       {linux ? (
-        <UnavailablePanel title="Your sensors">
-          Sensors of your own (programs, windows, services, PowerShell) are not part of the Linux
-          preview.
+        <UnavailablePanel title={t("Your sensors")}>
+          {t(
+            "Sensors of your own (programs, windows, services, PowerShell) are not part of the Linux preview.",
+          )}
         </UnavailablePanel>
       ) : (
         <YourSensors snapshot={snapshot} config={config} onChanged={onChanged} />

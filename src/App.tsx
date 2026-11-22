@@ -11,6 +11,7 @@ import {
   onUpdate,
 } from "./api";
 import { StatusDot } from "./components";
+import { setLanguage, t, tn } from "./i18n";
 import ClipboardPage from "./pages/ClipboardPage";
 import CommandsPage from "./pages/CommandsPage";
 import FamilyPage from "./pages/FamilyPage";
@@ -26,18 +27,20 @@ import Wizard from "./pages/Wizard";
 import { isLinux, UnavailablePanel, usePlatform } from "./platform";
 import type { AppConfig, NotifyRecord, Snapshot, StatusView } from "./types";
 
+// The names are also what `page` holds, so they stay English here and are
+// translated where they are shown.
 const PAGES = [
-  "Status",
-  "Sensors",
-  "Commands",
-  "Files",
-  "Clipboard",
-  "Family",
-  "Hotkeys",
-  "Widgets",
-  "Notifications",
-  "Settings",
-  "Geeky stuff",
+  tn("Status"),
+  tn("Sensors"),
+  tn("Commands"),
+  tn("Files"),
+  tn("Clipboard"),
+  tn("Family"),
+  tn("Hotkeys"),
+  tn("Widgets"),
+  tn("Notifications"),
+  tn("Settings"),
+  tn("Geeky stuff"),
 ] as const;
 export type Page = (typeof PAGES)[number];
 
@@ -104,9 +107,14 @@ export default function App() {
 
   if (!config) return null;
 
+  // Every text is looked up while the tree renders, so the language is set
+  // first, and a change of language builds the tree again.
+  const language = setLanguage(config.language);
+
   if (!config.configured) {
     return (
       <Wizard
+        key={language}
         config={config}
         hasLinkKey={hasLinkKey}
         onDone={async () => {
@@ -121,7 +129,7 @@ export default function App() {
   const connected = snapshot?.status.connected ?? false;
 
   return (
-    <div className="h-full flex">
+    <div key={language} className="h-full flex">
       {/* rail nawigacji z pionowym wordmarkiem */}
       <nav className="w-44 shrink-0 border-r border-hairline bg-panel flex flex-col">
         <div className="h-12 flex items-center px-4 border-b border-hairline">
@@ -136,7 +144,7 @@ export default function App() {
               className={`w-full text-left px-4 h-9 text-[13px] transition-colors duration-100
                 ${page === p ? "bg-paper font-semibold border-r-2 border-ink" : "text-muted hover:text-ink"}`}
             >
-              {p}
+              {t(p)}
             </button>
           ))}
         </div>
@@ -169,8 +177,8 @@ export default function App() {
             />
           )}
           {page === "Clipboard" && !platform.clipboard && (
-            <UnavailablePanel title="Clipboard">
-              Sharing the clipboard with Home Assistant is not part of the Linux preview.
+            <UnavailablePanel title={t("Clipboard")}>
+              {t("Sharing the clipboard with Home Assistant is not part of the Linux preview.")}
             </UnavailablePanel>
           )}
           {page === "Clipboard" && platform.clipboard && (
@@ -184,9 +192,10 @@ export default function App() {
             />
           )}
           {page === "Family" && isLinux(platform) && (
-            <UnavailablePanel title="Screen time and family rules">
-              Screen time and family rules work with Windows accounts and are not part of the Linux
-              preview.
+            <UnavailablePanel title={t("Screen time and family rules")}>
+              {t(
+                "Screen time and family rules work with Windows accounts and are not part of the Linux preview.",
+              )}
             </UnavailablePanel>
           )}
           {page === "Family" && !isLinux(platform) && <FamilyPage />}

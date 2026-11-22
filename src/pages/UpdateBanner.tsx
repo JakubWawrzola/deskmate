@@ -1,6 +1,7 @@
 import { type ReactNode, useState } from "react";
 import { api } from "../api";
 import { Button } from "../components";
+import { t } from "../i18n";
 import type { UpdateInfo } from "../types";
 
 const BYTES_PER_MB = 1024 * 1024;
@@ -22,80 +23,77 @@ export default function UpdateBanner({ update }: { update: UpdateInfo }) {
     }
   };
 
-  const version = <span className="mono">{update.version}</span>;
+  const version = update.version;
   let text: ReactNode;
   let buttons: ReactNode = null;
 
   if (!update.installable) {
-    text = (
-      <>
-        Deskmate {version} is available. Install it over this version; settings and pairing are
-        kept.
-      </>
+    text = t(
+      "Deskmate {version} is available. Install it over this version; settings and pairing are kept.",
+      { version },
     );
     buttons = (
       <Button kind="primary" onClick={() => void run(api.openUpdatePage)}>
-        Download
+        {t("Download")}
       </Button>
     );
   } else if (update.phase === "downloading") {
     text = (
       <>
-        Downloading Deskmate {version}
+        {t("Downloading Deskmate {version}", { version })}
         {update.total_bytes !== null && (
           // Changes several times a second; the progress bar below says the
           // same to a screen reader without reading every step aloud.
           <span className="mono text-muted" aria-hidden="true">
             {" "}
-            {megabytes(update.downloaded_bytes)} of {megabytes(update.total_bytes)} MB
+            {t("{done} of {total} MB", {
+              done: megabytes(update.downloaded_bytes),
+              total: megabytes(update.total_bytes),
+            })}
           </span>
         )}
       </>
     );
   } else if (update.phase === "installing") {
-    text = <>Installing Deskmate {version}. Deskmate restarts when it is done.</>;
+    text = t("Installing Deskmate {version}. Deskmate restarts when it is done.", { version });
   } else if (update.phase === "failed") {
     text = (
       <>
-        Deskmate {version} was not installed. {update.error}
+        {t("Deskmate {version} was not installed.", { version })} {update.error}
       </>
     );
     buttons = (
       <>
         <Button kind="primary" onClick={() => void run(api.installUpdateNow)}>
-          Try again
+          {t("Try again")}
         </Button>
-        <Button onClick={() => void run(api.openUpdatePage)}>Release page</Button>
+        <Button onClick={() => void run(api.openUpdatePage)}>{t("Release page")}</Button>
       </>
     );
   } else if (update.postponed) {
     // "Later": the tray entry stays and brings this banner back.
     return null;
   } else if (update.auto_install) {
-    text = (
-      <>
-        Deskmate {version} is available. It installs itself once the computer has not been used for
-        five minutes; settings and pairing are kept.
-      </>
+    text = t(
+      "Deskmate {version} is available. It installs itself once the computer has not been used for five minutes; settings and pairing are kept.",
+      { version },
     );
     buttons = (
       <Button kind="primary" onClick={() => void run(api.installUpdateNow)}>
-        Install now
+        {t("Install now")}
       </Button>
     );
   } else {
-    text = (
-      <>
-        Deskmate {version} is available. Installing it restarts Deskmate; settings and pairing are
-        kept.
-      </>
+    text = t(
+      "Deskmate {version} is available. Installing it restarts Deskmate; settings and pairing are kept.",
+      { version },
     );
     buttons = (
       <>
         <Button kind="primary" onClick={() => void run(api.installUpdateNow)}>
-          Install now
+          {t("Install now")}
         </Button>
-        <Button onClick={() => void run(api.postponeUpdate)}>Later</Button>
+        <Button onClick={() => void run(api.postponeUpdate)}>{t("Later")}</Button>
       </>
     );
   }
@@ -111,7 +109,7 @@ export default function UpdateBanner({ update }: { update: UpdateInfo }) {
       {update.phase === "downloading" && (
         <progress
           className="mt-3 block h-1 w-full accent-ink"
-          aria-label={`Download of Deskmate ${update.version}`}
+          aria-label={t("Download of Deskmate {version}", { version: update.version })}
           max={update.total_bytes ?? undefined}
           value={update.total_bytes !== null ? update.downloaded_bytes : undefined}
         />

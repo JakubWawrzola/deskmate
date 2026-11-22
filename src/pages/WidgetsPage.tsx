@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api } from "../api";
 import { Button, EmptyState, Panel } from "../components";
+import { t } from "../i18n";
 import type { Snapshot, WidgetItem } from "../types";
 
 /** Configuration for the widget panel (always-on-top HA entity tiles). */
@@ -20,7 +21,7 @@ export default function WidgetsPage({
     setMsg(null);
     try {
       await api.updateWidgets(items.filter((w) => w.entity_id.trim() !== ""));
-      setMsg("Saved.");
+      setMsg(t("Saved."));
       await onChanged();
     } catch (e) {
       setMsg(String(e));
@@ -32,19 +33,21 @@ export default function WidgetsPage({
 
   return (
     <Panel
-      title="Widget panel"
+      title={t("Widget panel")}
       action={
-        <Button onClick={() => setItems([...items, { entity_id: "", label: "" }])}>Add tile</Button>
+        <Button onClick={() => setItems([...items, { entity_id: "", label: "" }])}>
+          {t("Add tile")}
+        </Button>
       }
     >
       <p className="text-[12px] text-muted mb-3 leading-relaxed">
-        A small always-on-top window with tiles for your Home Assistant entities: click a tile to
-        toggle it, sensors are read-only. Show/hide it from the tray menu or a hotkey. Needs the HA
-        API configured in Settings
-        {snapshot.ha_configured ? "" : " (not configured yet!)"}.
+        {t(
+          "A small always-on-top window with tiles for your Home Assistant entities: click a tile to toggle it, sensors are read-only. Show/hide it from the tray menu or a hotkey. Needs the HA API configured in Settings",
+        )}
+        {snapshot.ha_configured ? "" : t(" (not configured yet!)")}.
       </p>
       {items.length === 0 && (
-        <EmptyState text="No tiles yet. Add light.xxx, switch.xxx, sensor.xxx..." />
+        <EmptyState text={t("No tiles yet. Add light.xxx, switch.xxx, sensor.xxx...")} />
       )}
       <div className="space-y-2">
         {items.map((w, i) => (
@@ -70,16 +73,16 @@ export default function WidgetsPage({
               }}
             />
             <Button kind="danger" onClick={() => setItems(items.filter((_, j) => j !== i))}>
-              Remove
+              {t("Remove")}
             </Button>
           </div>
         ))}
       </div>
       <div className="mt-3 flex items-center gap-3">
         <Button kind="primary" onClick={() => void save()}>
-          Save tiles
+          {t("Save tiles")}
         </Button>
-        <Button onClick={() => void api.toggleWidgetWindow()}>Show/hide panel</Button>
+        <Button onClick={() => void api.toggleWidgetWindow()}>{t("Show/hide panel")}</Button>
         {msg && <span className="text-[12px] text-muted">{msg}</span>}
       </div>
     </Panel>

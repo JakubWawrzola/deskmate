@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api } from "../api";
 import { Button, EmptyState, Panel } from "../components";
+import { t } from "../i18n";
 import { usePlatform } from "../platform";
 import type { AppConfig, Hotkey, Snapshot, TrayAction } from "../types";
 import { emptyAction } from "../types";
@@ -34,7 +35,9 @@ export default function HotkeysPage({
       const errors = await api.updateHotkeys(next);
       setHotkeys(next);
       setMsg(
-        errors.length ? `Registered with issues: ${errors.join("; ")}` : "Hotkeys registered.",
+        errors.length
+          ? t("Registered with issues: {issues}", { issues: errors.join("; ") })
+          : t("Hotkeys registered."),
       );
       await onChanged();
     } catch (e) {
@@ -50,7 +53,7 @@ export default function HotkeysPage({
     try {
       await api.updateTrayActions(next);
       setTrayActions(next);
-      setMsg("Tray menu updated.");
+      setMsg(t("Tray menu updated."));
       await onChanged();
     } catch (e) {
       setMsg(String(e));
@@ -66,10 +69,12 @@ export default function HotkeysPage({
   return (
     <>
       <Panel
-        title="Global hotkeys"
+        title={t("Global hotkeys")}
         unavailable={
           !platform.global_shortcuts &&
-          "Global hotkeys need an X11 session: Wayland does not let a program catch keys meant for other windows."
+          t(
+            "Global hotkeys need an X11 session: Wayland does not let a program catch keys meant for other windows.",
+          )
         }
         action={
           <Button
@@ -85,17 +90,21 @@ export default function HotkeysPage({
               ])
             }
           >
-            Add hotkey
+            {t("Add hotkey")}
           </Button>
         }
       >
         <p className="text-[12px] text-muted mb-3 leading-relaxed">
-          System-wide shortcuts that work while Deskmate sits in the tray — control Home Assistant
-          without a Stream Deck. Format: <span className="mono text-ink">Ctrl+Alt+L</span>,{" "}
-          <span className="mono text-ink">Ctrl+Shift+F5</span>. HA actions need the HA API
-          configured in Settings; the HA event trigger works without it over MQTT or Link.
+          {t(
+            "System-wide shortcuts that work while Deskmate sits in the tray — control Home Assistant without a Stream Deck. Format: ",
+          )}
+          <span className="mono text-ink">{"Ctrl+Alt+L"}</span>,{" "}
+          <span className="mono text-ink">{"Ctrl+Shift+F5"}</span>
+          {t(
+            ". HA actions need the HA API configured in Settings; the HA event trigger works without it over MQTT or Link.",
+          )}
         </p>
-        {hotkeys.length === 0 && <EmptyState text="No hotkeys yet." />}
+        {hotkeys.length === 0 && <EmptyState text={t("No hotkeys yet.")} />}
         <div className="space-y-4">
           {hotkeys.map((h, i) => (
             <div key={i} className="border border-hairline rounded p-3 space-y-2">
@@ -125,7 +134,7 @@ export default function HotkeysPage({
                     kind="danger"
                     onClick={() => setHotkeys(hotkeys.filter((_, j) => j !== i))}
                   >
-                    Remove
+                    {t("Remove")}
                   </Button>
                 </div>
               </div>
@@ -151,17 +160,17 @@ export default function HotkeysPage({
               void saveHotkeys(hotkeys.map((h) => ({ ...h, id: h.id || slug(h.name) || "hotkey" })))
             }
           >
-            Save hotkeys
+            {t("Save hotkeys")}
           </Button>
           {msg && <span className="text-[12px] text-muted">{msg}</span>}
         </div>
       </Panel>
 
       <Panel
-        title="Tray quick actions"
+        title={t("Tray quick actions")}
         unavailable={
           !platform.tray &&
-          "This desktop shows no tray icons. On GNOME the AppIndicator extension adds a tray."
+          t("This desktop shows no tray icons. On GNOME the AppIndicator extension adds a tray.")
         }
         action={
           <Button
@@ -172,26 +181,31 @@ export default function HotkeysPage({
               ])
             }
           >
-            Add action
+            {t("Add action")}
           </Button>
         }
       >
         <p className="text-[12px] text-muted mb-3 leading-relaxed">
-          Extra entries in the tray menu (right-click the Deskmate icon) — one click to toggle a
-          light, run a scene or a local command.
+          {t(
+            "Extra entries in the tray menu (right-click the Deskmate icon) — one click to toggle a light, run a scene or a local command.",
+          )}
         </p>
-        {trayActions.length === 0 && <EmptyState text="No quick actions yet." />}
+        {trayActions.length === 0 && <EmptyState text={t("No quick actions yet.")} />}
         <div className="space-y-4">
-          {trayActions.map((t, i) => (
+          {trayActions.map((quick, i) => (
             <div key={i} className="border border-hairline rounded p-3 space-y-2">
               <div className="grid grid-cols-[1fr_auto] gap-2">
                 <input
                   className={input}
                   placeholder="menu label, e.g. Scene: movie night"
-                  value={t.name}
+                  value={quick.name}
                   onChange={(e) => {
                     const next = [...trayActions];
-                    next[i] = { ...t, name: e.target.value, id: t.id || slug(e.target.value) };
+                    next[i] = {
+                      ...quick,
+                      name: e.target.value,
+                      id: quick.id || slug(e.target.value),
+                    };
                     setTrayActions(next);
                   }}
                 />
@@ -199,14 +213,14 @@ export default function HotkeysPage({
                   kind="danger"
                   onClick={() => setTrayActions(trayActions.filter((_, j) => j !== i))}
                 >
-                  Remove
+                  {t("Remove")}
                 </Button>
               </div>
               <ActionEditor
-                value={t.action}
+                value={quick.action}
                 onChange={(a) => {
                   const next = [...trayActions];
-                  next[i] = { ...t, action: a };
+                  next[i] = { ...quick, action: a };
                   setTrayActions(next);
                 }}
                 commandDefs={snapshot.command_defs}
@@ -222,11 +236,14 @@ export default function HotkeysPage({
             disabled={saving}
             onClick={() =>
               void saveTray(
-                trayActions.map((t) => ({ ...t, id: t.id || slug(t.name) || "action" })),
+                trayActions.map((quick) => ({
+                  ...quick,
+                  id: quick.id || slug(quick.name) || "action",
+                })),
               )
             }
           >
-            Save tray menu
+            {t("Save tray menu")}
           </Button>
         </div>
       </Panel>
