@@ -900,6 +900,8 @@ pub struct FamilyView {
     /// This account is an administrator (protection would not hold).
     pub admin_account: bool,
     pub watchdog_installed: bool,
+    /// The watchdog is a copy of an older Deskmate.
+    pub watchdog_outdated: bool,
     pub today_min: u64,
     pub left_min: Option<u32>,
     pub bonus_min: u32,
@@ -929,6 +931,7 @@ pub async fn get_family(app: AppHandle) -> Result<FamilyView, String> {
             protected: protection::is_protected(),
             admin_account: protection::is_admin_account(),
             watchdog_installed: protection::watchdog_installed(),
+            watchdog_outdated: protection::watchdog_outdated(),
             today_min: seconds / 60,
             left_min: evaluation.left_min,
             bonus_min: bonus,
@@ -1045,6 +1048,12 @@ mod protection {
 
     pub fn watchdog_installed() -> bool {
         watchdog_path().exists()
+    }
+
+    /// The watchdog was copied from an older Deskmate. Protecting the
+    /// account again replaces it.
+    pub fn watchdog_outdated() -> bool {
+        deskmate_core::program_copy::is_outdated(&watchdog_path())
     }
 
     #[cfg(windows)]

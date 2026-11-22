@@ -54,6 +54,9 @@ notes and asset names are available in `docs/releases/RELEASE-*.md`.
   without a border used to count as `fullscreen`, like a film. It is a game
   now when its program runs from the folder of a game store, or is on the
   list on the Sensors page.
+- After an update, the CPU temperature helper and the family restart helper
+  are still copies of the older Deskmate, because replacing them needs an
+  administrator. Their panels now say so and offer *Update helper*.
 - The notification about a new Deskmate says to update the integration first
   when the connected one is older than the version on offer.
 - Section headings in the window are darker and heavier (#46).

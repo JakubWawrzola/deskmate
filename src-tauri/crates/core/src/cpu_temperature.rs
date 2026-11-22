@@ -40,6 +40,8 @@ pub struct Status {
     pub supported: bool,
     pub pawnio_installed: bool,
     pub helper_installed: bool,
+    /// The installed helper is a copy of an older Deskmate.
+    pub helper_outdated: bool,
     /// The helper answered.
     pub helper_running: bool,
     pub celsius: Option<f64>,
@@ -148,6 +150,7 @@ pub fn status() -> Status {
         supported: cfg!(target_arch = "x86_64"),
         pawnio_installed: pawnio_lib().is_some(),
         helper_installed: helper_path().is_file(),
+        helper_outdated: crate::program_copy::is_outdated(&helper_path()),
         helper_running: answer.is_some(),
         celsius: answer
             .as_ref()

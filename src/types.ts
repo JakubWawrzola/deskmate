@@ -76,6 +76,8 @@ export interface CpuTemperatureStatus {
   supported: boolean;
   pawnio_installed: boolean;
   helper_installed: boolean;
+  /** The installed helper is a copy of an older Deskmate. */
+  helper_outdated: boolean;
   helper_running: boolean;
   celsius: number | null;
   error: string | null;
@@ -113,6 +115,8 @@ export interface FamilyView {
   protected: boolean;
   admin_account: boolean;
   watchdog_installed: boolean;
+  /** The watchdog is a copy of an older Deskmate. */
+  watchdog_outdated: boolean;
   today_min: number;
   left_min: number | null;
   bonus_min: number;

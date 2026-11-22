@@ -267,16 +267,35 @@ export default function FamilyPage() {
           <div className="flex items-center justify-between gap-3 min-h-9 text-[13px]">
             <span>
               {view.protected
-                ? `Protected${view.watchdog_installed ? "" : " (the restart task is missing; protect again)"}`
+                ? `Protected${
+                    !view.watchdog_installed
+                      ? " (the restart task is missing; protect again)"
+                      : view.watchdog_outdated
+                        ? " (the restart helper is from an older Deskmate)"
+                        : ""
+                  }`
                 : "Not protected"}
             </span>
             {view.protected ? (
-              <Button
-                disabled={busy}
-                onClick={() => void elevated(api.unprotectFamilyAccount, "Protection removed.")}
-              >
-                Remove protection
-              </Button>
+              <div className="flex gap-2">
+                {view.watchdog_outdated && (
+                  <Button
+                    kind="primary"
+                    disabled={busy}
+                    onClick={() =>
+                      void elevated(api.protectFamilyAccount, "The restart helper is up to date.")
+                    }
+                  >
+                    Update helper
+                  </Button>
+                )}
+                <Button
+                  disabled={busy}
+                  onClick={() => void elevated(api.unprotectFamilyAccount, "Protection removed.")}
+                >
+                  Remove protection
+                </Button>
+              </div>
             ) : (
               <Button
                 kind="primary"

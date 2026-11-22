@@ -18,6 +18,7 @@ pub mod link;
 pub mod linux;
 pub mod load;
 pub mod machine;
+pub mod program_copy;
 pub mod seat;
 pub mod secrets;
 pub mod security;

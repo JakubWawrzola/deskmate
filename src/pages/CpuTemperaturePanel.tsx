@@ -74,6 +74,7 @@ export default function CpuTemperaturePanel() {
                 : status.helper_installed
                   ? "installed, not running"
                   : "not installed"}
+              {status.helper_outdated && " (from an older Deskmate)"}
             </span>
             <div className="flex gap-2">
               <Button
@@ -83,7 +84,11 @@ export default function CpuTemperaturePanel() {
                   void run(() => api.installCpuTemperatureHelper(), "Helper installed.")
                 }
               >
-                {status.helper_installed ? "Reinstall" : "Install helper"}
+                {status.helper_outdated
+                  ? "Update helper"
+                  : status.helper_installed
+                    ? "Reinstall"
+                    : "Install helper"}
               </Button>
               {status.helper_installed && (
                 <Button
