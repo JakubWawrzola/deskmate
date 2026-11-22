@@ -194,11 +194,7 @@ mod tests {
 
     fn nothing_optional() -> Offered {
         Offered {
-            machine: deskmate_core::machine::Offered {
-                battery: false,
-                ac_power: false,
-                hibernate: false,
-            },
+            machine: deskmate_core::machine::Offered::NONE,
             session: false,
             media: false,
             volume: false,
