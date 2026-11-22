@@ -15,6 +15,9 @@ notes and asset names are available in `docs/releases/RELEASE-*.md`.
   to seek. On Windows this works with players that report a timeline to
   Windows, on Linux with MPRIS players that have a position. On Windows the
   card also shows the cover of the track, while *Media title* is on.
+- **More hardware sensors without a driver** (#42): *Memory used* in MiB,
+  *CPU speed* in MHz and *Disk activity* in percent, on Windows and Linux.
+  They appear by themselves and can be switched off on the Sensors page.
 - **Current user stays right without a signed-in user** (#8): with the
   Deskmate service installed, the sensor shows `none` at the sign-in screen
   instead of the name it had last.

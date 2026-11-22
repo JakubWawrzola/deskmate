@@ -420,7 +420,8 @@ impl MachineCollector {
         self.collect_builtin(cfg, elapsed, &mut out);
 
         let disks = self.disks.as_deref().unwrap_or_default();
-        let (hardware_values, hardware_defs) = self.hardware.collect(disks, elapsed);
+        let (hardware_values, hardware_defs) =
+            self.hardware.collect(disks, self.sys.as_mut(), elapsed);
         for (id, value) in hardware_values {
             if is_hardware_enabled(cfg, &id) {
                 out.insert(id, value);

@@ -13,6 +13,7 @@ pub mod hardware;
 pub mod link;
 #[cfg(target_os = "linux")]
 pub mod linux;
+pub mod load;
 pub mod machine;
 pub mod seat;
 pub mod secrets;

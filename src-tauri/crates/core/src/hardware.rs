@@ -1,4 +1,5 @@
-//! Optional hardware telemetry: drives, disk activity, GPU, temperatures.
+//! Optional hardware telemetry: drives, disk activity, GPU, temperatures,
+//! and the load readings of load.rs.
 //! Windows reads PDH, DXGI and WMI, Linux reads sysfs (linux.rs). A reading
 //! the computer does not offer is represented by omitting the sensor
 //! definition.
@@ -10,7 +11,7 @@ use crate::sensors::OwnedSensorDef;
 use pdh::GpuCounters;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
-use sysinfo::Disk;
+use sysinfo::{Disk, System};
 
 /// How many collection ticks a detected sensor survives without a reading
 /// before its definition is withdrawn (about 2.5 minutes at the default 15 s).
@@ -21,6 +22,7 @@ pub struct HardwareCollector {
     gpu: Option<GpuCounters>,
     gpu_total_mib: Option<f64>,
     temperatures: TemperatureCache,
+    load: crate::load::LoadCounters,
     /// Every definition seen so far, with the number of ticks it has been
     /// missing. A single failed PDH or WMI read used to drop the definition,
     /// which deleted the entity in Home Assistant and recreated it on the next
@@ -40,13 +42,17 @@ impl HardwareCollector {
             gpu: GpuCounters::new(),
             gpu_total_mib: total_vram_mib(),
             temperatures: TemperatureCache::default(),
+            load: crate::load::LoadCounters::new(),
             known: HashMap::new(),
         }
     }
 
+    /// `sys` is the collector's sysinfo handle, for the readings that come
+    /// from it; none when it could not be opened.
     pub fn collect(
         &mut self,
         disks: &[Disk],
+        sys: Option<&mut System>,
         elapsed: f64,
     ) -> (HashMap<String, String>, Vec<OwnedSensorDef>) {
         let mut values = HashMap::new();
@@ -166,6 +172,16 @@ impl HardwareCollector {
                 "mdi:thermometer",
             ));
             values.insert("gpu_temperature".into(), format!("{value:.1}"));
+        }
+
+        for reading in self.load.collect(sys, elapsed) {
+            defs.push(sensor(
+                reading.id,
+                reading.name,
+                Some(reading.unit),
+                reading.icon,
+            ));
+            values.insert(reading.id.into(), reading.value);
         }
 
         let defs = self.stabilize(defs);
@@ -641,7 +657,8 @@ mod tests {
         let disks = sysinfo::Disks::new_with_refreshed_list().unwrap();
         let mut collector = HardwareCollector::new();
         for _ in 0..2 {
-            let (values, defs) = collector.collect(&disks, 1.0);
+            let mut sys = System::new().ok();
+            let (values, defs) = collector.collect(&disks, sys.as_mut(), 1.0);
             for key in values.keys() {
                 assert!(defs.iter().any(|def| &def.id == key), "{key}");
             }

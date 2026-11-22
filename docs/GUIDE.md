@@ -128,8 +128,11 @@ One device per PC, with:
   time, session locked, current user, "presenting or full screen", *Screen
   on*, and (off by default) *Last active*, the time of the last keyboard or
   mouse input, handy for presence. With supported hardware
-  also GPU load and temperature, VRAM, per-drive usage and speed. Sensors a PC
-  cannot read are simply not created.
+  also GPU load and temperature, VRAM, per-drive usage and speed. From 0.9.5
+  also *Memory used* in MiB, *CPU speed* in MHz (the speed the processor runs
+  at right now, as Task Manager shows it) and *Disk activity*, the share of
+  the time the busiest drive was working. Sensors a PC cannot read are simply
+  not created.
 - **Idle time** counts game controllers as well as the keyboard and mouse:
   someone playing with an Xbox-style controller is not idle. Sticks that
   drift a little at rest do not count.
