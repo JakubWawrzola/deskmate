@@ -628,10 +628,18 @@ class DeskmateHub:
         actions: list[dict] | None = None,
         tag: str | None = None,
         priority: str | None = None,
+        image_placement: str | None = None,
     ) -> None:
         await self._send_with_ack(
             notify_frame(
-                self.session_features, title, message, image, actions, tag, priority
+                self.session_features,
+                title,
+                message,
+                image,
+                actions,
+                tag,
+                priority,
+                image_placement,
             )
         )
 

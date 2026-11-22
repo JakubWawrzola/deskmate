@@ -19,6 +19,15 @@ notify:
       required: false
       selector:
         text:
+    image_placement:
+      required: false
+      example: hero
+      selector:
+        select:
+          options:
+            - logo
+            - hero
+            - inline
     actions:
       required: false
       selector:

@@ -91,6 +91,10 @@
           "name": "Obraz (URL)",
           "description": "Opcjonalny obraz. Jego adres musi byc dozwolony w Deskmate."
         },
+        "image_placement": {
+          "name": "Polozenie obrazu",
+          "description": "logo (domyslnie) pokazuje maly obraz obok tekstu. hero pokazuje go na cala szerokosc u gory powiadomienia, inline pod tekstem. Wymaga Deskmate 0.9.5 na Windows; starszy Deskmate i Deskmate na Linuksie pokazuja maly obraz."
+        },
         "actions": {
           "name": "Przyciski akcji",
           "description": "Lista przyciskow, kazdy z id i title. Klik wywoluje zdarzenie deskmate_link_notify_action."

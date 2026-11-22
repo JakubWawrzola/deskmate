@@ -136,6 +136,56 @@ def test_invalid_priority_is_refused_for_every_client(priority: Any) -> None:
             notify_frame(features, "t", "m", priority=priority)
 
 
+@pytest.mark.parametrize("placement", ["hero", "inline"])
+def test_image_placement_goes_to_every_client_with_the_image(placement: str) -> None:
+    for features in (frozenset(), frozenset({"notify_tag"})):
+        frame = notify_frame(
+            features, "t", "m", "https://ha.example/door.jpg", image_placement=placement
+        )
+
+        assert frame == {
+            "t": "notify",
+            "title": "t",
+            "message": "m",
+            "image": "https://ha.example/door.jpg",
+            "image_placement": placement,
+        }
+
+
+@pytest.mark.parametrize("placement", [None, "logo"])
+def test_default_image_placement_leaves_the_frame_as_it_was(
+    placement: str | None,
+) -> None:
+    frame = notify_frame(
+        frozenset(), "t", "m", "https://ha.example/door.jpg", image_placement=placement
+    )
+
+    assert frame == {
+        "t": "notify",
+        "title": "t",
+        "message": "m",
+        "image": "https://ha.example/door.jpg",
+    }
+
+
+def test_image_placement_without_an_image_is_left_out() -> None:
+    frame = notify_frame(frozenset(), "t", "m", image_placement="hero")
+
+    assert frame == {"t": "notify", "title": "t", "message": "m"}
+
+
+@pytest.mark.parametrize("placement", ["", "Hero", "banner", "top", 1])
+def test_invalid_image_placement_is_refused(placement: Any) -> None:
+    with pytest.raises(HomeAssistantError):
+        notify_frame(
+            frozenset(),
+            "t",
+            "m",
+            "https://ha.example/door.jpg",
+            image_placement=placement,
+        )
+
+
 @pytest.mark.parametrize("priority", ["normal", "high", "urgent"])
 def test_priority_and_tag_go_to_a_client_that_lists_the_feature(
     priority: str,

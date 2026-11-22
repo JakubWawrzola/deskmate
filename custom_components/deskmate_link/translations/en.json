@@ -91,6 +91,10 @@
           "name": "Image URL",
           "description": "Optional picture. Its origin must be allowed in Deskmate."
         },
+        "image_placement": {
+          "name": "Image placement",
+          "description": "logo (the default) shows the picture small, next to the text. hero shows it across the top of the notification, inline under the text. Needs Deskmate 0.9.5 on Windows; an older one, and Deskmate on Linux, show the small picture."
+        },
         "actions": {
           "name": "Action buttons",
           "description": "List of buttons, each with an id and a title. A click fires the deskmate_link_notify_action event."

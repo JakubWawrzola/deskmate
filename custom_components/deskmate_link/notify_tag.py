@@ -18,6 +18,9 @@ from .const import FEATURE_NOTIFY_TAG
 
 NOTIFY_TAG_PATTERN = r"^[A-Za-z0-9_-]{1,64}$"
 NOTIFY_PRIORITIES = ("normal", "high", "urgent")
+# Where the picture of a notification goes: next to the text (the default),
+# across the top, or under the text at full width.
+NOTIFY_IMAGE_PLACEMENTS = ("logo", "hero", "inline")
 TOO_OLD_TO_CLEAR_ERROR = (
     "Deskmate: this computer's Deskmate is too old to clear notifications. "
     "Update Deskmate on it."
@@ -59,15 +62,23 @@ def notify_frame(
     actions: list[dict] | None = None,
     tag: str | None = None,
     priority: str | None = None,
+    image_placement: str | None = None,
 ) -> dict[str, Any]:
     """The `notify` frame for a session that listed `features`."""
     if tag is not None and not is_valid_tag(tag):
         raise HomeAssistantError("Deskmate: invalid notification tag")
     if priority is not None and priority not in NOTIFY_PRIORITIES:
         raise HomeAssistantError("Deskmate: invalid notification priority")
+    if image_placement is not None and image_placement not in NOTIFY_IMAGE_PLACEMENTS:
+        raise HomeAssistantError("Deskmate: invalid notification image placement")
     payload: dict[str, Any] = {"t": "notify", "title": title, "message": message}
     if image:
         payload["image"] = image
+        # A client that does not know the field shows the picture where it
+        # always did, so it needs no feature. The default is left out: the
+        # frame then looks the way it did before the field existed.
+        if image_placement not in (None, NOTIFY_IMAGE_PLACEMENTS[0]):
+            payload["image_placement"] = image_placement
     if actions:
         payload["actions"] = actions
     if FEATURE_NOTIFY_TAG not in features:

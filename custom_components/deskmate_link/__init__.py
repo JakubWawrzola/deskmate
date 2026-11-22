@@ -25,6 +25,7 @@ from .files import async_setup_files, async_unload_files
 from .hub import DeskmateHub
 from .notify_tag import (
     NOTIFY_FAILURES,
+    NOTIFY_IMAGE_PLACEMENTS,
     NOTIFY_PRIORITIES,
     clear_failures_error,
     notify_failures_error,
@@ -46,6 +47,7 @@ NOTIFY_SCHEMA = vol.Schema(
         vol.Required("title"): cv.string,
         vol.Required("message"): cv.string,
         vol.Optional("image"): cv.string,
+        vol.Optional("image_placement"): vol.In(NOTIFY_IMAGE_PLACEMENTS),
         vol.Optional("actions"): [
             vol.Schema(
                 {vol.Required("id"): cv.string, vol.Required("title"): cv.string}
@@ -127,6 +129,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                         call.data.get("actions"),
                         call.data.get("tag"),
                         call.data.get("priority"),
+                        call.data.get("image_placement"),
                     )
                 except NOTIFY_FAILURES as err:
                     failures.append((h.node_id, err))
