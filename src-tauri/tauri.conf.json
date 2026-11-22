@@ -60,7 +60,16 @@
     },
     "windows": {
       "nsis": {
-        "installerHooks": "./windows/hooks.nsh"
+        "installerHooks": "./windows/hooks.nsh",
+        "languages": [
+          "English",
+          "German",
+          "Spanish",
+          "French",
+          "Polish",
+          "PortugueseBR",
+          "SimpChinese"
+        ]
       }
     }
   },
